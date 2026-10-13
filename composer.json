@@ -1,0 +1,66 @@
+{
+    "name": "j87nl/laravel-mailbox",
+    "description": "Shared IMAP/SMTP mailboxes for Laravel: sync, folder actions, sending and an audit trail, independent of any frontend",
+    "keywords": [
+        "laravel",
+        "imap",
+        "smtp",
+        "shared-inbox",
+        "j87"
+    ],
+    "homepage": "https://github.com/J87NL/laravel-mailbox",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Johan",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "directorytree/imapengine": "^1.0",
+        "illuminate/contracts": "^11.0||^12.0||^13.0",
+        "spatie/laravel-package-tools": "^1.16",
+        "symfony/html-sanitizer": "^7.0",
+        "symfony/mailer": "^7.0",
+        "tranquil-tools/laravel-form-builder": "^1.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.14",
+        "orchestra/testbench": "^9.0.0||^10.0.0||^11.0.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "J87NL\\Mailbox\\": "src/",
+            "J87NL\\Mailbox\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "J87NL\\Mailbox\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "J87NL\\Mailbox\\MailboxServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "vendor/bin/pint",
+        "test": "vendor/bin/pest"
+    }
+}
