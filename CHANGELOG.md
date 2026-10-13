@@ -5,7 +5,7 @@
 - Requires `tranquil-tools/laravel-form-builder` ^1.7.
 - New migrations `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table` and `add_sent_at_index_to_mailbox_messages_table`; publish the migrations again and migrate.
 - Address book per mailbox: `MailboxContact`, `ContactForm`, `AddContact`.
-- Recipient suggestions (`SuggestAddresses`): address book, host providers (`contacts.providers`, `ProvidesContactSuggestions`), then addresses seen in the last `contacts.scanned_messages` (500) messages of the mailbox, matched case- and accent-safely in PHP.
+- Recipient suggestions (`SuggestAddresses`): address book, host providers (`contacts.providers`, `ProvidesContactSuggestions`), then addresses seen in the last `contacts.scanned_messages` (500) messages of the mailbox, matched case-insensitively in PHP, also for non-ASCII names.
 - The `to` value in the meta of a `sent` audit entry is now the list of addresses (was the comma separated string from the form).
 - Compose form: To, Cc and Bcc are `Tags` fields with e-mail validation and suggestions; forwarding offers the original attachments; `SendMessage` accepts address lists and `forwarded_attachments`.
 - Removed `Rules\EmailList` (replaced by `Tags::emails()`).

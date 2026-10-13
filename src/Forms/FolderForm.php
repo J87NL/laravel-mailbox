@@ -52,11 +52,11 @@ class FolderForm extends AbstractForm
     private function parentOptions(): array
     {
         return $this->mailbox->loadMissing('folders')->folders
-            ->sortBy('path')
             ->map(fn (MailboxFolder $folder): array => [
                 'id' => $folder->id,
                 'path' => Str::fromImapUtf7($folder->path),
             ])
+            ->sortBy(fn (array $folder): string => mb_strtolower($folder['path']))
             ->values()
             ->all();
     }

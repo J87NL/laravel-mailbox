@@ -18,6 +18,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('mailbox_messages', function (Blueprint $table): void {
+            $table->index('mailbox_id', 'mailbox_messages_mailbox_id_foreign');
             $table->dropIndex(['mailbox_id', 'sent_at']);
         });
     }
