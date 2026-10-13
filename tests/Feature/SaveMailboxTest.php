@@ -56,7 +56,10 @@ it('stores nothing and reports errors per host when the connection fails', funct
         app(SaveMailbox::class)->handle(null, mailboxData(), user());
         $this->fail('Expected a validation exception');
     } catch (ValidationException $exception) {
-        expect(array_keys($exception->errors()))->toBe(['imap_host', 'smtp_host'])
+        expect(array_keys($exception->errors()))->toBe([
+            'imap_host',
+            'smtp_host',
+        ])
             ->and($exception->errors()['imap_host'][0])->toContain('Authentication failed');
     }
 
@@ -110,10 +113,28 @@ it('requires the password again when the server of that protocol changes', funct
         ->find($mailbox->id)->imap_host)->toBe('imap.example.com')
         ->and(test()->connector->transport->started)->toBeFalse();
 })->with([
-    'imap host' => [['imap_host' => 'attacker.test'], ['imap_password']],
-    'imap port' => [['imap_port' => 143], ['imap_password']],
-    'smtp username' => [['smtp_username' => 'other@example.com'], ['smtp_password']],
-    'both hosts' => [['imap_host' => 'attacker.test', 'smtp_host' => 'attacker.test'], ['imap_password', 'smtp_password']],
+    'imap host' => [
+        ['imap_host' => 'attacker.test'],
+        ['imap_password'],
+    ],
+    'imap port' => [
+        ['imap_port' => 143],
+        ['imap_password'],
+    ],
+    'smtp username' => [
+        ['smtp_username' => 'other@example.com'],
+        ['smtp_password'],
+    ],
+    'both hosts' => [
+        [
+            'imap_host' => 'attacker.test',
+            'smtp_host' => 'attacker.test',
+        ],
+        [
+            'imap_password',
+            'smtp_password',
+        ],
+    ],
 ]);
 
 it('accepts a server change when the password is entered again', function (): void {
@@ -127,7 +148,10 @@ it('accepts a server change when the password is entered again', function (): vo
     ]), user());
 
     expect(Mailbox::query()
-        ->find($mailbox->id)->only(['imap_host', 'imap_password']))->toBe([
+        ->find($mailbox->id)->only([
+            'imap_host',
+            'imap_password',
+        ]))->toBe([
             'imap_host' => 'new-imap.example.com',
             'imap_password' => 'new-imap',
         ]);
@@ -175,7 +199,10 @@ it('only lets admins change the servers of an OAuth mailbox', function (?string 
         ->find($mailbox->id)->imap_host)->toBe('attacker.test');
 })->with([
     'manager' => [null, false],
-    'admin' => ['admin@example.com', true],
+    'admin' => [
+        'admin@example.com',
+        true,
+    ],
 ]);
 
 class OAuthTokenStub implements ProvidesAccessToken
@@ -192,7 +219,7 @@ it('sanitises the signature and keeps https logos', function (): void {
     app(SaveMailbox::class)->handle($mailbox, mailboxData([
         'imap_password' => '',
         'imap_username' => 'team@example.com',
-        'signature' => '<p onclick="x()">Team</p><script>alert(1)</script><img src="https://cdn.example.org/logo.png"><img src="http://tracker.test/a.gif">',
+        'signature' => '<p onclick="x()">Team</p><script>alert(1)</script><img src="https://cdn.example.org/logo.png"><img src="http://tracker.test/a.gif"><div style="color: red; background: url(https://tracker.test/bg.gif)">Call us</div>',
         'smtp_password' => '',
         'smtp_username' => 'team@example.com',
     ]), user(), test: false);
@@ -204,6 +231,7 @@ it('sanitises the signature and keeps https logos', function (): void {
         ->toContain('https://cdn.example.org/logo.png')
         ->not->toContain('script')
         ->not->toContain('onclick')
+        ->toContain('style="color: red"')
         ->not->toContain('tracker.test');
 });
 

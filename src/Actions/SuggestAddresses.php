@@ -14,14 +14,12 @@ use J87NL\Mailbox\Models\MailboxMessage;
 
 class SuggestAddresses
 {
-    private const SCANNED_MESSAGES = 300;
-
     /**
      * @return array<int, array{value: string, label: string}>
      */
     public function handle(Mailbox $mailbox, string $query, int $limit = 10): array
     {
-        $needle = Str::lower(trim($query));
+        $needle = mb_strtolower(trim($query));
         $limit = max(1, $limit);
 
         return collect([
@@ -78,10 +76,10 @@ class SuggestAddresses
      */
     private function seen(Mailbox $mailbox, string $needle, int $limit): array
     {
-        return $this->recentMessages($mailbox, $needle)
+        return $this->recentMessages($mailbox)
             ->flatMap(fn (MailboxMessage $message): array => $this->addressesOf($message))
-            ->reject(fn (array $address): bool => Str::lower($address['email']) === Str::lower($mailbox->email))
-            ->filter(fn (array $address): bool => $needle === '' || str_contains(Str::lower(sprintf('%s %s', $address['name'], $address['email'])), $needle))
+            ->reject(fn (array $address): bool => mb_strtolower($address['email']) === mb_strtolower($mailbox->email))
+            ->filter(fn (array $address): bool => $needle === '' || str_contains(mb_strtolower(sprintf('%s %s', $address['name'], $address['email'])), $needle))
             ->unique(fn (array $address): string => Str::lower($address['email']))
             ->take($limit)
             ->map(fn (array $address): array => [
@@ -100,27 +98,18 @@ class SuggestAddresses
     /**
      * @return Collection<int, MailboxMessage>
      */
-    private function recentMessages(Mailbox $mailbox, string $needle): Collection
+    private function recentMessages(Mailbox $mailbox): Collection
     {
-        $like = $this->like($needle);
-
         return MailboxMessage::query()
             ->select([
-                'id',
                 'from_email',
                 'from_name',
                 'to',
                 'cc',
             ])
             ->where('mailbox_id', $mailbox->id)
-            ->when($needle !== '', fn (Builder $query): Builder => $query->where(function (Builder $inner) use ($like): void {
-                $inner->where('from_email', 'like', $like)
-                    ->orWhere('from_name', 'like', $like)
-                    ->orWhere('to', 'like', $like)
-                    ->orWhere('cc', 'like', $like);
-            }))
             ->orderByDesc('sent_at')
-            ->limit(self::SCANNED_MESSAGES)
+            ->limit(max(1, (int) config('mailbox.contacts.scanned_messages', 500)))
             ->get();
     }
 

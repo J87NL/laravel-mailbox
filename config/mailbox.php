@@ -35,6 +35,7 @@ return [
 
     'contacts' => [
         'providers' => [],
+        'scanned_messages' => 500,
     ],
 
     'connection' => [

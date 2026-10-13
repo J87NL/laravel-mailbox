@@ -3,14 +3,16 @@
 ## 0.2.0 - 2026-10-13
 
 - Requires `tranquil-tools/laravel-form-builder` ^1.7.
-- New migrations `add_signature_to_mailboxes_table` and `create_mailbox_contacts_table`; publish the migrations again and migrate.
+- New migrations `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table` and `add_sent_at_index_to_mailbox_messages_table`; publish the migrations again and migrate.
 - Address book per mailbox: `MailboxContact`, `ContactForm`, `AddContact`.
-- Recipient suggestions (`SuggestAddresses`): address book, host providers (`contacts.providers`, `ProvidesContactSuggestions`), then addresses seen in the mailbox.
+- Recipient suggestions (`SuggestAddresses`): address book, host providers (`contacts.providers`, `ProvidesContactSuggestions`), then addresses seen in the last `contacts.scanned_messages` (500) messages of the mailbox, matched case- and accent-safely in PHP.
+- The `to` value in the meta of a `sent` audit entry is now the list of addresses (was the comma separated string from the form).
 - Compose form: To, Cc and Bcc are `Tags` fields with e-mail validation and suggestions; forwarding offers the original attachments; `SendMessage` accepts address lists and `forwarded_attachments`.
 - Removed `Rules\EmailList` (replaced by `Tags::emails()`).
-- Mailbox signature (sanitised, https logos allowed), inserted by the compose defaults.
+- Mailbox signature (sanitised, https logos allowed, resource-loading styles stripped), inserted by the compose defaults.
 - Compose and signature editors use the FormBuilder `email` profile; `compose.editor_options` is now an override only and no longer carries toolbars.
 - `mailbox:prune-bodies` and `cache.body_days` to forget old cached bodies.
+- `ContactForm` rejects non-string input; `FolderForm` shows decoded folder paths.
 - UI texts for the Vue pages, folder labels and audit actions in the translations.
 
 ## 0.1.3 - 2026-10-13

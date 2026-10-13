@@ -32,14 +32,36 @@ it('moves messages with one UID MOVE per folder and audits them', function (): v
 
     expect($moved)->toBe(2)
         ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([
-            ['target' => 'Projects', 'type' => 'move', 'uids' => [1, 2]],
+            [
+                'target' => 'Projects',
+                'type' => 'move',
+                'uids' => [
+                    1,
+                    2,
+                ],
+            ],
         ])
         ->and(MailboxMessage::query()
             ->count())->toBe(0)
         ->and(MailboxAuditEntry::query()
-            ->get(['action', 'folder_path', 'target_path', 'user_id'])->toArray())->toBe([
-                ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
-                ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
+            ->get([
+                'action',
+                'folder_path',
+                'target_path',
+                'user_id',
+            ])->toArray())->toBe([
+                [
+                    'action' => 'moved',
+                    'folder_path' => 'INBOX',
+                    'target_path' => 'Projects',
+                    'user_id' => $actor->id,
+                ],
+                [
+                    'action' => 'moved',
+                    'folder_path' => 'INBOX',
+                    'target_path' => 'Projects',
+                    'user_id' => $actor->id,
+                ],
             ]);
 
     Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $target->id);
@@ -82,7 +104,11 @@ it('moves deleted messages outside the trash to the trash', function (): void {
 
     expect($count)->toBe(1)
         ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([
-            ['target' => 'Trash', 'type' => 'move', 'uids' => [4]],
+            [
+                'target' => 'Trash',
+                'type' => 'move',
+                'uids' => [4],
+            ],
         ])
         ->and(test()->connector->expunged)->toBe([])
         ->and(MailboxAuditEntry::query()
@@ -147,9 +173,18 @@ it('marks messages read, unread, flagged and unflagged on the server and in the 
     expect($remote->message(1)->flags())->toBe([ImapFlag::Seen->value])
         ->and(array_values($remote->message(2)->flags()))->toBe([ImapFlag::Seen->value, ImapFlag::Flagged->value])
         ->and(MailboxMessage::query()
-            ->orderBy('uid')->get(['is_seen', 'is_flagged'])->toArray())->toBe([
-                ['is_seen' => true, 'is_flagged' => false],
-                ['is_seen' => true, 'is_flagged' => true],
+            ->orderBy('uid')->get([
+                'is_seen',
+                'is_flagged',
+            ])->toArray())->toBe([
+                [
+                    'is_seen' => true,
+                    'is_flagged' => false,
+                ],
+                [
+                    'is_seen' => true,
+                    'is_flagged' => true,
+                ],
             ])
         ->and(MailboxAuditEntry::query()
             ->count())->toBe(5);

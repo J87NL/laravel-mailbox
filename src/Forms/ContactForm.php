@@ -44,12 +44,13 @@ class ContactForm extends AbstractForm
         return [
             Text::make('name')
                 ->label(__('mailbox::mailbox.name'))
-                ->rules('nullable')
+                ->rules('nullable', 'string')
                 ->maxLength(255),
             Email::make('email')
                 ->label(__('mailbox::mailbox.address'))
                 ->rules([
                     'required',
+                    'string',
                     'email:rfc',
                     'max:255',
                     Rule::unique('mailbox_contacts', 'email')
@@ -58,7 +59,7 @@ class ContactForm extends AbstractForm
                 ]),
             Text::make('organisation')
                 ->label(__('mailbox::mailbox.organisation'))
-                ->rules('nullable')
+                ->rules('nullable', 'string')
                 ->maxLength(255),
             Textarea::make('notes')
                 ->label(__('mailbox::mailbox.notes'))

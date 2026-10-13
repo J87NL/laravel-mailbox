@@ -18,7 +18,7 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table` and `create_mailbox_contacts_table`. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
+The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table` and `add_sent_at_index_to_mailbox_messages_table`. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
 
 Bootstrap at least one admin and pick the access mode in `.env`:
 
@@ -57,6 +57,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
 | `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
+| `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
 
 ## Access
@@ -65,7 +66,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 
 ## Address book and suggestions
 
-Each mailbox has an address book (`mailbox_contacts`, emails stored lowercased and unique per mailbox). Recipient suggestions (`SuggestAddresses`) list, in this order and without duplicates: address-book contacts, the host app's providers from `contacts.providers`, then addresses seen in the mailbox's cached messages. A provider implements
+Each mailbox has an address book (`mailbox_contacts`, emails stored lowercased and unique per mailbox). Recipient suggestions (`SuggestAddresses`) list, in this order and without duplicates: address-book contacts, the host app's providers from `contacts.providers`, then addresses seen in the mailbox's most recent cached messages (`contacts.scanned_messages`), matched case-insensitively on name and address. A provider implements
 
 ```php
 interface ProvidesContactSuggestions
@@ -77,7 +78,7 @@ interface ProvidesContactSuggestions
 
 ## Signature
 
-A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos) and nothing else remote. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
+A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos); style declarations that load resources (`url(…)`) are removed. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
 
 ## SMTP security
 

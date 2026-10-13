@@ -44,7 +44,7 @@ class MessageHtml
                 'https',
             ]);
 
-        return (new HtmlSanitizer($config))->sanitize($html);
+        return $this->stripResourceLoadingStyles((new HtmlSanitizer($config))->sanitize($html));
     }
 
     public function remoteImagesAllowed(bool $requested = false): bool
@@ -82,7 +82,10 @@ class MessageHtml
 
     private function loadsResources(string $declaration): bool
     {
-        $normalized = strtolower((string) preg_replace(['/\/\*.*?\*\//s', '/\s+/'], '', $declaration));
+        $normalized = strtolower((string) preg_replace([
+            '/\/\*.*?\*\//s',
+            '/\s+/',
+        ], '', $declaration));
 
         return preg_match(self::RESOURCE_LOADING_CSS, $normalized) === 1;
     }
