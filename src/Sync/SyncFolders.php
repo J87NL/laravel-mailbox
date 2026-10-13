@@ -6,6 +6,7 @@ namespace J87NL\Mailbox\Sync;
 
 use DirectoryTree\ImapEngine\FolderInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Models\Mailbox;
@@ -20,7 +21,11 @@ class SyncFolders
 
     public function bootstrap(Mailbox $mailbox): void
     {
-        if ($mailbox->folders()->exists()) {
+        if (! $mailbox->active || $mailbox->folders()->exists()) {
+            return;
+        }
+
+        if (! Cache::add(sprintf('mailbox:bootstrap:%d', $mailbox->id), true, 60)) {
             return;
         }
 

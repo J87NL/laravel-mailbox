@@ -152,7 +152,7 @@ it('only lets admins change the servers of an OAuth mailbox', function (?string 
         'smtp_password' => null,
     ]);
 
-    $attempt = fn () => app(SaveMailbox::class)->handle($mailbox, mailboxData([
+    $attempt = fn (): Mailbox => app(SaveMailbox::class)->handle($mailbox, mailboxData([
         'authentication' => 'oauth',
         'imap_host' => 'attacker.test',
         'imap_password' => '',

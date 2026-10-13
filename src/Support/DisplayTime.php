@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Support;
 
 use Carbon\CarbonInterface;
+use DateTimeZone;
 
 class DisplayTime
 {
@@ -12,7 +13,7 @@ class DisplayTime
     {
         $timezone = config('mailbox.display_timezone');
 
-        if (is_string($timezone) && $timezone !== '') {
+        if (is_string($timezone) && in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
             return $timezone;
         }
 

@@ -13,6 +13,7 @@ use J87NL\Mailbox\Events\MessageSent;
 use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxMessage;
+use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 
 beforeEach(function (): void {
@@ -55,7 +56,7 @@ it('sends with threading headers, stores a copy in Sent and marks the original a
     expect($headers->get('In-Reply-To')->getBodyAsString())->toBe('<question@example.org>')
         ->and($headers->get('References')->getBodyAsString())->toBe('<first@example.org> <question@example.org>')
         ->and($headers->get('From')->getBodyAsString())->toBe('Team <team@example.com>')
-        ->and(array_map(fn ($address) => $address->getAddress(), $sent->getCc()))->toBe(['copy@example.org', 'second@example.org'])
+        ->and(array_map(fn (Address $address): string => $address->getAddress(), $sent->getCc()))->toBe(['copy@example.org', 'second@example.org'])
         ->and($messageId)->toEndWith('@example.com')
         ->and($messageId)->not->toStartWith('<')
         ->and($sent->getTextBody())->toBe("Thanks for your message\nSecond line")
@@ -112,7 +113,7 @@ it('records nothing when SMTP refuses the message', function (): void {
     $mailbox = mailbox();
     test()->connector->transport->failure = new RuntimeException('Relay denied');
 
-    expect(fn () => app(SendMessage::class)->handle($mailbox, composed(), null))->toThrow(RuntimeException::class, 'Relay denied');
+    expect(fn (): string => app(SendMessage::class)->handle($mailbox, composed(), null))->toThrow(RuntimeException::class, 'Relay denied');
     expect(MailboxAuditEntry::query()
         ->count())->toBe(0)
         ->and(test()->connector->appended)->toBe([]);

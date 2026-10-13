@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\Support\Str as Utf7;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Actions\CreateFolder;
@@ -178,7 +179,7 @@ it('records the error on the mailbox when a sync fails', function (): void {
     $mailbox = mailbox();
     test()->connector->failImap('Login failed');
 
-    expect(fn () => app(SyncMailbox::class)->handle($mailbox))->toThrow(RuntimeException::class);
+    expect(fn (): null => app(SyncMailbox::class)->handle($mailbox))->toThrow(RuntimeException::class);
     expect($mailbox->refresh()->last_error)->toBe('Login failed');
 });
 
@@ -369,4 +370,36 @@ it('reports instead of failing when the on-demand folder list cannot be fetched'
     app(SyncFolders::class)->bootstrap($mailbox);
 
     expect($mailbox->folders()->count())->toBe(0);
+});
+
+it('does not fetch the folder list on demand for an inactive mailbox', function (): void {
+    $mailbox = mailbox(['active' => false]);
+    test()->connector->failImap('Should not connect');
+
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($mailbox->folders()->count())->toBe(0);
+});
+
+it('tries the on-demand folder list at most once a minute per mailbox', function (): void {
+    $mailbox = mailbox();
+    $reported = 0;
+    $this->app->make(ExceptionHandler::class)->reportable(function (Throwable $exception) use (&$reported): bool {
+        $reported++;
+
+        return false;
+    });
+    test()->connector->failImap('Connection refused');
+
+    app(SyncFolders::class)->bootstrap($mailbox);
+    test()->connector->imapFailure = null;
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($reported)->toBe(1)
+        ->and($mailbox->folders()->count())->toBe(0);
+
+    $this->travel(61)->seconds();
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($mailbox->folders()->count())->toBe(1);
 });

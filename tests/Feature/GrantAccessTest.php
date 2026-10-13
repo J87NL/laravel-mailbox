@@ -33,7 +33,7 @@ it('refuses to revoke the last manage row of a mailbox', function (): void {
     $manager = user();
     $access = app(GrantAccess::class)->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Manage, null);
 
-    expect(fn () => app(GrantAccess::class)->revoke($access, null))->toThrow(ValidationException::class);
+    expect(fn (): null => app(GrantAccess::class)->revoke($access, null))->toThrow(ValidationException::class);
     expect(MailboxAccess::query()
         ->count())->toBe(1);
 });
@@ -44,7 +44,7 @@ it('refuses to lower the last manage row of a mailbox', function (): void {
     $grant = app(GrantAccess::class);
     $grant->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Manage, null);
 
-    expect(fn () => $grant->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Read, null))
+    expect(fn (): MailboxAccess => $grant->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Read, null))
         ->toThrow(ValidationException::class);
     expect(MailboxAccess::query()
         ->sole()->level)->toBe(AccessLevel::Manage);

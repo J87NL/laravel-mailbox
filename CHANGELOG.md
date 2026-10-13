@@ -9,6 +9,8 @@
 - Add translated folder role labels (`FolderRole::label()`).
 - Split the mailbox form into general, IMAP and SMTP sections.
 - Require PHP 8.4 in the docs; add `.gitattributes`.
+- Skip the on-demand folder list for inactive mailboxes and try it at most once a minute per mailbox.
+- Fall back to `app.timezone` when `mailbox.display_timezone` is not a valid timezone.
 
 ## 0.1.1 - 2026-10-13
 
