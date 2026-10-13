@@ -15,35 +15,26 @@ return [
         'groups' => [],
     ],
 
+    'cache' => [
+        'body_days' => env('MAILBOX_BODY_CACHE_DAYS', 30),
+    ],
+
     'compose' => [
         'editor' => env('MAILBOX_COMPOSE_EDITOR', 'hugerte'),
         'editor_options' => [
             'hugerte' => [
                 'menubar' => false,
                 'statusbar' => false,
-                'plugins' => 'autolink link lists',
-                'toolbar' => 'bold italic underline | bullist numlist blockquote | link | removeformat',
                 'convert_urls' => false,
                 'entity_encoding' => 'raw',
                 'paste_data_images' => false,
                 'min_height' => 320,
             ],
-            'quill' => [
-                'theme' => 'snow',
-                'modules' => [
-                    'toolbar' => [
-                        [
-                            'bold',
-                            'italic',
-                            'underline',
-                        ],
-                        ['blockquote', ['list' => 'ordered'], ['list' => 'bullet']],
-                        ['link'],
-                        ['clean'],
-                    ],
-                ],
-            ],
         ],
+    ],
+
+    'contacts' => [
+        'providers' => [],
     ],
 
     'connection' => [

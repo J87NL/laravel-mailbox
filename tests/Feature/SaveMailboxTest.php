@@ -185,3 +185,30 @@ class OAuthTokenStub implements ProvidesAccessToken
         return 'token';
     }
 }
+
+it('sanitises the signature and keeps https logos', function (): void {
+    $mailbox = mailbox();
+
+    app(SaveMailbox::class)->handle($mailbox, mailboxData([
+        'imap_password' => '',
+        'imap_username' => 'team@example.com',
+        'signature' => '<p onclick="x()">Team</p><script>alert(1)</script><img src="https://cdn.example.org/logo.png"><img src="http://tracker.test/a.gif">',
+        'smtp_password' => '',
+        'smtp_username' => 'team@example.com',
+    ]), user(), test: false);
+
+    $signature = (string) Mailbox::query()
+        ->find($mailbox->id)->signature;
+
+    expect($signature)->toContain('<p>Team</p>')
+        ->toContain('https://cdn.example.org/logo.png')
+        ->not->toContain('script')
+        ->not->toContain('onclick')
+        ->not->toContain('tracker.test');
+});
+
+it('stores an empty signature as null', function (): void {
+    $mailbox = app(SaveMailbox::class)->handle(null, mailboxData(['signature' => '<p><br></p>']), user(), test: false);
+
+    expect($mailbox->signature)->toBeNull();
+});

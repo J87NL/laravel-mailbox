@@ -1,5 +1,7 @@
 # Handoff: TranquilTools changes needed by the J87 Mailbox
 
+Status 2026-10-13: items 1–9 shipped in laravel-table-builder 1.0.0, laravel-vue-table-builder 1.9.0, laravel-form-builder 1.7.0 and laravel-vue-form-builder 1.10.0; J87 Mailbox 0.2.0 uses them. Item 10 (default editor) and item 11 (server-side searchable select) are open.
+
 The J87 Mailbox (`j87nl/laravel-mailbox`, `j87nl/laravel-vue-mailbox`) builds on `laravel-form-builder`, `laravel-vue-form-builder` and `laravel-vue-table-builder`. Building it exposed gaps in those packages. Each change below is generic (useful outside the mailbox), backward compatible, and fits a minor release. Facts about the current code were checked against the repositories as of October 2026.
 
 Priority: **P1** blocks a usable mailbox v0.1, **P2** improves it noticeably, **P3** is structural.

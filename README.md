@@ -18,6 +18,8 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
+The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table` and `create_mailbox_contacts_table`. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
+
 Bootstrap at least one admin and pick the access mode in `.env`:
 
 ```dotenv
@@ -32,11 +34,14 @@ php artisan mailbox:add
 php artisan mailbox:grant {mailbox-id}
 ```
 
-Schedule the sync and run a queue worker:
+Schedule the sync and the body cache pruning, and run a queue worker:
 
 ```php
 Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
+Schedule::command('mailbox:prune-bodies')->daily();
 ```
+
+`mailbox:prune-bodies` forgets cached bodies and attachment lists fetched more than `cache.body_days` days ago (`--days=` overrides); a message fetches its body again when it is opened.
 
 ## Configuration
 
@@ -48,12 +53,31 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `access.mode` | `MAILBOX_ACCESS_MODE` | `restricted` | `open` gives every user write access |
 | `connection.timeout` | `MAILBOX_CONNECTION_TIMEOUT` | `10` | Seconds before an IMAP or SMTP connection attempt gives up |
 | `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in UTC |
-| `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form |
+| `cache.body_days` | `MAILBOX_BODY_CACHE_DAYS` | `30` | Days a fetched body stays cached; `null` never prunes |
+| `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
+| `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |
+| `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
 
 ## Access
 
 `accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself. Groups (for example Spatie roles) are configured in `mailbox.access.groups`.
+
+## Address book and suggestions
+
+Each mailbox has an address book (`mailbox_contacts`, emails stored lowercased and unique per mailbox). Recipient suggestions (`SuggestAddresses`) list, in this order and without duplicates: address-book contacts, the host app's providers from `contacts.providers`, then addresses seen in the mailbox's cached messages. A provider implements
+
+```php
+interface ProvidesContactSuggestions
+{
+    /** @return array<int, array{value: string, label: string}> */
+    public function suggestions(Mailbox $mailbox, string $query, int $limit): array;
+}
+```
+
+## Signature
+
+A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos) and nothing else remote. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
 
 ## SMTP security
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use Illuminate\Support\Facades\Bus;
+use J87NL\Mailbox\Actions\AddContact;
 use J87NL\Mailbox\Actions\ArchiveMessages;
 use J87NL\Mailbox\Actions\DeleteMessages;
 use J87NL\Mailbox\Actions\MarkMessages;
@@ -157,4 +158,17 @@ it('marks messages read, unread, flagged and unflagged on the server and in the 
 
     expect(MailboxMessage::query()
         ->where('is_seen', true)->count())->toBe(0);
+});
+
+it('adds a contact once per mailbox, case-insensitively', function (): void {
+    $mailbox = mailbox();
+    $add = app(AddContact::class);
+
+    $first = $add->handle($mailbox, 'Anna@Example.org', 'Anna');
+    $second = $add->handle($mailbox, 'anna@example.org ', 'Other name');
+
+    expect($second->id)->toBe($first->id)
+        ->and($second->name)->toBe('Anna')
+        ->and($first->email)->toBe('anna@example.org')
+        ->and($mailbox->contacts()->count())->toBe(1);
 });

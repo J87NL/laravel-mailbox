@@ -9,6 +9,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use J87NL\Mailbox\Enums\AuditAction;
+use J87NL\Mailbox\Html\MessageHtml;
 use J87NL\Mailbox\Jobs\SyncMailboxJob;
 use J87NL\Mailbox\Models\Mailbox;
 
@@ -35,6 +36,7 @@ class SaveMailbox
     ];
 
     public function __construct(
+        private readonly MessageHtml $html,
         private readonly RecordAudit $audit,
         private readonly TestConnection $testConnection,
     ) {}
@@ -47,6 +49,10 @@ class SaveMailbox
         $creating = is_null($mailbox);
         $mailbox ??= new Mailbox;
         $keptSecrets = $creating ? [] : $this->keptSecrets($data);
+
+        if (array_key_exists('signature', $data)) {
+            $data['signature'] = $this->html->sanitizeSignature($data['signature']);
+        }
 
         $mailbox->fill(Arr::except($data, $keptSecrets));
 

@@ -4,20 +4,26 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Forms;
 
-use J87NL\Mailbox\Rules\EmailList;
+use Illuminate\Http\Request;
 use TranquilTools\FormBuilder\AbstractForm;
 use TranquilTools\FormBuilder\Fields\Files;
 use TranquilTools\FormBuilder\Fields\Hidden;
 use TranquilTools\FormBuilder\Fields\Submit;
+use TranquilTools\FormBuilder\Fields\Tags;
 use TranquilTools\FormBuilder\Fields\Text;
-use TranquilTools\FormBuilder\Fields\Wysiwyg;
 use TranquilTools\FormBuilder\FormConfig;
 
 class ComposeForm extends AbstractForm
 {
+    /**
+     * @param  array<string, mixed>  $defaults
+     * @param  array<int, array{key: string, name: string, size?: int, url?: string}>  $forwardedAttachments
+     */
     public function __construct(
         private readonly string $action,
         private readonly array $defaults = [],
+        private readonly ?string $suggestionsUrl = null,
+        private readonly array $forwardedAttachments = [],
     ) {}
 
     public function configure(FormConfig $form): void
@@ -33,54 +39,59 @@ class ComposeForm extends AbstractForm
         return [
             Hidden::make('reply_to_message')
                 ->rules('nullable', 'integer'),
-            Text::make('to')
-                ->label(__('mailbox::mailbox.to'))
-                ->placeholder('name@example.com, other@example.com')
-                ->rules([
-                    'required',
-                    new EmailList,
-                ]),
-            Text::make('cc')
-                ->label(__('mailbox::mailbox.cc'))
-                ->rules([
-                    'nullable',
-                    new EmailList,
-                ]),
-            Text::make('bcc')
-                ->label(__('mailbox::mailbox.bcc'))
-                ->rules([
-                    'nullable',
-                    new EmailList,
-                ]),
+            Hidden::make('forward_message')
+                ->rules('nullable', 'integer'),
+            $this->recipients('to')
+                ->required(),
+            $this->recipients('cc'),
+            $this->recipients('bcc'),
             Text::make('subject')
                 ->label(__('mailbox::mailbox.subject'))
                 ->maxLength(250)
                 ->required(),
-            $this->body(),
-            Files::make('attachments')
-                ->label(__('mailbox::mailbox.attachments'))
-                ->rules('nullable', 'array'),
+            EmailEditor::make('body')
+                ->label(__('mailbox::mailbox.body'))
+                ->required(),
+            $this->attachments(),
             Submit::make('send')
                 ->label(__('mailbox::mailbox.send')),
         ];
     }
 
-    private function body(): Wysiwyg
+    /**
+     * @return list<string>
+     */
+    public function keptForwardedAttachments(?Request $request = null): array
     {
-        $field = Wysiwyg::make('body')
-            ->label(__('mailbox::mailbox.body'))
-            ->required();
+        $removed = $this->attachments()->removedKeys($request);
 
-        $editor = (string) config('mailbox.compose.editor');
+        return array_values(array_filter(
+            array_column($this->forwardedAttachments, 'key'),
+            fn (string $key): bool => ! in_array($key, $removed, true),
+        ));
+    }
 
-        $field->editor($editor);
+    private function recipients(string $name): Tags
+    {
+        return Tags::make($name)
+            ->label(__(sprintf('mailbox::mailbox.%s', $name)))
+            ->emails()
+            ->max(100)
+            ->suggestions($this->suggestionsUrl);
+    }
 
-        $options = config('mailbox.compose.editor_options.'.$editor);
+    private function attachments(): Files
+    {
+        $field = Files::make('attachments')
+            ->label(__('mailbox::mailbox.attachments'))
+            ->rules('nullable', 'array');
 
-        if (! is_array($options)) {
+        if ($this->forwardedAttachments === []) {
             return $field;
         }
 
-        return $field->options($options);
+        return $field
+            ->current($this->forwardedAttachments)
+            ->removable();
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use J87NL\Mailbox\Access\MailboxAccessResolver;
 use J87NL\Mailbox\Commands\AddMailboxCommand;
 use J87NL\Mailbox\Commands\GrantAccessCommand;
+use J87NL\Mailbox\Commands\PruneBodiesCommand;
 use J87NL\Mailbox\Commands\SyncCommand;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
@@ -26,10 +27,15 @@ class MailboxServiceProvider extends PackageServiceProvider
             ->name('mailbox')
             ->hasConfigFile()
             ->hasTranslations()
-            ->hasMigration('create_mailbox_tables')
+            ->hasMigrations([
+                'create_mailbox_tables',
+                'add_signature_to_mailboxes_table',
+                'create_mailbox_contacts_table',
+            ])
             ->hasCommands([
                 AddMailboxCommand::class,
                 GrantAccessCommand::class,
+                PruneBodiesCommand::class,
                 SyncCommand::class,
             ]);
     }

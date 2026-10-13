@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Actions;
 
+use DirectoryTree\ImapEngine\Attachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\UploadedFile;
@@ -96,6 +97,7 @@ class SendMessage
 
         $this->copies($email, $data);
         $this->attach($email, $data['attachments'] ?? []);
+        $this->forward($email, $data['forwarded_attachments'] ?? []);
 
         $email->getHeaders()->addIdHeader('Message-ID', sprintf('%s@%s', Str::uuid()->toString(), Str::after($mailbox->email, '@')));
 
@@ -129,6 +131,20 @@ class SendMessage
             }
 
             $email->attachFromPath((string) $file->getRealPath(), $file->getClientOriginalName(), $file->getClientMimeType());
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $attachments
+     */
+    private function forward(Email $email, array $attachments): void
+    {
+        foreach ($attachments as $attachment) {
+            if (! $attachment instanceof Attachment) {
+                continue;
+            }
+
+            $email->attach($attachment->contents(), $attachment->filename() ?: 'attachment', $attachment->contentType());
         }
     }
 

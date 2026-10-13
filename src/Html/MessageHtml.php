@@ -32,6 +32,21 @@ class MessageHtml
         return $this->stripResourceLoadingStyles($clean);
     }
 
+    public function sanitizeSignature(?string $html): ?string
+    {
+        if (is_null($html) || trim(strip_tags($html, '<img>')) === '') {
+            return null;
+        }
+
+        $config = $this->baseConfig()
+            ->allowMediaSchemes([
+                'data',
+                'https',
+            ]);
+
+        return (new HtmlSanitizer($config))->sanitize($html);
+    }
+
     public function remoteImagesAllowed(bool $requested = false): bool
     {
         return $requested || ! config('mailbox.html.block_remote_images');
@@ -115,20 +130,10 @@ class MessageHtml
     {
         $inlineHosts = array_values(array_unique(array_filter($inlineHosts)));
 
-        $config = (new HtmlSanitizerConfig)
-            ->allowSafeElements()
-            ->allowStaticElements()
-            ->allowAttribute('style', '*')
-            ->allowLinkSchemes([
-                'http',
-                'https',
-                'mailto',
-                'tel',
-            ])
+        $config = $this->baseConfig()
             ->allowMediaSchemes($this->mediaSchemes($allowRemoteImages, $inlineHosts))
             ->forceAttribute('a', 'rel', 'noopener noreferrer nofollow')
-            ->forceAttribute('a', 'target', '_blank')
-            ->withMaxInputLength(5_000_000);
+            ->forceAttribute('a', 'target', '_blank');
 
         if ($allowRemoteImages) {
             return new HtmlSanitizer($config);
@@ -141,5 +146,20 @@ class MessageHtml
         }
 
         return new HtmlSanitizer($config->allowMediaHosts($inlineHosts));
+    }
+
+    private function baseConfig(): HtmlSanitizerConfig
+    {
+        return (new HtmlSanitizerConfig)
+            ->allowSafeElements()
+            ->allowStaticElements()
+            ->allowAttribute('style', '*')
+            ->allowLinkSchemes([
+                'http',
+                'https',
+                'mailto',
+                'tel',
+            ])
+            ->withMaxInputLength(5_000_000);
     }
 }

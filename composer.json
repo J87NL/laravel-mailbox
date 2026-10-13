@@ -23,7 +23,7 @@
         "spatie/laravel-package-tools": "^1.16",
         "symfony/html-sanitizer": "^7.0||^8.0",
         "symfony/mailer": "^7.0||^8.0",
-        "tranquil-tools/laravel-form-builder": "^1.0"
+        "tranquil-tools/laravel-form-builder": "^1.7"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",

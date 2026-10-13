@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use DirectoryTree\ImapEngine\Attachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
@@ -15,6 +17,7 @@ use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 
 beforeEach(function (): void {
     Bus::fake([SyncFolderJob::class]);
@@ -117,4 +120,29 @@ it('records nothing when SMTP refuses the message', function (): void {
     expect(MailboxAuditEntry::query()
         ->count())->toBe(0)
         ->and(test()->connector->appended)->toBe([]);
+});
+
+it('sends to address lists and attaches forwarded originals', function (): void {
+    $mailbox = mailbox(['append_sent' => false]);
+    $original = new Attachment(
+        'offer.pdf',
+        null,
+        'application/pdf',
+        'attachment',
+        Utils::streamFor('PDF-CONTENT'),
+    );
+
+    app(SendMessage::class)->handle($mailbox, composed([
+        'cc' => ['copy@example.org', 'second@example.org'],
+        'forwarded_attachments' => [$original],
+        'to' => ['customer@example.org', 'other@example.org'],
+    ]), null);
+
+    /** @var Email $sent */
+    $sent = test()->connector->transport->sent[0];
+
+    expect(array_map(fn (Address $address): string => $address->getAddress(), $sent->getTo()))->toBe(['customer@example.org', 'other@example.org'])
+        ->and(array_map(fn (Address $address): string => $address->getAddress(), $sent->getCc()))->toBe(['copy@example.org', 'second@example.org'])
+        ->and(array_map(fn (DataPart $part): string => (string) $part->getFilename(), $sent->getAttachments()))->toBe(['offer.pdf'])
+        ->and($sent->getAttachments()[0]->getBody())->toBe('PDF-CONTENT');
 });

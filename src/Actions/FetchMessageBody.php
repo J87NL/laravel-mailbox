@@ -40,6 +40,17 @@ class FetchMessageBody
         return $this->remote($message)->attachments()[$index] ?? null;
     }
 
+    /**
+     * @param  array<int, int>  $indexes
+     * @return array<int, Attachment|null>
+     */
+    public function attachmentsAt(MailboxMessage $message, array $indexes): array
+    {
+        $attachments = $this->remote($message)->attachments();
+
+        return array_map(fn (int $index): ?Attachment => $attachments[$index] ?? null, $indexes);
+    }
+
     public function inlineAttachment(MailboxMessage $message, string $contentId): ?Attachment
     {
         return collect($this->remote($message)->attachments())

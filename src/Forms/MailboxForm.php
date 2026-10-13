@@ -99,6 +99,11 @@ class MailboxForm extends AbstractForm
                 ->help(__('mailbox::mailbox.append_sent_help'))
                 ->default(true)
                 ->rules('boolean'),
+            EmailEditor::make('signature')
+                ->label(__('mailbox::mailbox.signature'))
+                ->help(__('mailbox::mailbox.signature_help'))
+                ->rules('nullable', 'string', 'max:20000')
+                ->columnSpanFull(),
         ];
     }
 

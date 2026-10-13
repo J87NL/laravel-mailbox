@@ -14,6 +14,7 @@ use J87NL\Mailbox\Enums\FolderRole;
  * @property string $name
  * @property string $email
  * @property string|null $from_name
+ * @property string|null $signature
  * @property string $authentication
  * @property string $imap_host
  * @property int $imap_port
@@ -57,6 +58,14 @@ class Mailbox extends Model
     public function accesses(): HasMany
     {
         return $this->hasMany(MailboxAccess::class);
+    }
+
+    /**
+     * @return HasMany<MailboxContact, $this>
+     */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(MailboxContact::class);
     }
 
     /**

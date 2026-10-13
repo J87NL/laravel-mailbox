@@ -19,10 +19,11 @@ Forms live in the core because `laravel-form-builder` is frontend-agnostic. **Ta
 
 ## Data model
 
-- `mailboxes` — one row per shared mailbox; IMAP/SMTP credentials with `encrypted` casts; `authentication` is `plain` or `oauth`.
+- `mailboxes` — one row per shared mailbox, with an optional sanitised HTML `signature`; IMAP/SMTP credentials with `encrypted` casts; `authentication` is `plain` or `oauth`.
 - `mailbox_folders` — mirror of the IMAP folder list with a `role` (inbox, sent, drafts, archive, junk, trash, custom) derived from RFC 6154 special-use flags, plus `uid_validity` and `last_uid` as sync cursors and `synced_at` for the last completed message sync.
 - `mailbox_messages` — header cache per folder + UID, including `reply_to` (used as reply recipient) and `sent_at` normalised to the app timezone. Body, text and attachment metadata are fetched lazily on first open and cached (`body_fetched_at`). Folder paths are stored as the server sends them (modified UTF-7); names are stored decoded.
 - `mailbox_audit_entries` — who did what, keyed on the RFC `Message-ID` header.
+- `mailbox_contacts` — address book per mailbox: name, lowercased email (unique per mailbox), organisation, notes.
 - `mailbox_message_links` — polymorphic links from a message to any app model (`HasMailboxMessages` trait on the model).
 
 **Key decision:** audit entries and links reference the `Message-ID` header, not the local row id. A move in IMAP gives the message a new UID in another folder, so local rows are disposable cache; the `Message-ID` survives moves and is what ties history and links together.
@@ -72,11 +73,11 @@ Every action is IMAP-first, then updates the cache, then writes an audit entry.
 
 | Part | Reused | Notes |
 |---|---|---|
-| Compose form, folder form | FormBuilder (`Text`, `Wysiwyg`, `Files`, `Hidden`, `Select`) | Validation through `AbstractForm::validate()` |
-| Message list | TableBuilder (`AbstractTable`, global search, sorting, pagination, `rowLink`, bulk actions with `signedParameters`) | Bulk actions use the `before` callback so a whole selection is one IMAP command |
+| Compose form, folder form, contact form | FormBuilder (`Tags` with `emails()` and `suggestions()`, `Wysiwyg` with the `email` profile, `Files::current()->removable()` for forwarded originals, `Hidden`, `Select`, `Section`) | Validation through `AbstractForm::validate()` |
+| Message list, contacts list | TableBuilder (`AbstractTable`, search, sorting, pagination, `rowLink`, `rowClass` for unread rows, `poll(30)`, bulk actions incl. "Move to folder" with `choices`) | Bulk actions use the `before` callback so a whole selection is one IMAP command; the choice is validated by the table builder against the folders of the mailbox |
 | Message view, folder sidebar, HTML frame | Custom | Not something a form or table can express |
 
-Unread rows are bold via the TableBuilder's existing `rowClass` prop on the Vue component. Everything the mailbox needs from TranquilTools but which does not exist yet is described in `HANDOFF-tranquil-tools.md`.
+Unread rows are bold via the server-side `rowClass()`. The tables stay in the Vue package although `laravel-table-builder` is now frontend-agnostic: their row links, row actions and the compose/contact routes belong to the renderer's routes, so a table in the core would have to take every route from configuration. That indirection buys nothing until a second renderer exists. Everything the mailbox needs from TranquilTools but which does not exist yet is described in `HANDOFF-tranquil-tools.md`.
 
 ## Mailbox management and access
 
@@ -115,9 +116,11 @@ An accessor is a user or any group model of the host app. The highest level over
 - [ ] Run against Dovecot/GreenMail in Docker as an integration test (not done: Docker is not usable without sudo on the dev machine).
 - [x] `cid:` URLs survive the sanitizer (they are rewritten before sanitising).
 - [ ] Verify the HTML rendering on real newsletters; tune `allowStaticElements()` and style handling.
-- [ ] `mailbox:install` command (publish config and migration, add the `@mailbox` Vite alias, publish pages).
-- [ ] Move the hardcoded Dutch UI strings in the Vue pages to translations (the table builder's `useTranslations` pattern).
-- [ ] Forward with original attachments; reply quoting of HTML instead of plain text.
+- [x] `mailbox:install` command (publish config and migrations, add the `@mailbox` Vite alias and tsconfig paths, `--pages`).
+- [x] Move the UI strings in the Vue pages to translations (`vue_mailbox_translations`, shared by the Vue package).
+- [x] Forward with original attachments.
+- [ ] Reply quoting of HTML instead of plain text.
+- [x] Recipient chips with suggestions, address book, signature, auto-refresh of the message list, bulk move, body cache pruning.
 - [x] Use `UID EXPUNGE` (UIDPLUS) instead of a full expunge when purging from Trash.
 - [x] Guard against a manager revoking or lowering the last `manage` row of a mailbox.
 - [ ] OAuth onboarding flow (token storage + `ProvidesAccessToken` implementation for Google and Microsoft); the form already accepts `oauth`.
@@ -134,20 +137,15 @@ IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` sec
 
 Each package runs standalone: `composer install`, then `composer test`, `composer analyse` and `composer format`. Tests never reach a mail server: `FakeConnector::install()` binds a fake `MailboxConnector` whose remote folders record every `UID MOVE`, `UID STORE` and destroy, and whose SMTP transport records sent messages. Host apps can use the same fakes in their own tests.
 
-## Host app setup (manual until the installer exists)
+## Host app setup
 
 ```bash
 composer require j87nl/laravel-vue-mailbox
-php artisan vendor:publish --tag=mailbox-migrations
+php artisan mailbox:install        # config, migrations, @mailbox alias, tsconfig paths; --pages to copy the pages
 php artisan migrate
-php artisan vendor:publish --tag=vue-mailbox-pages
 ```
 
-`vite.config.ts` aliases: `@form-builder`, `@table-builder` (already present with the CrudBuilder) and
-
-```ts
-'@mailbox': path.resolve(__dirname, 'vendor/j87nl/laravel-vue-mailbox/resources/js'),
-```
+`vite.config.ts` needs `@form-builder` and `@table-builder` as well (present with the CrudBuilder).
 
 Bootstrap an admin and the access mode in `.env`:
 
@@ -156,17 +154,18 @@ MAILBOX_ADMINS=johan@example.com
 MAILBOX_ACCESS_MODE=restricted
 ```
 
-Schedule the sync:
+Schedule the sync and the body cache pruning:
 
 ```php
 Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
+Schedule::command('mailbox:prune-bodies')->daily();
 ```
 
 Menu links: `route('mailbox.index')` for the mailbox (gate the link with `accessAnyMailbox`), `route('mailbox.settings.index')` for management.
 
 ## Compose editor
 
-The mailbox does **not** follow the FormBuilder's `default-editor`. It sets its own editor in `mailbox.compose.editor` (default `hugerte`, env `MAILBOX_COMPOSE_EDITOR`) with options from `mailbox.compose.editor_options.<editor>`.
+The mailbox does **not** follow the FormBuilder's `default-editor`. It sets its own editor in `mailbox.compose.editor` (default `hugerte`, env `MAILBOX_COMPOSE_EDITOR`) and the FormBuilder's editor-agnostic `email` profile (bold, italic, underline, link, list, blockquote), which every adapter maps to its own toolbar. `mailbox.compose.editor_options.<editor>` is only an override laid over the profile; the per-editor toolbars of 0.1 are gone, the HugeRTE set keeps the non-toolbar settings (no menubar, no pasted images, raw entities).
 
 Why HugeRTE and not Quill: TinyMCE-family editors write alignment and similar formatting as inline `style` attributes, which mail clients keep, while Quill writes CSS classes (`ql-align-*`, `ql-indent-*`) that mail clients drop. TinyMCE is also the editor webmail clients such as Roundcube have relied on for years. The toolbar is limited to bold, italic, underline, lists, blockquote, links and remove-formatting; pasted images are refused.
 

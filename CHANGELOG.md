@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 - 2026-10-13
+
+- Requires `tranquil-tools/laravel-form-builder` ^1.7.
+- New migrations `add_signature_to_mailboxes_table` and `create_mailbox_contacts_table`; publish the migrations again and migrate.
+- Address book per mailbox: `MailboxContact`, `ContactForm`, `AddContact`.
+- Recipient suggestions (`SuggestAddresses`): address book, host providers (`contacts.providers`, `ProvidesContactSuggestions`), then addresses seen in the mailbox.
+- Compose form: To, Cc and Bcc are `Tags` fields with e-mail validation and suggestions; forwarding offers the original attachments; `SendMessage` accepts address lists and `forwarded_attachments`.
+- Removed `Rules\EmailList` (replaced by `Tags::emails()`).
+- Mailbox signature (sanitised, https logos allowed), inserted by the compose defaults.
+- Compose and signature editors use the FormBuilder `email` profile; `compose.editor_options` is now an override only and no longer carries toolbars.
+- `mailbox:prune-bodies` and `cache.body_days` to forget old cached bodies.
+- UI texts for the Vue pages, folder labels and audit actions in the translations.
+
 ## 0.1.3 - 2026-10-13
 
 - Space the fields of the compose and folder forms.
