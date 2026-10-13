@@ -6,7 +6,7 @@ Design, security model and open work: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE
 
 ## Requirements
 
-- PHP 8.3+, Laravel 11, 12 or 13
+- PHP 8.4+, Laravel 11, 12 or 13
 - An IMAP server (UIDPLUS recommended, see "Deleting in Trash" below) and an SMTP server
 
 ## Installation
@@ -37,6 +37,19 @@ Schedule the sync and run a queue worker:
 ```php
 Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 ```
+
+## Configuration
+
+All keys live in `config/mailbox.php`; the ones you are most likely to set in `.env`:
+
+| Key | Env | Default | Purpose |
+|---|---|---|---|
+| `access.admins` | `MAILBOX_ADMINS` | empty | Comma-separated admin emails |
+| `access.mode` | `MAILBOX_ACCESS_MODE` | `restricted` | `open` gives every user write access |
+| `connection.timeout` | `MAILBOX_CONNECTION_TIMEOUT` | `10` | Seconds before an IMAP or SMTP connection attempt gives up |
+| `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in UTC |
+| `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form |
+| `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
 
 ## Access
 

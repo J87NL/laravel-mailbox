@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
 use J87NL\Mailbox\Actions\SendMessage;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageSent;
+use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxMessage;
 use Symfony\Component\Mime\Email;
+
+beforeEach(function (): void {
+    Bus::fake([SyncFolderJob::class]);
+});
 
 /**
  * @return array<string, string>
@@ -68,6 +74,7 @@ it('sends with threading headers, stores a copy in Sent and marks the original a
         ->and($audit->message_id)->toBe($messageId);
 
     Event::assertDispatched(MessageSent::class);
+    Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $mailbox->folderWithRole(FolderRole::Sent)?->id);
 });
 
 it('skips the Sent copy when the server stores sent mail itself', function (): void {
@@ -77,6 +84,7 @@ it('skips the Sent copy when the server stores sent mail itself', function (): v
 
     expect(test()->connector->transport->sent)->toHaveCount(1)
         ->and(test()->connector->appended)->toBe([]);
+    Bus::assertNotDispatched(SyncFolderJob::class);
 });
 
 it('counts the message as sent and reports when storing the Sent copy fails', function (): void {

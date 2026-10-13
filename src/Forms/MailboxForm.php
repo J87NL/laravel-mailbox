@@ -6,9 +6,11 @@ namespace J87NL\Mailbox\Forms;
 
 use J87NL\Mailbox\Models\Mailbox;
 use TranquilTools\FormBuilder\AbstractForm;
+use TranquilTools\FormBuilder\Fields\BaseField;
 use TranquilTools\FormBuilder\Fields\Email;
 use TranquilTools\FormBuilder\Fields\Number;
 use TranquilTools\FormBuilder\Fields\Password;
+use TranquilTools\FormBuilder\Fields\Section;
 use TranquilTools\FormBuilder\Fields\Select;
 use TranquilTools\FormBuilder\Fields\Submit;
 use TranquilTools\FormBuilder\Fields\Text;
@@ -36,9 +38,44 @@ class MailboxForm extends AbstractForm
     public function fields(): array
     {
         return [
-            Text::make('name')->label(__('mailbox::mailbox.name'))->maxLength(100)->required(),
-            Email::make('email')->label(__('mailbox::mailbox.address'))->rules('required', 'email:rfc'),
-            Text::make('from_name')->label(__('mailbox::mailbox.from_name'))->rules('nullable', 'max:100'),
+            Section::make()
+                ->title(__('mailbox::mailbox.section_general'))
+                ->columns(2)
+                ->columnSpanFull()
+                ->fields($this->generalFields()),
+            Section::make()
+                ->title(__('mailbox::mailbox.section_imap'))
+                ->description(__('mailbox::mailbox.section_imap_help'))
+                ->columns(2)
+                ->columnSpanFull()
+                ->fields($this->imapFields()),
+            Section::make()
+                ->title(__('mailbox::mailbox.section_smtp'))
+                ->description(__('mailbox::mailbox.section_smtp_help'))
+                ->columns(2)
+                ->columnSpanFull()
+                ->fields($this->smtpFields()),
+            Submit::make('save')
+                ->columnSpanFull(),
+        ];
+    }
+
+    /**
+     * @return list<BaseField>
+     */
+    private function generalFields(): array
+    {
+        return [
+            Text::make('name')
+                ->label(__('mailbox::mailbox.name'))
+                ->maxLength(100)
+                ->required(),
+            Email::make('email')
+                ->label(__('mailbox::mailbox.address'))
+                ->rules('required', 'email:rfc'),
+            Text::make('from_name')
+                ->label(__('mailbox::mailbox.from_name'))
+                ->rules('nullable', 'max:100'),
             Select::make('authentication')
                 ->label(__('mailbox::mailbox.authentication'))
                 ->options([
@@ -53,8 +90,31 @@ class MailboxForm extends AbstractForm
                 ])
                 ->default('plain')
                 ->rules('required', 'in:plain,oauth'),
-            Text::make('imap_host')->label(__('mailbox::mailbox.imap_host'))->required(),
-            Number::make('imap_port')->label(__('mailbox::mailbox.imap_port'))->default(993)->rules('required', 'integer', 'between:1,65535'),
+            Toggle::make('active')
+                ->label(__('mailbox::mailbox.active'))
+                ->default(true)
+                ->rules('boolean'),
+            Toggle::make('append_sent')
+                ->label(__('mailbox::mailbox.append_sent'))
+                ->help(__('mailbox::mailbox.append_sent_help'))
+                ->default(true)
+                ->rules('boolean'),
+        ];
+    }
+
+    /**
+     * @return list<BaseField>
+     */
+    private function imapFields(): array
+    {
+        return [
+            Text::make('imap_host')
+                ->label(__('mailbox::mailbox.imap_host'))
+                ->required(),
+            Number::make('imap_port')
+                ->label(__('mailbox::mailbox.imap_port'))
+                ->default(993)
+                ->rules('required', 'integer', 'between:1,65535'),
             Select::make('imap_encryption')
                 ->label(__('mailbox::mailbox.imap_encryption'))
                 ->options([
@@ -69,22 +129,30 @@ class MailboxForm extends AbstractForm
                 ])
                 ->default('ssl')
                 ->rules('required', 'in:ssl,starttls'),
-            Text::make('imap_username')->label(__('mailbox::mailbox.username'))->required(),
+            Text::make('imap_username')
+                ->label(__('mailbox::mailbox.username'))
+                ->required(),
             $this->password('imap_password'),
-            Text::make('smtp_host')->label(__('mailbox::mailbox.smtp_host'))->required(),
-            Number::make('smtp_port')->label(__('mailbox::mailbox.smtp_port'))->default(587)->rules('required', 'integer', 'between:1,65535'),
-            Text::make('smtp_username')->label(__('mailbox::mailbox.username'))->required(),
+        ];
+    }
+
+    /**
+     * @return list<BaseField>
+     */
+    private function smtpFields(): array
+    {
+        return [
+            Text::make('smtp_host')
+                ->label(__('mailbox::mailbox.smtp_host'))
+                ->required(),
+            Number::make('smtp_port')
+                ->label(__('mailbox::mailbox.smtp_port'))
+                ->default(587)
+                ->rules('required', 'integer', 'between:1,65535'),
+            Text::make('smtp_username')
+                ->label(__('mailbox::mailbox.username'))
+                ->required(),
             $this->password('smtp_password'),
-            Toggle::make('append_sent')
-                ->label(__('mailbox::mailbox.append_sent'))
-                ->help(__('mailbox::mailbox.append_sent_help'))
-                ->default(true)
-                ->rules('boolean'),
-            Toggle::make('active')
-                ->label(__('mailbox::mailbox.active'))
-                ->default(true)
-                ->rules('boolean'),
-            Submit::make('save')->columnSpanFull(),
         ];
     }
 

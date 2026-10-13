@@ -43,7 +43,7 @@ IMAP is the source of truth; the database is a cache that makes lists, sorting a
    - never on the first sync of a folder or after a `UIDVALIDITY` reset (those rebuild the cache, they do not receive mail); the messages found then do get a `received` audit entry, so they are known and never announced later;
    - never in folders with role sent, drafts, junk or trash;
    - only when the `Message-ID` is not already known in that mailbox, either as a cached message in another folder or in the audit trail (moves, sends and earlier receipts are all audited). Each announced message gets a `received` audit entry, so it is announced once.
-3. Triggers: `mailbox:sync` (schedule it, e.g. every two minutes), `SyncFolderJob` when a folder is opened and its `synced_at` is older than a minute, and after a move for the target folder (only when something moved). Jobs are `ShouldBeUnique`.
+3. Triggers: opening a mailbox that has no folders yet fetches the folder list inline (cheap; a failure shows a "being synchronised" state instead of a 404), `mailbox:sync` (schedule it, e.g. every two minutes), `SyncFolderJob` when a folder is opened and its `synced_at` is older than a minute, and after a move for the target folder (only when something moved). Jobs are `ShouldBeUnique`.
 
 Not yet done: IMAP IDLE worker, CONDSTORE/QRESYNC for cheap flag sync, flag refresh beyond the window.
 
@@ -55,7 +55,7 @@ Every action is IMAP-first, then updates the cache, then writes an audit entry.
 - **Archive**: move to the folder with role `archive`, or create `folders.archive_fallback`.
 - **Delete**: outside Trash → move to Trash. Inside Trash → `\Deleted` on our UIDs, then `UID EXPUNGE` of exactly those UIDs (UIDPLUS, RFC 4315). Without UIDPLUS nothing is expunged: a plain `EXPUNGE` would also remove mail another client flagged `\Deleted` in the shared mailbox. Our messages stay flagged and hidden until another client or the server expunges them.
 - **Read/unread/flag**: `UID STORE` on the selected UIDs.
-- **Send**: Symfony `EsmtpTransport` built per mailbox (XOAUTH2 when `oauth`), own `Message-ID` (stored without angle brackets, like synced messages), `In-Reply-To` and `References` on replies, `APPEND` to Sent unless `append_sent` is off (Gmail and Microsoft 365 already store a copy), original marked `\Answered`. Once SMTP accepted the message, a failing `APPEND` or `\Answered` is reported (`report()`) but the send still counts as done, so nobody resends.
+- **Send**: Symfony `EsmtpTransport` built per mailbox (XOAUTH2 when `oauth`), own `Message-ID` (stored without angle brackets, like synced messages), `In-Reply-To` and `References` on replies, `APPEND` to Sent unless `append_sent` is off (Gmail and Microsoft 365 already store a copy), original marked `\Answered`, and a sync of the Sent folder is queued so the copy shows up at once. Once SMTP accepted the message, a failing `APPEND` or `\Answered` is reported (`report()`) but the send still counts as done, so nobody resends.
 
 ## Security
 
@@ -125,6 +125,10 @@ An accessor is a user or any group model of the host app. The highest level over
 - [ ] IMAP IDLE worker as an optional long-running command.
 - [ ] Switch the access form to a server-side searchable select once the form builder supports it (HANDOFF item 11).
 - [ ] Type-check the Vue pages (`vue-tsc`) in a host app; the packages have no JS build setup.
+
+## Timeouts and time zones
+
+IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` seconds (default 10). Dates are stored in UTC; dates the server formats for display (message list, reply quote) use `mailbox.display_timezone`, falling back to `app.timezone`. ISO strings sent to the frontend stay ISO.
 
 ## Testing
 

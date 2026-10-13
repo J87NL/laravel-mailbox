@@ -46,6 +46,12 @@ return [
         ],
     ],
 
+    'connection' => [
+        'timeout' => (int) env('MAILBOX_CONNECTION_TIMEOUT', 10),
+    ],
+
+    'display_timezone' => env('MAILBOX_DISPLAY_TIMEZONE'),
+
     'sync' => [
         'chunk_size' => 50,
         'flag_window' => 500,

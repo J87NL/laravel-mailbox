@@ -12,6 +12,7 @@ use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageSent;
+use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxMessage;
 use Symfony\Component\Mime\Address;
@@ -77,6 +78,8 @@ class SendMessage
         $sent = $this->ensureFolder->handle($mailbox, FolderRole::Sent, 'Sent');
 
         $this->connector->append($sent, $email->toString(), [ImapFlag::Seen->value]);
+
+        SyncFolderJob::dispatch($sent->id);
     }
 
     /**

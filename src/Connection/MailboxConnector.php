@@ -12,6 +12,7 @@ use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
 use Symfony\Component\Mailer\Transport\Smtp\Auth\XOAuth2Authenticator;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 
 class MailboxConnector
 {
@@ -34,6 +35,7 @@ class MailboxConnector
             'host' => $mailbox->imap_host,
             'password' => $mailbox->usesOAuth() ? $this->accessToken($mailbox) : $mailbox->imap_password,
             'port' => $mailbox->imap_port,
+            'timeout' => $this->timeout(),
             'username' => $mailbox->imap_username,
         ]);
     }
@@ -84,6 +86,11 @@ class MailboxConnector
 
         $transport->setUsername((string) $mailbox->smtp_username);
         $transport->setRequireTls($mailbox->smtp_tls !== false);
+        $stream = $transport->getStream();
+
+        if ($stream instanceof SocketStream) {
+            $stream->setTimeout($this->timeout());
+        }
 
         if (! $mailbox->usesOAuth()) {
             $transport->setPassword((string) $mailbox->smtp_password);
@@ -108,6 +115,11 @@ class MailboxConnector
         $this->connections[$key]->disconnect();
 
         unset($this->connections[$key]);
+    }
+
+    private function timeout(): int
+    {
+        return max(1, (int) config('mailbox.connection.timeout', 10));
     }
 
     private function key(Mailbox $mailbox): string

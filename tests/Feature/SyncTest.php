@@ -343,6 +343,30 @@ it('does not announce mail from before the initial sync when another client move
     syncFolder($inbox);
     syncFolder($archive);
 
-    expect(MailboxMessage::query()->pluck('uid')->all())->toBe([5]);
+    expect(MailboxMessage::query()
+        ->pluck('uid')
+        ->all())->toBe([5]);
     Event::assertNotDispatched(MessageReceived::class);
+});
+
+it('fetches the folder list on demand only when a mailbox has no folders yet', function (): void {
+    $mailbox = mailbox();
+
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($mailbox->folders()->pluck('path')->all())->toBe(['INBOX']);
+
+    test()->connector->failImap('Should not connect again');
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($mailbox->folders()->count())->toBe(1);
+});
+
+it('reports instead of failing when the on-demand folder list cannot be fetched', function (): void {
+    $mailbox = mailbox();
+    test()->connector->failImap('Connection refused');
+
+    app(SyncFolders::class)->bootstrap($mailbox);
+
+    expect($mailbox->folders()->count())->toBe(0);
 });

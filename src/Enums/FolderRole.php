@@ -38,6 +38,15 @@ enum FolderRole: string
         return self::Custom;
     }
 
+    public function label(): ?string
+    {
+        if ($this === self::Custom) {
+            return null;
+        }
+
+        return __(sprintf('mailbox::mailbox.role_%s', $this->value));
+    }
+
     public function sortOrder(): int
     {
         return match ($this) {
