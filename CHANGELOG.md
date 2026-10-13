@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-10-13
+
+- Space the fields of the compose and folder forms.
+
 ## 0.1.2 - 2026-10-13
 
 - Fetch the folder list on demand (`SyncFolders::bootstrap()`) for a mailbox that has no folders yet.

@@ -24,6 +24,7 @@ class ComposeForm extends AbstractForm
     {
         $form->action($this->action)
             ->method('POST')
+            ->class('space-y-4')
             ->fill($this->defaults);
     }
 

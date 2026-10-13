@@ -20,7 +20,10 @@ class FolderForm extends AbstractForm
 
     public function configure(FormConfig $form): void
     {
-        $form->action($this->action)->method('POST')->resetOnSuccess();
+        $form->action($this->action)
+            ->method('POST')
+            ->class('space-y-3')
+            ->resetOnSuccess();
     }
 
     public function fields(): array
