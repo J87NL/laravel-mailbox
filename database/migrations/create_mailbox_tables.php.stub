@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('mailboxes', function (Blueprint $table) {
+        Schema::create('mailboxes', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
             $table->string('email');
@@ -33,7 +33,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('mailbox_folders', function (Blueprint $table) {
+        Schema::create('mailbox_folders', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->string('path');
@@ -51,7 +51,7 @@ return new class extends Migration
             $table->unique(['mailbox_id', 'path']);
         });
 
-        Schema::create('mailbox_messages', function (Blueprint $table) {
+        Schema::create('mailbox_messages', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->foreignId('mailbox_folder_id')->constrained()->cascadeOnDelete();
@@ -64,6 +64,7 @@ return new class extends Migration
             $table->string('from_name')->nullable();
             $table->json('to')->nullable();
             $table->json('cc')->nullable();
+            $table->json('reply_to')->nullable();
             $table->timestamp('sent_at')->nullable()->index();
             $table->unsignedInteger('size')->nullable();
             $table->boolean('is_seen')->default(false);
@@ -77,9 +78,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['mailbox_folder_id', 'uid']);
+            $table->index(['mailbox_folder_id', 'sent_at']);
         });
 
-        Schema::create('mailbox_audit_entries', function (Blueprint $table) {
+        Schema::create('mailbox_audit_entries', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->nullable()->index();
@@ -92,7 +94,7 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
         });
 
-        Schema::create('mailbox_access', function (Blueprint $table) {
+        Schema::create('mailbox_access', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->morphs('accessor');
@@ -102,7 +104,7 @@ return new class extends Migration
             $table->unique(['mailbox_id', 'accessor_type', 'accessor_id'], 'mailbox_access_unique');
         });
 
-        Schema::create('mailbox_message_links', function (Blueprint $table) {
+        Schema::create('mailbox_message_links', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->string('message_id')->index();

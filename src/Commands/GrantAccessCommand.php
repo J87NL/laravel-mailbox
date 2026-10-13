@@ -22,7 +22,8 @@ class GrantAccessCommand extends Command
 
     public function handle(GrantAccess $grant, ResolvesAccessors $accessors): int
     {
-        $mailbox = Mailbox::query()->findOrFail((int) $this->argument('mailbox'));
+        $mailbox = Mailbox::query()
+            ->findOrFail((int) $this->argument('mailbox'));
         $options = collect($accessors->assignable())->pluck('label', 'key');
 
         $key = search(

@@ -39,7 +39,11 @@ class AccessForm extends AbstractForm
                 ->options(array_map(fn (AccessLevel $level): array => [
                     'id' => $level->value,
                     'name' => $level->label(),
-                ], [AccessLevel::Read, AccessLevel::Write, AccessLevel::Manage]))
+                ], [
+                    AccessLevel::Read,
+                    AccessLevel::Write,
+                    AccessLevel::Manage,
+                ]))
                 ->default(AccessLevel::Read->value)
                 ->rules('required', 'in:read,write,manage'),
             Submit::make('grant')->label(__('mailbox::mailbox.grant'))->columnSpanFull(),

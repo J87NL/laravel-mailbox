@@ -32,7 +32,11 @@ return [
                 'theme' => 'snow',
                 'modules' => [
                     'toolbar' => [
-                        ['bold', 'italic', 'underline'],
+                        [
+                            'bold',
+                            'italic',
+                            'underline',
+                        ],
                         ['blockquote', ['list' => 'ordered'], ['list' => 'bullet']],
                         ['link'],
                         ['clean'],

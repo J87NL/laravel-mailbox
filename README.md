@@ -40,7 +40,11 @@ Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 
 ## Access
 
-`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes. They are only defined when the host app has not defined them itself. Groups (for example Spatie roles) are configured in `mailbox.access.groups`.
+`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself. Groups (for example Spatie roles) are configured in `mailbox.access.groups`.
+
+## SMTP security
+
+SMTP always requires TLS: implicit TLS on port 465, mandatory STARTTLS otherwise. A relay without TLS needs `smtp_tls = false` on the mailbox row; the form does not offer this on purpose.
 
 ## Deleting in Trash
 

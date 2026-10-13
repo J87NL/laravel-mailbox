@@ -30,7 +30,11 @@ class SyncCommand extends Command
                 continue;
             }
 
-            $this->components->task($mailbox->name, fn () => $sync->handle($mailbox));
+            $this->components->task($mailbox->name, function () use ($mailbox, $sync): bool {
+                $sync->handle($mailbox);
+
+                return true;
+            });
         }
 
         return self::SUCCESS;

@@ -35,7 +35,8 @@ class SyncMailboxJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(SyncMailbox $sync): void
     {
-        $mailbox = Mailbox::query()->find($this->mailboxId);
+        $mailbox = Mailbox::query()
+            ->find($this->mailboxId);
 
         if (! $mailbox?->active) {
             return;

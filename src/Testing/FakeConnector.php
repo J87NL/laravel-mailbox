@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Testing;
 
 use DirectoryTree\ImapEngine\MailboxInterface;
+use DirectoryTree\ImapEngine\Support\Str;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
@@ -88,7 +89,7 @@ class FakeConnector extends MailboxConnector
             return false;
         }
 
-        $remote = $this->remote($folder->mailbox)->folder($folder->path);
+        $remote = $this->remote($folder->mailbox)->folder(Str::fromImapUtf7($folder->path));
 
         $remote->setMessages(array_values(array_filter(
             $remote->getMessages(),

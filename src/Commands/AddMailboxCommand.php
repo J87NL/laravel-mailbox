@@ -22,7 +22,10 @@ class AddMailboxCommand extends Command
     public function handle(SaveMailbox $save): int
     {
         $email = text('Email address', required: true, validate: ['email' => 'email:rfc']);
-        $authentication = select('Authentication', ['plain' => 'Username and password', 'oauth' => 'OAuth 2.0'], 'plain');
+        $authentication = select('Authentication', [
+            'plain' => 'Username and password',
+            'oauth' => 'OAuth 2.0',
+        ], 'plain');
         $username = text('Username', default: $email, required: true);
         $secret = $authentication === 'plain' ? password('Password', required: true) : null;
 
@@ -31,7 +34,10 @@ class AddMailboxCommand extends Command
             'authentication' => $authentication,
             'email' => $email,
             'from_name' => text('Sender name', default: config('app.name')),
-            'imap_encryption' => select('IMAP encryption', ['ssl' => 'SSL/TLS', 'starttls' => 'STARTTLS'], 'ssl'),
+            'imap_encryption' => select('IMAP encryption', [
+                'ssl' => 'SSL/TLS',
+                'starttls' => 'STARTTLS',
+            ], 'ssl'),
             'imap_host' => text('IMAP host', required: true),
             'imap_password' => $secret,
             'imap_port' => (int) text('IMAP port', default: '993', required: true),

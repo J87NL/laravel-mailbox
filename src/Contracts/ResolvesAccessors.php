@@ -18,5 +18,9 @@ interface ResolvesAccessors
      */
     public function assignable(): array;
 
-    public function label(string $type, int|string $id): ?string;
+    /**
+     * @param  array<int, array{type: string, id: int|string}>  $accessors
+     * @return array<string, string>
+     */
+    public function labels(array $accessors): array;
 }

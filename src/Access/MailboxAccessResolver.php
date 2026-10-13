@@ -37,6 +37,28 @@ class MailboxAccessResolver
         return $this->levelFor($user, $mailbox)?->allows($required) ?? false;
     }
 
+    public function allowsAny(?Authenticatable $user): bool
+    {
+        if (is_null($user)) {
+            return false;
+        }
+
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $activeIds = Mailbox::query()
+            ->where('active', true)
+            ->pluck('id')
+            ->all();
+
+        $this->preload($user, $activeIds);
+
+        return collect($activeIds)->contains(
+            fn (int $mailboxId): bool => $this->levels[$this->key($user, $mailboxId)]?->allows(AccessLevel::Read) ?? false,
+        );
+    }
+
     public function isAdmin(?Authenticatable $user): bool
     {
         if (is_null($user)) {

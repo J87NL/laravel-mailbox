@@ -39,12 +39,16 @@ class SendMessage
 
         $this->connector->smtp($mailbox)->send($email);
 
-        $messageId = $email->getHeaders()->get('Message-ID')?->getBodyAsString() ?? '';
+        $messageId = trim($email->getHeaders()->get('Message-ID')?->getBodyAsString() ?? '', '<>');
 
-        rescue(fn () => $this->storeCopy($mailbox, $email));
+        rescue(function () use ($mailbox, $email): void {
+            $this->storeCopy($mailbox, $email);
+        });
 
         if ($replyTo) {
-            rescue(fn () => $this->markMessages->answered($replyTo));
+            rescue(function () use ($replyTo): void {
+                $this->markMessages->answered($replyTo);
+            });
         }
 
         $this->audit->forMailbox(
@@ -85,7 +89,7 @@ class SendMessage
             ->to(...$this->addresses($data['to']))
             ->subject((string) $data['subject'])
             ->html((string) $data['body'])
-            ->text(trim(html_entity_decode(strip_tags((string) $data['body']))));
+            ->text($this->plainText((string) $data['body']));
 
         $this->copies($email, $data);
         $this->attach($email, $data['attachments'] ?? []);
@@ -102,6 +106,13 @@ class SendMessage
         $email->getHeaders()->addTextHeader('References', trim(sprintf('%s <%s>', (string) $replyTo->references, $parentId)));
 
         return $email;
+    }
+
+    private function plainText(string $html): string
+    {
+        $withBreaks = (string) preg_replace('/<br\s*\/?>|<\/(p|li|div|blockquote|h[1-6]|tr)>/i', "\n", $html);
+
+        return trim(html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5));
     }
 
     /**

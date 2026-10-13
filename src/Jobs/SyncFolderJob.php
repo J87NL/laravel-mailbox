@@ -36,9 +36,11 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(MailboxConnector $connector, SyncFolderMessages $sync): void
     {
-        $folder = MailboxFolder::query()->with('mailbox')->find($this->folderId);
+        $folder = MailboxFolder::query()
+            ->with('mailbox')
+            ->find($this->folderId);
 
-        if (! $folder) {
+        if (is_null($folder) || ! $folder->mailbox->active) {
             return;
         }
 

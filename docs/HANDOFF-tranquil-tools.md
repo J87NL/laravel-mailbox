@@ -18,6 +18,7 @@ Priority: **P1** blocks a usable mailbox v0.1, **P2** improves it noticeably, **
 | 8 | new: shared installer | Extract the Vite/tsconfig patchers from the CrudBuilder | P3 |
 | 9 | vue-table-builder / vue-form-builder | Translation bundles for third-party packages | P3 |
 | 10 | form-builder | Replace Quill as default editor (choice open) | Major |
+| 11 | form-builder (+ Vue) | `Select` with server-side search (async options) | P2 |
 
 ---
 
@@ -161,6 +162,25 @@ Changing the default is breaking for apps that never published the config, becau
 
 ---
 
+## 11. `Select` with server-side search — P2
+
+**Why.** `Select::options()` takes the full option list and sends it to the browser. The mailbox access form needs "user or group", so every manager of one mailbox receives the names of all app users and groups, and the list is built (all users plus all groups) on every render. In larger apps that is both a privacy leak and a performance problem. The mailbox now memoises the list per request, but cannot avoid sending it.
+
+**Proposed API.**
+
+```php
+Select::make('accessor')
+    ->searchUrl(route('mailbox.settings.accessors', $mailbox))
+    ->minSearchLength(2)
+    ->rules('required', new ExistingAccessor);
+```
+
+- `searchUrl(string $url)` makes the renderer fetch `GET {url}?q=` (debounced) and expect `[{ value, label }]`; no `options` are sent up front.
+- The current value is sent as `selected: { value, label }` so an edit form can show it without a search.
+- Validation stays server-side (an `exists`-style rule); the field adds no `in:` rule because the option list is not known.
+
+**Done when.** A searchable select works without `options()`, sends only matches, and existing selects with `options()` behave as before.
+
 ## Release notes
 
-Items 1–9 are additive; item 10 is the only breaking change and waits for the default-editor decision. Suggested bundling: items 1, 3 and 4 in one `laravel-vue-table-builder` minor; items 2, 5 and 6 in one `laravel-form-builder` / `laravel-vue-form-builder` minor; items 7–9 as a separate structural release. Document every new API on docs.comfycoders.nl before tagging, since that is the single documentation source for these packages.
+Items 1–9 and 11 are additive; item 10 is the only breaking change and waits for the default-editor decision. Suggested bundling: items 1, 3 and 4 in one `laravel-vue-table-builder` minor; items 2, 5 and 6 in one `laravel-form-builder` / `laravel-vue-form-builder` minor; items 7–9 as a separate structural release. Document every new API on docs.comfycoders.nl before tagging, since that is the single documentation source for these packages.

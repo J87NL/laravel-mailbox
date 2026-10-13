@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\Support\Str as Utf7;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use J87NL\Mailbox\Actions\CreateFolder;
+use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageReceived;
+use J87NL\Mailbox\Jobs\SyncFolderJob;
+use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
@@ -30,14 +35,15 @@ it('mirrors the remote folder list with roles and drops vanished folders', funct
 
     app(SyncFolders::class)->handle($mailbox);
 
-    expect(MailboxFolder::query()->orderBy('path')->get(['path', 'role', 'selectable'])->toArray())->toBe([
-        ['path' => 'INBOX', 'role' => 'inbox', 'selectable' => true],
-        ['path' => 'Old', 'role' => 'custom', 'selectable' => false],
-        ['path' => 'Sent Items', 'role' => 'sent', 'selectable' => true],
-    ]);
+    expect(MailboxFolder::query()
+        ->orderBy('path')->get(['path', 'role', 'selectable'])->toArray())->toBe([
+            ['path' => 'INBOX', 'role' => 'inbox', 'selectable' => true],
+            ['path' => 'Old', 'role' => 'custom', 'selectable' => false],
+            ['path' => 'Sent Items', 'role' => 'sent', 'selectable' => true],
+        ]);
 });
 
-it('stores new messages with headers and flags and announces them', function (): void {
+it('stores new messages with headers and flags without announcing the initial sync', function (): void {
     Event::fake([MessageReceived::class]);
     $mailbox = mailbox();
     $folder = folder($mailbox);
@@ -50,7 +56,8 @@ it('stores new messages with headers and flags and announces them', function ():
 
     $folder = syncFolder($folder);
 
-    $stored = MailboxMessage::query()->orderBy('uid')->get();
+    $stored = MailboxMessage::query()
+        ->orderBy('uid')->get();
 
     expect($stored->pluck('uid')->all())->toBe([3, 5])
         ->and($stored[0]->only(['subject', 'from_email', 'from_name', 'message_id', 'is_seen', 'is_flagged']))->toBe([
@@ -63,15 +70,18 @@ it('stores new messages with headers and flags and announces them', function ():
         ])
         ->and($stored[0]->to)->toBe([['email' => 'team@example.com', 'name' => '']])
         ->and($folder->only(['last_uid', 'uid_validity', 'unseen_count']))->toBe(['last_uid' => 5, 'uid_validity' => 7, 'unseen_count' => 1])
-        ->and($folder->synced_at)->not->toBeNull();
+        ->and($folder->synced_at)->not->toBeNull()
+        ->and(MailboxAuditEntry::query()
+            ->where('action', AuditAction::Received)
+            ->count())->toBe(2);
 
-    Event::assertDispatchedTimes(MessageReceived::class, 2);
+    Event::assertNotDispatched(MessageReceived::class);
 });
 
 it('only stores messages above the last known uid on the next run', function (): void {
     Event::fake([MessageReceived::class]);
     $mailbox = mailbox();
-    $folder = folder($mailbox, attributes: ['last_uid' => 4, 'uid_validity' => 1]);
+    $folder = folder($mailbox, attributes: ['last_uid' => 4, 'synced_at' => now(), 'uid_validity' => 1]);
     $remote = remoteFolder($mailbox, 'INBOX');
     $remote->status = ['UIDVALIDITY' => 1];
     storedMessage($folder, 4);
@@ -79,7 +89,8 @@ it('only stores messages above the last known uid on the next run', function ():
 
     syncFolder($folder);
 
-    expect(MailboxMessage::query()->orderBy('uid')->pluck('uid')->all())->toBe([4, 6]);
+    expect(MailboxMessage::query()
+        ->orderBy('uid')->pluck('uid')->all())->toBe([4, 6]);
     Event::assertDispatchedTimes(MessageReceived::class, 1);
 });
 
@@ -91,9 +102,14 @@ it('drops the folder cache when UIDVALIDITY changes', function (): void {
     $remote->status = ['UIDVALIDITY' => 2];
     $remote->setMessages([remoteMessage(1)]);
 
+    Event::fake([MessageReceived::class]);
+
     $folder = syncFolder($folder);
 
-    expect(MailboxMessage::query()->pluck('uid')->all())->toBe([1])
+    Event::assertNotDispatched(MessageReceived::class);
+
+    expect(MailboxMessage::query()
+        ->pluck('uid')->all())->toBe([1])
         ->and($folder->only(['last_uid', 'uid_validity']))->toBe(['last_uid' => 1, 'uid_validity' => 2]);
 });
 
@@ -112,10 +128,11 @@ it('deletes rows that vanished remotely and refreshes changed flags', function (
 
     syncFolder($folder);
 
-    expect(MailboxMessage::query()->orderBy('uid')->get(['uid', 'is_seen', 'is_flagged', 'is_answered'])->toArray())->toBe([
-        ['uid' => 1, 'is_seen' => true, 'is_flagged' => false, 'is_answered' => true],
-        ['uid' => 3, 'is_seen' => false, 'is_flagged' => false, 'is_answered' => false],
-    ]);
+    expect(MailboxMessage::query()
+        ->orderBy('uid')->get(['uid', 'is_seen', 'is_flagged', 'is_answered'])->toArray())->toBe([
+            ['uid' => 1, 'is_seen' => true, 'is_flagged' => false, 'is_answered' => true],
+            ['uid' => 3, 'is_seen' => false, 'is_flagged' => false, 'is_answered' => false],
+        ]);
 });
 
 it('treats messages flagged deleted as gone', function (): void {
@@ -131,7 +148,8 @@ it('treats messages flagged deleted as gone', function (): void {
 
     $folder = syncFolder($folder);
 
-    expect(MailboxMessage::query()->count())->toBe(0)
+    expect(MailboxMessage::query()
+        ->count())->toBe(0)
         ->and($folder->last_uid)->toBe(2);
 });
 
@@ -147,7 +165,8 @@ it('truncates oversized headers to the column length', function (): void {
 
     syncFolder($folder);
 
-    $stored = MailboxMessage::query()->sole();
+    $stored = MailboxMessage::query()
+        ->sole();
 
     expect(mb_strlen((string) $stored->subject))->toBeLessThanOrEqual(255)
         ->and(mb_strlen((string) $stored->from_name))->toBeLessThanOrEqual(255)
@@ -161,4 +180,169 @@ it('records the error on the mailbox when a sync fails', function (): void {
 
     expect(fn () => app(SyncMailbox::class)->handle($mailbox))->toThrow(RuntimeException::class);
     expect($mailbox->refresh()->last_error)->toBe('Login failed');
+});
+
+it('syncs folders with non-ASCII names and keeps going when one folder fails', function (): void {
+    $mailbox = mailbox();
+    $remote = test()->connector->remote($mailbox);
+    $remote->addFolder(new RecordingFolder(Utf7::toImapUtf7('Études & co')));
+    $remote->addFolder(new class('Broken') extends RecordingFolder
+    {
+        public function status(): array
+        {
+            throw new RuntimeException('Mailbox is locked');
+        }
+    });
+    $remote->addFolder(new RecordingFolder('Zzz'));
+    remoteFolder($mailbox, 'Études & co')->setMessages([remoteMessage(1)]);
+    remoteFolder($mailbox, 'Zzz')->setMessages([remoteMessage(2)]);
+
+    app(SyncMailbox::class)->handle($mailbox);
+
+    $studies = MailboxFolder::query()
+        ->where('name', 'Études & co')->sole();
+
+    expect($studies->path)->toBe('&AMk-tudes &- co')
+        ->and($studies->messages()->pluck('uid')->all())->toBe([1])
+        ->and(MailboxFolder::query()
+            ->where('path', 'Zzz')->sole()->messages()->count())->toBe(1)
+        ->and($mailbox->refresh()->last_error)->toBe('Broken: Mailbox is locked')
+        ->and($mailbox->synced_at)->not->toBeNull();
+});
+
+it('creates a subfolder below a non-ASCII parent', function (): void {
+    $mailbox = mailbox();
+    test()->connector->remote($mailbox)->addFolder(new RecordingFolder(Utf7::toImapUtf7('Études')));
+    $parent = folder($mailbox, Utf7::toImapUtf7('Études'), FolderRole::Custom);
+
+    $created = app(CreateFolder::class)->handle($mailbox, 'Été', $parent, null);
+
+    expect($created->path)->toBe(Utf7::toImapUtf7('Études/Été'))
+        ->and($created->name)->toBe('Été');
+});
+
+it('announces a new message once and records it as received', function (): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $folder = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    $remote = remoteFolder($mailbox, 'INBOX');
+    $remote->status = ['UIDVALIDITY' => 1];
+    $remote->setMessages([remoteMessage(2)]);
+
+    syncFolder($folder);
+    syncFolder($folder);
+
+    Event::assertDispatchedTimes(MessageReceived::class, 1);
+
+    expect(MailboxAuditEntry::query()
+        ->sole()->only(['action', 'message_id']))->toBe([
+            'action' => AuditAction::Received,
+            'message_id' => 'message-2@example.org',
+        ]);
+});
+
+it('does not announce copies of messages the mailbox already knows', function (): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $inbox = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    $archive = folder($mailbox, 'Archive', FolderRole::Archive, ['last_uid' => 9, 'synced_at' => now(), 'uid_validity' => 1]);
+    storedMessage($inbox, 1, ['message_id' => 'message-10@example.org']);
+    MailboxAuditEntry::query()
+        ->create([
+            'action' => AuditAction::Sent,
+            'mailbox_id' => $mailbox->id,
+            'message_id' => 'message-11@example.org',
+        ]);
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+    remoteFolder($mailbox, 'Archive')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Archive')->setMessages([remoteMessage(10), remoteMessage(11), remoteMessage(12)]);
+
+    syncFolder($archive);
+
+    Event::assertDispatchedTimes(MessageReceived::class, 1);
+    Event::assertDispatched(MessageReceived::class, fn (MessageReceived $event): bool => $event->message->uid === 12);
+});
+
+it('never announces messages in sent, drafts, junk or trash', function (FolderRole $role): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $folder = folder($mailbox, 'Special', $role, ['last_uid' => 1, 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'Special')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Special')->setMessages([remoteMessage(2)]);
+
+    syncFolder($folder);
+
+    expect(MailboxMessage::query()
+        ->count())->toBe(1);
+    Event::assertNotDispatched(MessageReceived::class);
+})->with([
+    FolderRole::Sent,
+    FolderRole::Drafts,
+    FolderRole::Junk,
+    FolderRole::Trash,
+]);
+
+it('stores reply-to addresses and the date in the app timezone', function (): void {
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    $email = email()
+        ->replyTo('Support <support@example.org>')
+        ->date(new DateTimeImmutable('2026-10-13 14:00:00', new DateTimeZone('+02:00')));
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1, email: $email)]);
+
+    syncFolder($folder);
+
+    $stored = MailboxMessage::query()
+        ->sole();
+
+    expect($stored->reply_to)->toBe([['email' => 'support@example.org', 'name' => 'Support']])
+        ->and($stored->getRawOriginal('sent_at'))->toBe('2026-10-13 12:00:00');
+});
+
+it('skips folder sync jobs of inactive mailboxes', function (): void {
+    $folder = folder(mailbox(['active' => false]));
+    test()->connector->failImap('Should not connect');
+
+    app()->call([new SyncFolderJob($folder->id), 'handle']);
+
+    expect($folder->refresh()->synced_at)->toBeNull();
+});
+
+it('announces the first message of a folder that was empty at the initial sync', function (): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    $remote = remoteFolder($mailbox, 'INBOX');
+    $remote->status = ['UIDVALIDITY' => 1];
+
+    $folder = syncFolder($folder);
+    $remote->setMessages([remoteMessage(1)]);
+    syncFolder($folder);
+    syncFolder($folder);
+
+    Event::assertDispatchedTimes(MessageReceived::class, 1);
+});
+
+it('does not announce mail from before the initial sync when another client moves it later', function (): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $inbox = folder($mailbox);
+    $archive = folder($mailbox, 'Archive', FolderRole::Archive);
+    remoteFolder($mailbox, 'INBOX')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Archive')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+
+    $inbox = syncFolder($inbox);
+    $archive = syncFolder($archive);
+
+    remoteFolder($mailbox, 'INBOX')->setMessages([]);
+    $moved = email('Message 1');
+    $moved->getHeaders()->addIdHeader('Message-ID', 'message-1@example.org');
+    remoteFolder($mailbox, 'Archive')->setMessages([remoteMessage(5, email: $moved)]);
+
+    syncFolder($inbox);
+    syncFolder($archive);
+
+    expect(MailboxMessage::query()->pluck('uid')->all())->toBe([5]);
+    Event::assertNotDispatched(MessageReceived::class);
 });

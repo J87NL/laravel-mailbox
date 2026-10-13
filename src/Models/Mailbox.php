@@ -34,7 +34,10 @@ class Mailbox extends Model
 {
     protected $guarded = ['id'];
 
-    protected $hidden = ['imap_password', 'smtp_password'];
+    protected $hidden = [
+        'imap_password',
+        'smtp_password',
+    ];
 
     protected function casts(): array
     {

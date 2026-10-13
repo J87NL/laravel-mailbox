@@ -26,14 +26,15 @@ class EnsureFolder
 
         $remote = $this->connector->imap($mailbox)->folders()->firstOrCreate($fallbackPath);
 
-        return MailboxFolder::query()->create([
-            'delimiter' => $remote->delimiter(),
-            'flags' => $remote->flags(),
-            'mailbox_id' => $mailbox->id,
-            'name' => $remote->name(),
-            'path' => $remote->path(),
-            'role' => $role,
-            'selectable' => true,
-        ]);
+        return MailboxFolder::query()
+            ->create([
+                'delimiter' => $remote->delimiter(),
+                'flags' => $remote->flags(),
+                'mailbox_id' => $mailbox->id,
+                'name' => $remote->name(),
+                'path' => $remote->path(),
+                'role' => $role,
+                'selectable' => true,
+            ]);
     }
 }

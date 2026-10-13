@@ -10,7 +10,7 @@ use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 class MessageHtml
 {
-    private const REMOTE_REFERENCE = '/(<img[^>]+src|background)\s*=\s*["\']?\s*https?:|url\(\s*["\']?\s*(https?:)?\/\//i';
+    private const REMOTE_REFERENCE = '/(<img[^>]+src|background)\s*=\s*["\']?\s*https?:|srcset\s*=\s*["\']?[^"\'>]*(https?:)?\/\/|url\(\s*["\']?\s*(https?:)?\/\//i';
 
     private const RESOURCE_LOADING_CSS = '/(url|image|image-set|cross-fade|element)\(|\\\\|@import/';
 
@@ -130,7 +130,13 @@ class MessageHtml
             ->forceAttribute('a', 'target', '_blank')
             ->withMaxInputLength(5_000_000);
 
-        if ($allowRemoteImages || $inlineHosts === []) {
+        if ($allowRemoteImages) {
+            return new HtmlSanitizer($config);
+        }
+
+        $config = $config->dropAttribute('srcset', '*');
+
+        if ($inlineHosts === []) {
             return new HtmlSanitizer($config);
         }
 

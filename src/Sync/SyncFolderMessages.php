@@ -12,9 +12,9 @@ use DirectoryTree\ImapEngine\MessageInterface;
 use DirectoryTree\ImapEngine\MessageQueryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Connection\MailboxConnector;
-use J87NL\Mailbox\Events\MessageReceived;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 
@@ -35,6 +35,7 @@ class SyncFolderMessages
         'is_seen',
         'message_id',
         'references',
+        'reply_to',
         'sent_at',
         'size',
         'subject',
@@ -42,6 +43,7 @@ class SyncFolderMessages
     ];
 
     public function __construct(
+        private readonly AnnounceReceivedMessages $announcer,
         private readonly MailboxConnector $connector,
     ) {}
 
@@ -51,11 +53,20 @@ class SyncFolderMessages
             return;
         }
 
+        Cache::lock(sprintf('mailbox-folder-sync:%d', $folder->id), 600)
+            ->get(function () use ($folder): void {
+                $this->sync($folder);
+            });
+    }
+
+    private function sync(MailboxFolder $folder): void
+    {
         $remote = $this->connector->folder($folder);
         $status = $remote->status();
 
-        $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
-        $this->fetchNew($folder, $remote);
+        $reset = $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
+
+        $this->fetchNew($folder, $remote, ! is_null($folder->synced_at) && ! $reset);
         $this->refreshKnown($folder, $remote);
 
         $folder->unseen_count = isset($status['UNSEEN'])
@@ -65,17 +76,23 @@ class SyncFolderMessages
         $folder->save();
     }
 
-    private function resetWhenUidValidityChanged(MailboxFolder $folder, int $uidValidity): void
+    private function resetWhenUidValidityChanged(MailboxFolder $folder, int $uidValidity): bool
     {
-        if (! is_null($folder->uid_validity) && (int) $folder->uid_validity !== $uidValidity) {
-            $folder->messages()->delete();
-            $folder->last_uid = 0;
-        }
+        $changed = ! is_null($folder->uid_validity) && (int) $folder->uid_validity !== $uidValidity;
 
         $folder->uid_validity = $uidValidity;
+
+        if (! $changed) {
+            return false;
+        }
+
+        $folder->messages()->delete();
+        $folder->last_uid = 0;
+
+        return true;
     }
 
-    private function fetchNew(MailboxFolder $folder, FolderInterface $remote): void
+    private function fetchNew(MailboxFolder $folder, FolderInterface $remote, bool $established): void
     {
         $after = (int) $folder->last_uid;
 
@@ -89,7 +106,9 @@ class SyncFolderMessages
 
         $this->constrainToNew($query, $after);
 
-        $query->chunk(function (MessageCollection $messages) use ($after, $folder): void {
+        $watched = $this->announcer->watches($folder);
+
+        $query->chunk(function (MessageCollection $messages) use ($after, $established, $folder, $watched): void {
             $fresh = collect($messages->all())
                 ->filter(fn (MessageInterface $message): bool => $message->uid() > $after)
                 ->values();
@@ -100,9 +119,13 @@ class SyncFolderMessages
 
             $folder->last_uid = max((int) $folder->last_uid, (int) $fresh->max(fn (MessageInterface $message): int => $message->uid()));
 
-            $this->store($folder, $fresh->reject(fn (MessageInterface $message): bool => $this->isDeleted($message)));
+            $stored = $this->store($folder, $fresh->reject(fn (MessageInterface $message): bool => $this->isDeleted($message)));
 
             $folder->save();
+
+            if ($watched) {
+                $this->announcer->handle($folder, $stored, announce: $established);
+            }
         }, (int) config('mailbox.sync.chunk_size'));
     }
 
@@ -119,11 +142,12 @@ class SyncFolderMessages
 
     /**
      * @param  Collection<int, MessageInterface>  $messages
+     * @return array<int, int>
      */
-    private function store(MailboxFolder $folder, Collection $messages): void
+    private function store(MailboxFolder $folder, Collection $messages): array
     {
         if ($messages->isEmpty()) {
-            return;
+            return [];
         }
 
         $uids = $messages->map(fn (MessageInterface $message): int => $message->uid())->values()->all();
@@ -133,17 +157,17 @@ class SyncFolderMessages
             ->pluck('uid')
             ->all();
 
-        MailboxMessage::query()->upsert(
-            $messages->map(fn (MessageInterface $message): array => $this->attributes($folder, $message))->values()->all(),
-            ['mailbox_folder_id', 'uid'],
-            self::UPDATED_COLUMNS,
-        );
+        MailboxMessage::query()
+            ->upsert(
+                $messages->map(fn (MessageInterface $message): array => $this->attributes($folder, $message))->values()->all(),
+                [
+                    'mailbox_folder_id',
+                    'uid',
+                ],
+                self::UPDATED_COLUMNS,
+            );
 
-        $folder->messages()
-            ->whereIn('uid', array_values(array_diff($uids, $existing)))
-            ->orderBy('uid')
-            ->get()
-            ->each(fn (MailboxMessage $message) => MessageReceived::dispatch($message));
+        return array_values(array_diff($uids, $existing));
     }
 
     private function refreshKnown(MailboxFolder $folder, FolderInterface $remote): void
@@ -177,7 +201,9 @@ class SyncFolderMessages
 
         $remoteFlags
             ->groupBy(fn (array $attributes): string => (string) json_encode($attributes), preserveKeys: true)
-            ->each(fn (Collection $group) => $this->updateFlags($folder, $group->keys()->all(), $group->first()));
+            ->each(function (Collection $group) use ($folder): void {
+                $this->updateFlags($folder, $group->keys()->all(), $group->first());
+            });
     }
 
     /**
@@ -213,7 +239,8 @@ class SyncFolderMessages
             'mailbox_id' => $folder->mailbox_id,
             'message_id' => $this->limit($message->messageId()),
             'references' => $this->limitBytes($message->header('References')?->getRawValue()),
-            'sent_at' => $message->date(),
+            'reply_to' => json_encode($this->addresses($message->addresses('Reply-To'))),
+            'sent_at' => $message->date()?->setTimezone((string) config('app.timezone')),
             'size' => $message->size(),
             'subject' => $this->limit($message->subject()),
             'to' => json_encode($this->addresses($message->to())),

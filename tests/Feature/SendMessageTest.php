@@ -20,7 +20,7 @@ function composed(array $overrides = []): array
 {
     return [
         'bcc' => '',
-        'body' => '<p>Thanks for your message</p>',
+        'body' => '<p>Thanks for your message</p><p>Second line</p>',
         'cc' => 'copy@example.org; second@example.org',
         'subject' => 'Re: Question',
         'to' => 'customer@example.org',
@@ -35,7 +35,7 @@ it('sends with threading headers, stores a copy in Sent and marks the original a
     folder($mailbox, 'Sent', FolderRole::Sent);
     remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(3)]);
     $original = storedMessage($inbox, 3, [
-        'message_id' => '<question@example.org>',
+        'message_id' => 'question@example.org',
         'references' => '<first@example.org>',
     ])->load('folder');
     $actor = user();
@@ -50,14 +50,18 @@ it('sends with threading headers, stores a copy in Sent and marks the original a
         ->and($headers->get('References')->getBodyAsString())->toBe('<first@example.org> <question@example.org>')
         ->and($headers->get('From')->getBodyAsString())->toBe('Team <team@example.com>')
         ->and(array_map(fn ($address) => $address->getAddress(), $sent->getCc()))->toBe(['copy@example.org', 'second@example.org'])
-        ->and($messageId)->toEndWith('@example.com>')
+        ->and($messageId)->toEndWith('@example.com')
+        ->and($messageId)->not->toStartWith('<')
+        ->and($sent->getTextBody())->toBe("Thanks for your message\nSecond line")
         ->and(test()->connector->appended)->toHaveCount(1)
         ->and(test()->connector->appended[0]['folder'])->toBe('Sent')
         ->and(test()->connector->appended[0]['flags'])->toBe([ImapFlag::Seen->value])
         ->and(remoteFolder($mailbox, 'INBOX')->message(3)->flags())->toContain(ImapFlag::Answered->value)
-        ->and(MailboxMessage::query()->find($original->id)->is_answered)->toBeTrue();
+        ->and(MailboxMessage::query()
+            ->find($original->id)->is_answered)->toBeTrue();
 
-    $audit = MailboxAuditEntry::query()->sole();
+    $audit = MailboxAuditEntry::query()
+        ->sole();
 
     expect($audit->action)->toBe(AuditAction::Sent)
         ->and($audit->user_id)->toBe($actor->id)
@@ -92,7 +96,8 @@ it('counts the message as sent and reports when storing the Sent copy fails', fu
     expect($messageId)->not->toBe('')
         ->and(test()->connector->transport->sent)->toHaveCount(1)
         ->and($reported)->toBe(['APPEND failed'])
-        ->and(MailboxAuditEntry::query()->sole()->action)->toBe(AuditAction::Sent);
+        ->and(MailboxAuditEntry::query()
+            ->sole()->action)->toBe(AuditAction::Sent);
 });
 
 it('records nothing when SMTP refuses the message', function (): void {
@@ -100,6 +105,7 @@ it('records nothing when SMTP refuses the message', function (): void {
     test()->connector->transport->failure = new RuntimeException('Relay denied');
 
     expect(fn () => app(SendMessage::class)->handle($mailbox, composed(), null))->toThrow(RuntimeException::class, 'Relay denied');
-    expect(MailboxAuditEntry::query()->count())->toBe(0)
+    expect(MailboxAuditEntry::query()
+        ->count())->toBe(0)
         ->and(test()->connector->appended)->toBe([]);
 });

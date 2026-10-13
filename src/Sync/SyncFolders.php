@@ -34,15 +34,19 @@ class SyncFolders
     {
         $flags = $folder->flags();
 
-        return MailboxFolder::query()->updateOrCreate(
-            ['mailbox_id' => $mailbox->id, 'path' => $folder->path()],
-            [
-                'delimiter' => $folder->delimiter(),
-                'flags' => $flags,
-                'name' => $folder->name(),
-                'role' => FolderRole::fromImap($folder->path(), $flags),
-                'selectable' => ! in_array('\\Noselect', $flags, true) && ! in_array('\\NonExistent', $flags, true),
-            ],
-        );
+        return MailboxFolder::query()
+            ->updateOrCreate(
+                [
+                    'mailbox_id' => $mailbox->id,
+                    'path' => $folder->path(),
+                ],
+                [
+                    'delimiter' => $folder->delimiter(),
+                    'flags' => $flags,
+                    'name' => $folder->name(),
+                    'role' => FolderRole::fromImap($folder->path(), $flags),
+                    'selectable' => ! in_array('\\Noselect', $flags, true) && ! in_array('\\NonExistent', $flags, true),
+                ],
+            );
     }
 }

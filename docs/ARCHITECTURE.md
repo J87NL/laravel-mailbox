@@ -21,7 +21,7 @@ Forms live in the core because `laravel-form-builder` is frontend-agnostic. **Ta
 
 - `mailboxes` — one row per shared mailbox; IMAP/SMTP credentials with `encrypted` casts; `authentication` is `plain` or `oauth`.
 - `mailbox_folders` — mirror of the IMAP folder list with a `role` (inbox, sent, drafts, archive, junk, trash, custom) derived from RFC 6154 special-use flags, plus `uid_validity` and `last_uid` as sync cursors and `synced_at` for the last completed message sync.
-- `mailbox_messages` — header cache per folder + UID. Body, text and attachment metadata are fetched lazily on first open and cached (`body_fetched_at`).
+- `mailbox_messages` — header cache per folder + UID, including `reply_to` (used as reply recipient) and `sent_at` normalised to the app timezone. Body, text and attachment metadata are fetched lazily on first open and cached (`body_fetched_at`). Folder paths are stored as the server sends them (modified UTF-7); names are stored decoded.
 - `mailbox_audit_entries` — who did what, keyed on the RFC `Message-ID` header.
 - `mailbox_message_links` — polymorphic links from a message to any app model (`HasMailboxMessages` trait on the model).
 
@@ -36,7 +36,13 @@ IMAP is the source of truth; the database is a cache that makes lists, sorting a
    - compares `UIDVALIDITY`; on change the folder cache is dropped and refetched;
    - fetches new messages from `last_uid + 1` (first run: last `initial_days` days) with headers, flags, size and body structure — no bodies — and stores each chunk with one upsert; string headers are cut to their column length;
    - refreshes flags for the newest `flag_window` known UIDs with one grouped update per flag combination, and deletes rows that vanished remotely (handled in Thunderbird or a phone);
-   - treats messages flagged `\Deleted` as gone, so a purge on a server without UIDPLUS does not bring them back.
+   - treats messages flagged `\Deleted` as gone, so a purge on a server without UIDPLUS does not bring them back;
+   - runs under a cache lock per folder, so a scheduled sync and a folder job never sync the same folder at once.
+   A folder that fails is reported and skipped; the other folders still sync, and `mailboxes.last_error` lists the failed folders.
+4. `MessageReceived` is the hook for app automation, so it fires only for genuinely new mail:
+   - never on the first sync of a folder or after a `UIDVALIDITY` reset (those rebuild the cache, they do not receive mail); the messages found then do get a `received` audit entry, so they are known and never announced later;
+   - never in folders with role sent, drafts, junk or trash;
+   - only when the `Message-ID` is not already known in that mailbox, either as a cached message in another folder or in the audit trail (moves, sends and earlier receipts are all audited). Each announced message gets a `received` audit entry, so it is announced once.
 3. Triggers: `mailbox:sync` (schedule it, e.g. every two minutes), `SyncFolderJob` when a folder is opened and its `synced_at` is older than a minute, and after a move for the target folder (only when something moved). Jobs are `ShouldBeUnique`.
 
 Not yet done: IMAP IDLE worker, CONDSTORE/QRESYNC for cheap flag sync, flag refresh beyond the window.
@@ -49,7 +55,7 @@ Every action is IMAP-first, then updates the cache, then writes an audit entry.
 - **Archive**: move to the folder with role `archive`, or create `folders.archive_fallback`.
 - **Delete**: outside Trash → move to Trash. Inside Trash → `\Deleted` on our UIDs, then `UID EXPUNGE` of exactly those UIDs (UIDPLUS, RFC 4315). Without UIDPLUS nothing is expunged: a plain `EXPUNGE` would also remove mail another client flagged `\Deleted` in the shared mailbox. Our messages stay flagged and hidden until another client or the server expunges them.
 - **Read/unread/flag**: `UID STORE` on the selected UIDs.
-- **Send**: Symfony `EsmtpTransport` built per mailbox (XOAUTH2 when `oauth`), own `Message-ID`, `In-Reply-To` and `References` on replies, `APPEND` to Sent unless `append_sent` is off (Gmail and Microsoft 365 already store a copy), original marked `\Answered`. Once SMTP accepted the message, a failing `APPEND` or `\Answered` is reported (`report()`) but the send still counts as done, so nobody resends.
+- **Send**: Symfony `EsmtpTransport` built per mailbox (XOAUTH2 when `oauth`), own `Message-ID` (stored without angle brackets, like synced messages), `In-Reply-To` and `References` on replies, `APPEND` to Sent unless `append_sent` is off (Gmail and Microsoft 365 already store a copy), original marked `\Answered`. Once SMTP accepted the message, a failing `APPEND` or `\Answered` is reported (`report()`) but the send still counts as done, so nobody resends.
 
 ## Security
 
@@ -57,7 +63,9 @@ Every action is IMAP-first, then updates the cache, then writes an audit entry.
 - While remote images are blocked, style declarations that can load resources (`url(`, `image-set(`, CSS escapes, `@import`) are removed as well, so `background: url(https://tracker)` does not leak.
 - The sanitised HTML is rendered in an iframe via `srcdoc` with a CSP meta tag and `sandbox` without `allow-scripts`. The CSP `img-src` follows the same flag: `data:` plus the app origin when blocked, `* data:` when the user allowed images.
 - Attachments download as `application/octet-stream` with `nosniff`; only common image types are served inline.
-- Access is a single Gate ability `accessMailbox` (default: every authenticated user, active mailboxes only). Apps override it by defining the ability themselves.
+- Access runs through Gate abilities per mailbox (`accessMailbox`, `workInMailbox`, `manageMailbox`) plus `accessAnyMailbox` and `manageMailboxes`; see "Who may see what". The default mode is `restricted`: only access rows and admins grant access. Apps override any ability by defining it themselves.
+- SMTP requires TLS (implicit TLS on port 465, otherwise STARTTLS is mandatory), so a man-in-the-middle cannot strip STARTTLS and read the password. The only opt-out is `smtp_tls = false` on the mailbox row, which is not in the form on purpose (CLI or database only), for a local relay without TLS.
+- Opening a message that another client moved or deleted removes the cached row, queues a folder sync and returns to the folder with a message; attachments of such a message answer 404.
 - Credentials use Laravel's `encrypted` cast, so rotating `APP_KEY` requires re-entering them.
 
 ## Reuse of TranquilTools
@@ -76,7 +84,7 @@ Unread rows are bold via the TableBuilder's existing `rowClass` prop on the Vue 
 
 - **UI**: `/mailbox/settings` lists the mailboxes the user may manage; creating and deleting requires the global `manageMailboxes` ability, editing and access management require `manageMailbox` on that mailbox. The form is `J87NL\Mailbox\Forms\MailboxForm` (FormBuilder), the list is `MailboxesTable`.
 - **CLI**: `php artisan mailbox:add` (interactive) and `php artisan mailbox:grant {mailbox}`.
-- **Connection test**: `SaveMailbox` runs `TestConnection` (IMAP login + folder list, SMTP EHLO + auth) before anything is stored; failures come back as validation errors on `imap_host` / `smtp_host`. Empty password fields on edit keep the stored password.
+- **Connection test**: `SaveMailbox` runs `TestConnection` (IMAP login + folder list, SMTP EHLO + auth) before anything is stored; failures come back as validation errors on `imap_host` / `smtp_host`. Empty password fields on edit keep the stored password, except when the host, port, encryption or username of that protocol changes: then the password must be entered again, so a manager cannot redirect the stored password to another server. For OAuth mailboxes only admins (`manageMailboxes`) may change host, port, encryption or username, because the connection test would send the access token there; the CLI is trusted.
 - Deleting a mailbox removes the local cache, audit trail and access rows; mail on the server is untouched. Deactivating (`active` off) hides it for everyone except admins and stops sync.
 
 ### Who may see what
@@ -94,8 +102,10 @@ An accessor is a user or any group model of the host app. The highest level over
 - **Groups** are configured in `mailbox.access.groups`, e.g. Spatie roles: `['model' => Spatie\Permission\Models\Role::class, 'relation' => 'roles', 'label' => 'name', 'prefix' => 'Rol']`. The default `RelationAccessorResolver` reads that relation on the user; apps with another group concept bind their own `ResolvesAccessors`.
 - **Admins**: emails in `MAILBOX_ADMINS` (comma-separated) get `manage` on every mailbox and the global `manageMailboxes` ability. When the user model implements `MustVerifyEmail`, the email must be verified. This is the bootstrap: without at least one admin nobody can create a mailbox via the UI (the CLI always works).
 - **Open mode**: `MAILBOX_ACCESS_MODE=open` gives every authenticated user `write` on every active mailbox, without access rows. Handy for small apps such as a volunteer group; the default is `restricted`.
+- **Menu**: `accessAnyMailbox` is true for admins and for users with at least read on one active mailbox; use it to show the mailbox menu link. `mailbox.index` is gated with it.
 - **Override**: every ability is only defined if the host app has not defined it already, so an app can take over authorisation completely through its own Gate definitions.
 - Grants and revocations are written to the audit trail.
+- The access form lists every user and group the resolver knows (built once per request). Every manager therefore sees all user names; a server-side searchable select is HANDOFF item 11.
 - The last `manage` row of a mailbox cannot be revoked or lowered; the attempt returns a validation error on `accessor`.
 - An inactive mailbox is visible to admins only.
 
@@ -113,6 +123,7 @@ An accessor is a user or any group model of the host app. The highest level over
 - [ ] OAuth onboarding flow (token storage + `ProvidesAccessToken` implementation for Google and Microsoft); the form already accepts `oauth`.
 - [ ] "In progress by …" claims and assignment — the step from shared webmail to shared inbox.
 - [ ] IMAP IDLE worker as an optional long-running command.
+- [ ] Switch the access form to a server-side searchable select once the form builder supports it (HANDOFF item 11).
 - [ ] Type-check the Vue pages (`vue-tsc`) in a host app; the packages have no JS build setup.
 
 ## Testing
@@ -147,7 +158,7 @@ Schedule the sync:
 Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 ```
 
-Menu links: `route('mailbox.index')` for the mailbox, `route('mailbox.settings.index')` for management.
+Menu links: `route('mailbox.index')` for the mailbox (gate the link with `accessAnyMailbox`), `route('mailbox.settings.index')` for management.
 
 ## Compose editor
 

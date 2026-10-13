@@ -42,8 +42,14 @@ class MailboxForm extends AbstractForm
             Select::make('authentication')
                 ->label(__('mailbox::mailbox.authentication'))
                 ->options([
-                    ['id' => 'plain', 'name' => __('mailbox::mailbox.auth_plain')],
-                    ['id' => 'oauth', 'name' => 'OAuth 2.0'],
+                    [
+                        'id' => 'plain',
+                        'name' => __('mailbox::mailbox.auth_plain'),
+                    ],
+                    [
+                        'id' => 'oauth',
+                        'name' => 'OAuth 2.0',
+                    ],
                 ])
                 ->default('plain')
                 ->rules('required', 'in:plain,oauth'),
@@ -52,8 +58,14 @@ class MailboxForm extends AbstractForm
             Select::make('imap_encryption')
                 ->label(__('mailbox::mailbox.imap_encryption'))
                 ->options([
-                    ['id' => 'ssl', 'name' => 'SSL/TLS'],
-                    ['id' => 'starttls', 'name' => 'STARTTLS'],
+                    [
+                        'id' => 'ssl',
+                        'name' => 'SSL/TLS',
+                    ],
+                    [
+                        'id' => 'starttls',
+                        'name' => 'STARTTLS',
+                    ],
                 ])
                 ->default('ssl')
                 ->rules('required', 'in:ssl,starttls'),

@@ -6,6 +6,7 @@ namespace J87NL\Mailbox\Connection;
 
 use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\MailboxInterface;
+use DirectoryTree\ImapEngine\Support\Str;
 use J87NL\Mailbox\Exceptions\MailboxException;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
@@ -44,7 +45,7 @@ class MailboxConnector
 
     public function folderByPath(Mailbox $mailbox, string $path): FolderInterface
     {
-        $folder = $this->imap($mailbox)->folders()->find($path);
+        $folder = $this->imap($mailbox)->folders()->find(Str::fromImapUtf7($path));
 
         if (is_null($folder)) {
             throw MailboxException::folderNotFound($mailbox, $path);
@@ -82,6 +83,7 @@ class MailboxConnector
         $transport = new EsmtpTransport($mailbox->smtp_host, (int) $mailbox->smtp_port, $mailbox->smtp_tls);
 
         $transport->setUsername((string) $mailbox->smtp_username);
+        $transport->setRequireTls($mailbox->smtp_tls !== false);
 
         if (! $mailbox->usesOAuth()) {
             $transport->setPassword((string) $mailbox->smtp_password);

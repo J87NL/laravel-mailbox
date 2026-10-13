@@ -32,7 +32,10 @@ class FolderForm extends AbstractForm
                 ->rules('required', 'not_regex:/[\/\\\\*%]/'),
             Select::make('parent_id')
                 ->label(__('mailbox::mailbox.folder_parent'))
-                ->options($this->mailbox->folders()->orderBy('path')->get(['id', 'path']))
+                ->options($this->mailbox->folders()->orderBy('path')->get([
+                    'id',
+                    'path',
+                ]))
                 ->optionLabel('path')
                 ->optionValue('id')
                 ->rules('nullable', 'exists:mailbox_folders,id'),

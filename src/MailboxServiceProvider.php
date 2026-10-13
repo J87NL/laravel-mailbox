@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox;
 
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 use J87NL\Mailbox\Access\MailboxAccessResolver;
@@ -26,38 +27,49 @@ class MailboxServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasTranslations()
             ->hasMigration('create_mailbox_tables')
-            ->hasCommands([AddMailboxCommand::class, GrantAccessCommand::class, SyncCommand::class]);
+            ->hasCommands([
+                AddMailboxCommand::class,
+                GrantAccessCommand::class,
+                SyncCommand::class,
+            ]);
     }
 
     public function packageRegistered(): void
     {
         $this->app->scoped(MailboxConnector::class);
         $this->app->scoped(MailboxAccessResolver::class);
-        $this->app->bind(ResolvesAccessors::class, fn () => $this->app->make(config('mailbox.access.resolver')));
+        $this->app->scoped(ResolvesAccessors::class, fn (): ResolvesAccessors => $this->app->make(config('mailbox.access.resolver')));
     }
 
     public function packageBooted(): void
     {
         $this->app->booted(function (): void {
-            $abilities = [
-                'accessMailbox' => AccessLevel::Read,
-                'manageMailbox' => AccessLevel::Manage,
-                'workInMailbox' => AccessLevel::Write,
-            ];
-
-            foreach ($abilities as $ability => $level) {
-                if (Gate::has($ability)) {
-                    continue;
-                }
-
-                Gate::define($ability, fn (?Authenticatable $user, Mailbox $mailbox): bool => app(MailboxAccessResolver::class)->allows($user, $mailbox, $level));
-            }
-
-            if (Gate::has('manageMailboxes')) {
-                return;
-            }
-
-            Gate::define('manageMailboxes', fn (?Authenticatable $user): bool => app(MailboxAccessResolver::class)->isAdmin($user));
+            self::defineAbilities();
         });
+    }
+
+    public static function defineAbilities(): void
+    {
+        $levels = [
+            'accessMailbox' => AccessLevel::Read,
+            'manageMailbox' => AccessLevel::Manage,
+            'workInMailbox' => AccessLevel::Write,
+        ];
+
+        foreach ($levels as $ability => $level) {
+            self::defineUnlessDefined($ability, fn (?Authenticatable $user, Mailbox $mailbox): bool => app(MailboxAccessResolver::class)->allows($user, $mailbox, $level));
+        }
+
+        self::defineUnlessDefined('accessAnyMailbox', fn (?Authenticatable $user): bool => app(MailboxAccessResolver::class)->allowsAny($user));
+        self::defineUnlessDefined('manageMailboxes', fn (?Authenticatable $user): bool => app(MailboxAccessResolver::class)->isAdmin($user));
+    }
+
+    private static function defineUnlessDefined(string $ability, Closure $callback): void
+    {
+        if (Gate::has($ability)) {
+            return;
+        }
+
+        Gate::define($ability, $callback);
     }
 }

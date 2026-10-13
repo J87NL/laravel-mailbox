@@ -6,7 +6,9 @@ namespace J87NL\Mailbox\Actions;
 
 use DirectoryTree\ImapEngine\Attachment;
 use DirectoryTree\ImapEngine\MessageInterface;
+use Illuminate\Support\ItemNotFoundException;
 use J87NL\Mailbox\Connection\MailboxConnector;
+use J87NL\Mailbox\Exceptions\MessageGoneException;
 use J87NL\Mailbox\Models\MailboxMessage;
 
 class FetchMessageBody
@@ -67,12 +69,16 @@ class FetchMessageBody
 
     private function remote(MailboxMessage $message): MessageInterface
     {
-        return $this->connector->folder($message->folder)
-            ->messages()
-            ->leaveUnread()
-            ->withHeaders()
-            ->withBody()
-            ->withFlags()
-            ->findOrFail($message->uid);
+        try {
+            return $this->connector->folder($message->folder)
+                ->messages()
+                ->leaveUnread()
+                ->withHeaders()
+                ->withBody()
+                ->withFlags()
+                ->findOrFail($message->uid);
+        } catch (ItemNotFoundException $exception) {
+            throw MessageGoneException::for($message, $exception);
+        }
     }
 }

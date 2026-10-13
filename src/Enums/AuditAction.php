@@ -18,6 +18,7 @@ enum AuditAction: string
     case MarkedRead = 'marked_read';
     case MarkedUnread = 'marked_unread';
     case Moved = 'moved';
+    case Received = 'received';
     case Sent = 'sent';
     case Trashed = 'trashed';
     case Unflagged = 'unflagged';

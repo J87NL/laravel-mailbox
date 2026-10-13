@@ -29,22 +29,23 @@ class RecordAudit
         $createdAt = now();
         $userId = $user?->getAuthIdentifier();
 
-        MailboxAuditEntry::query()->insert(
-            $messages
-                ->map(fn (MailboxMessage $message): array => [
-                    'action' => $action->value,
-                    'created_at' => $createdAt,
-                    'folder_path' => $message->folder->path,
-                    'mailbox_id' => $message->mailbox_id,
-                    'message_id' => $message->message_id,
-                    'meta' => null,
-                    'subject' => $message->subject,
-                    'target_path' => $targetPath,
-                    'user_id' => $userId,
-                ])
-                ->values()
-                ->all(),
-        );
+        MailboxAuditEntry::query()
+            ->insert(
+                $messages
+                    ->map(fn (MailboxMessage $message): array => [
+                        'action' => $action->value,
+                        'created_at' => $createdAt,
+                        'folder_path' => $message->folder->path,
+                        'mailbox_id' => $message->mailbox_id,
+                        'message_id' => $message->message_id,
+                        'meta' => null,
+                        'subject' => $message->subject,
+                        'target_path' => $targetPath,
+                        'user_id' => $userId,
+                    ])
+                    ->values()
+                    ->all(),
+            );
     }
 
     /**
@@ -59,14 +60,15 @@ class RecordAudit
         ?string $targetPath = null,
         array $meta = [],
     ): MailboxAuditEntry {
-        return MailboxAuditEntry::query()->create([
-            'action' => $action,
-            'mailbox_id' => $mailbox->id,
-            'message_id' => $messageId,
-            'meta' => $meta ?: null,
-            'subject' => $subject,
-            'target_path' => $targetPath,
-            'user_id' => $user?->getAuthIdentifier(),
-        ]);
+        return MailboxAuditEntry::query()
+            ->create([
+                'action' => $action,
+                'mailbox_id' => $mailbox->id,
+                'message_id' => $messageId,
+                'meta' => $meta ?: null,
+                'subject' => $subject,
+                'target_path' => $targetPath,
+                'user_id' => $user?->getAuthIdentifier(),
+            ]);
     }
 }

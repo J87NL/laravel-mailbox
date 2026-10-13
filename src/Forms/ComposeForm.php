@@ -35,13 +35,22 @@ class ComposeForm extends AbstractForm
             Text::make('to')
                 ->label(__('mailbox::mailbox.to'))
                 ->placeholder('name@example.com, other@example.com')
-                ->rules(['required', new EmailList]),
+                ->rules([
+                    'required',
+                    new EmailList,
+                ]),
             Text::make('cc')
                 ->label(__('mailbox::mailbox.cc'))
-                ->rules(['nullable', new EmailList]),
+                ->rules([
+                    'nullable',
+                    new EmailList,
+                ]),
             Text::make('bcc')
                 ->label(__('mailbox::mailbox.bcc'))
-                ->rules(['nullable', new EmailList]),
+                ->rules([
+                    'nullable',
+                    new EmailList,
+                ]),
             Text::make('subject')
                 ->label(__('mailbox::mailbox.subject'))
                 ->maxLength(250)

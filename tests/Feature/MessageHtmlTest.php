@@ -36,6 +36,8 @@ it('blocks remote images and resource loading styles by default', function (): v
         '<div style="color: red; background: url(https://tracker.test/bg.gif)">a</div>',
         '<div style="background-image: u\\72l(https://tracker.test/escaped.gif)">b</div>',
         '<p style="background:url(&quot;https://tracker.test/quoted.gif&quot;)">c</p>',
+        '<img src="data:image/png;base64,AAAA" srcset="https://tracker.test/2x.gif 2x">',
+        '<picture><source srcset="https://tracker.test/source.gif"><img src="data:image/png;base64,AAAA"></picture>',
     ]));
 
     expect($html)->not->toContain('tracker.test')
@@ -73,6 +75,8 @@ it('detects remote images in tags and in styles', function (string $html, bool $
 })->with([
     'img tag' => ['<img src="https://tracker.test/a.gif">', true],
     'css url' => ['<div style="background:url(\'https://tracker.test/a.gif\')"></div>', true],
+    'srcset' => ['<img src="data:image/png;base64,AA" srcset="https://tracker.test/a.gif 2x">', true],
+    'protocol relative srcset' => ['<img srcset="//tracker.test/a.gif">', true],
     'inline cid' => ['<img src="cid:logo">', false],
     'plain link' => ['<a href="https://example.org">x</a>', false],
 ]);

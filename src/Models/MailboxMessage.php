@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $from_name
  * @property array<int, array{email: string, name: string}>|null $to
  * @property array<int, array{email: string, name: string}>|null $cc
+ * @property array<int, array{email: string, name: string}>|null $reply_to
  * @property Carbon|null $sent_at
  * @property int|null $size
  * @property bool $is_seen
@@ -39,7 +40,10 @@ class MailboxMessage extends Model
 {
     protected $guarded = ['id'];
 
-    protected $hidden = ['body_html', 'body_text'];
+    protected $hidden = [
+        'body_html',
+        'body_text',
+    ];
 
     protected function casts(): array
     {
@@ -51,6 +55,7 @@ class MailboxMessage extends Model
             'is_answered' => 'boolean',
             'is_flagged' => 'boolean',
             'is_seen' => 'boolean',
+            'reply_to' => 'array',
             'sent_at' => 'datetime',
             'to' => 'array',
         ];

@@ -33,11 +33,13 @@ it('moves messages with one UID MOVE per folder and audits them', function (): v
         ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([
             ['target' => 'Projects', 'type' => 'move', 'uids' => [1, 2]],
         ])
-        ->and(MailboxMessage::query()->count())->toBe(0)
-        ->and(MailboxAuditEntry::query()->get(['action', 'folder_path', 'target_path', 'user_id'])->toArray())->toBe([
-            ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
-            ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
-        ]);
+        ->and(MailboxMessage::query()
+            ->count())->toBe(0)
+        ->and(MailboxAuditEntry::query()
+            ->get(['action', 'folder_path', 'target_path', 'user_id'])->toArray())->toBe([
+                ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
+                ['action' => 'moved', 'folder_path' => 'INBOX', 'target_path' => 'Projects', 'user_id' => $actor->id],
+            ]);
 
     Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $target->id);
 });
@@ -59,11 +61,13 @@ it('archives into the archive folder and creates the fallback when there is none
 
     app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($inbox, 1)]), null);
 
-    $archive = MailboxFolder::query()->where('role', FolderRole::Archive)->sole();
+    $archive = MailboxFolder::query()
+        ->where('role', FolderRole::Archive)->sole();
 
     expect($archive->path)->toBe('Archive')
         ->and(remoteFolder($mailbox, 'INBOX')->operations[0]['target'])->toBe('Archive')
-        ->and(MailboxAuditEntry::query()->sole()->action)->toBe(AuditAction::Archived);
+        ->and(MailboxAuditEntry::query()
+            ->sole()->action)->toBe(AuditAction::Archived);
 });
 
 it('moves deleted messages outside the trash to the trash', function (): void {
@@ -80,7 +84,8 @@ it('moves deleted messages outside the trash to the trash', function (): void {
             ['target' => 'Trash', 'type' => 'move', 'uids' => [4]],
         ])
         ->and(test()->connector->expunged)->toBe([])
-        ->and(MailboxAuditEntry::query()->sole()->action)->toBe(AuditAction::Trashed);
+        ->and(MailboxAuditEntry::query()
+            ->sole()->action)->toBe(AuditAction::Trashed);
 });
 
 it('purges in the trash with UID EXPUNGE of only our uids', function (): void {
@@ -97,8 +102,10 @@ it('purges in the trash with UID EXPUNGE of only our uids', function (): void {
 
     expect(test()->connector->expunged)->toBe([['folder' => 'Trash', 'uids' => [7]]])
         ->and($remaining)->toBe([8])
-        ->and(MailboxMessage::query()->count())->toBe(0)
-        ->and(MailboxAuditEntry::query()->sole()->action)->toBe(AuditAction::Deleted);
+        ->and(MailboxMessage::query()
+            ->count())->toBe(0)
+        ->and(MailboxAuditEntry::query()
+            ->sole()->action)->toBe(AuditAction::Deleted);
 });
 
 it('only flags deleted without expunging when the server lacks UIDPLUS', function (): void {
@@ -115,17 +122,19 @@ it('only flags deleted without expunging when the server lacks UIDPLUS', functio
         ->and($remote->message(7)->flags())->toContain(ImapFlag::Deleted->value)
         ->and($remote->message(8)->flags())->not->toContain(ImapFlag::Deleted->value)
         ->and(test()->connector->expunged)->toBe([])
-        ->and(MailboxMessage::query()->count())->toBe(0);
+        ->and(MailboxMessage::query()
+            ->count())->toBe(0);
 });
 
 it('marks messages read, unread, flagged and unflagged on the server and in the cache', function (): void {
     $mailbox = mailbox();
     $inbox = folder($mailbox);
     remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1), remoteMessage(2)]);
-    $messages = MailboxMessage::query()->with('folder')->findMany([
-        storedMessage($inbox, 1)->id,
-        storedMessage($inbox, 2)->id,
-    ]);
+    $messages = MailboxMessage::query()
+        ->with('folder')->findMany([
+            storedMessage($inbox, 1)->id,
+            storedMessage($inbox, 2)->id,
+        ]);
     $mark = app(MarkMessages::class);
 
     $mark->read($messages, null);
@@ -136,13 +145,16 @@ it('marks messages read, unread, flagged and unflagged on the server and in the 
 
     expect($remote->message(1)->flags())->toBe([ImapFlag::Seen->value])
         ->and(array_values($remote->message(2)->flags()))->toBe([ImapFlag::Seen->value, ImapFlag::Flagged->value])
-        ->and(MailboxMessage::query()->orderBy('uid')->get(['is_seen', 'is_flagged'])->toArray())->toBe([
-            ['is_seen' => true, 'is_flagged' => false],
-            ['is_seen' => true, 'is_flagged' => true],
-        ])
-        ->and(MailboxAuditEntry::query()->count())->toBe(5);
+        ->and(MailboxMessage::query()
+            ->orderBy('uid')->get(['is_seen', 'is_flagged'])->toArray())->toBe([
+                ['is_seen' => true, 'is_flagged' => false],
+                ['is_seen' => true, 'is_flagged' => true],
+            ])
+        ->and(MailboxAuditEntry::query()
+            ->count())->toBe(5);
 
     $mark->unread($messages, null);
 
-    expect(MailboxMessage::query()->where('is_seen', true)->count())->toBe(0);
+    expect(MailboxMessage::query()
+        ->where('is_seen', true)->count())->toBe(0);
 });

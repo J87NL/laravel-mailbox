@@ -31,16 +31,17 @@ class GrantAccess
             $this->assertAnotherManagerRemains($existing);
         }
 
-        $access = MailboxAccess::query()->updateOrCreate(
-            [
-                'accessor_id' => $id,
-                'accessor_type' => $type,
-                'mailbox_id' => $mailbox->id,
-            ],
-            [
-                'level' => $level,
-            ],
-        );
+        $access = MailboxAccess::query()
+            ->updateOrCreate(
+                [
+                    'accessor_id' => $id,
+                    'accessor_type' => $type,
+                    'mailbox_id' => $mailbox->id,
+                ],
+                [
+                    'level' => $level,
+                ],
+            );
 
         $this->audit->forMailbox($mailbox, AuditAction::AccessGranted, $user, meta: [
             'accessor' => sprintf('%s:%s', $type, $id),

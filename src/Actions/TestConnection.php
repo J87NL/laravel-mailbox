@@ -19,14 +19,20 @@ class TestConnection
      */
     public function handle(Mailbox $mailbox): array
     {
-        $result = ['folders' => 0, 'imap' => null, 'smtp' => null];
+        $result = [
+            'folders' => 0,
+            'imap' => null,
+            'smtp' => null,
+        ];
 
         try {
             $result['folders'] = count($this->connector->imap($mailbox)->folders()->get());
         } catch (Throwable $exception) {
             $result['imap'] = $exception->getMessage();
         } finally {
-            rescue(fn () => $this->connector->disconnect($mailbox), report: false);
+            rescue(function () use ($mailbox): void {
+                $this->connector->disconnect($mailbox);
+            }, report: false);
         }
 
         try {

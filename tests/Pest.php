@@ -19,18 +19,19 @@ pest()->extend(TestCase::class)->in('Feature', 'Unit');
  */
 function mailbox(array $attributes = []): Mailbox
 {
-    return Mailbox::query()->create([
-        'active' => true,
-        'email' => 'team@example.com',
-        'imap_host' => 'imap.example.com',
-        'imap_password' => 'imap-secret',
-        'imap_username' => 'team@example.com',
-        'name' => 'Team',
-        'smtp_host' => 'smtp.example.com',
-        'smtp_password' => 'smtp-secret',
-        'smtp_username' => 'team@example.com',
-        ...$attributes,
-    ])->refresh();
+    return Mailbox::query()
+        ->create([
+            'active' => true,
+            'email' => 'team@example.com',
+            'imap_host' => 'imap.example.com',
+            'imap_password' => 'imap-secret',
+            'imap_username' => 'team@example.com',
+            'name' => 'Team',
+            'smtp_host' => 'smtp.example.com',
+            'smtp_password' => 'smtp-secret',
+            'smtp_username' => 'team@example.com',
+            ...$attributes,
+        ])->refresh();
 }
 
 /**
@@ -38,14 +39,15 @@ function mailbox(array $attributes = []): Mailbox
  */
 function folder(Mailbox $mailbox, string $path = 'INBOX', FolderRole $role = FolderRole::Inbox, array $attributes = []): MailboxFolder
 {
-    return MailboxFolder::query()->create([
-        'mailbox_id' => $mailbox->id,
-        'name' => $path,
-        'path' => $path,
-        'role' => $role,
-        'selectable' => true,
-        ...$attributes,
-    ])->refresh();
+    return MailboxFolder::query()
+        ->create([
+            'mailbox_id' => $mailbox->id,
+            'name' => $path,
+            'path' => $path,
+            'role' => $role,
+            'selectable' => true,
+            ...$attributes,
+        ])->refresh();
 }
 
 function remoteFolder(Mailbox $mailbox, string $path): RecordingFolder
@@ -64,14 +66,15 @@ function remoteFolder(Mailbox $mailbox, string $path): RecordingFolder
  */
 function storedMessage(MailboxFolder $folder, int $uid, array $attributes = []): MailboxMessage
 {
-    return MailboxMessage::query()->create([
-        'mailbox_folder_id' => $folder->id,
-        'mailbox_id' => $folder->mailbox_id,
-        'message_id' => sprintf('message-%d@example.com', $uid),
-        'subject' => sprintf('Message %d', $uid),
-        'uid' => $uid,
-        ...$attributes,
-    ]);
+    return MailboxMessage::query()
+        ->create([
+            'mailbox_folder_id' => $folder->id,
+            'mailbox_id' => $folder->mailbox_id,
+            'message_id' => sprintf('message-%d@example.com', $uid),
+            'subject' => sprintf('Message %d', $uid),
+            'uid' => $uid,
+            ...$attributes,
+        ]);
 }
 
 function email(string $subject = 'Hello'): Email
@@ -103,9 +106,10 @@ function remoteMessage(int $uid, array $flags = [], ?Email $email = null): FakeM
  */
 function user(array $attributes = []): User
 {
-    return User::query()->create([
-        'email' => sprintf('user-%s@example.com', uniqid()),
-        'name' => 'Test User',
-        ...$attributes,
-    ]);
+    return User::query()
+        ->create([
+            'email' => sprintf('user-%s@example.com', uniqid()),
+            'name' => 'Test User',
+            ...$attributes,
+        ]);
 }

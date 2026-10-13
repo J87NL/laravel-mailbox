@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Actions;
 
+use DirectoryTree\ImapEngine\Support\Str;
 use Illuminate\Contracts\Auth\Authenticatable;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
@@ -20,20 +21,23 @@ class CreateFolder
 
     public function handle(Mailbox $mailbox, string $name, ?MailboxFolder $parent, ?Authenticatable $user): MailboxFolder
     {
-        $path = $parent ? $parent->path.$parent->delimiter.$name : $name;
+        $path = $parent
+            ? sprintf('%s%s%s', Str::fromImapUtf7($parent->path), $parent->delimiter, $name)
+            : $name;
 
         $remote = $this->connector->imap($mailbox)->folders()->create($path);
 
-        $this->audit->forMailbox($mailbox, AuditAction::FolderCreated, $user, targetPath: $path);
+        $this->audit->forMailbox($mailbox, AuditAction::FolderCreated, $user, targetPath: $remote->path());
 
-        return MailboxFolder::query()->create([
-            'delimiter' => $remote->delimiter(),
-            'flags' => $remote->flags(),
-            'mailbox_id' => $mailbox->id,
-            'name' => $remote->name(),
-            'path' => $remote->path(),
-            'role' => FolderRole::Custom,
-            'selectable' => true,
-        ]);
+        return MailboxFolder::query()
+            ->create([
+                'delimiter' => $remote->delimiter(),
+                'flags' => $remote->flags(),
+                'mailbox_id' => $mailbox->id,
+                'name' => $remote->name(),
+                'path' => $remote->path(),
+                'role' => FolderRole::Custom,
+                'selectable' => true,
+            ]);
     }
 }

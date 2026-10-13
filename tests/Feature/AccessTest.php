@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use J87NL\Mailbox\Enums\AccessLevel;
+use J87NL\Mailbox\MailboxServiceProvider;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxAccess;
 use J87NL\Mailbox\Tests\Support\Group;
@@ -13,12 +14,13 @@ use J87NL\Mailbox\Tests\Support\VerifiedUser;
 
 function grant(Mailbox $mailbox, Model $accessor, AccessLevel $level): void
 {
-    MailboxAccess::query()->create([
-        'accessor_id' => $accessor->getKey(),
-        'accessor_type' => $accessor->getMorphClass(),
-        'level' => $level,
-        'mailbox_id' => $mailbox->id,
-    ]);
+    MailboxAccess::query()
+        ->create([
+            'accessor_id' => $accessor->getKey(),
+            'accessor_type' => $accessor->getMorphClass(),
+            'level' => $level,
+            'mailbox_id' => $mailbox->id,
+        ]);
 }
 
 /**
@@ -49,7 +51,8 @@ it('grants exactly the level of a user row', function (AccessLevel $level, array
 it('grants access through a group the user belongs to', function (): void {
     $mailbox = mailbox();
     $user = user();
-    $group = Group::query()->create(['name' => 'Office']);
+    $group = Group::query()
+        ->create(['name' => 'Office']);
     $user->groups()->attach($group);
 
     grant($mailbox, $group, AccessLevel::Write);
@@ -60,7 +63,8 @@ it('grants access through a group the user belongs to', function (): void {
 it('uses the highest level over the user row and the group rows', function (): void {
     $mailbox = mailbox();
     $user = user();
-    $group = Group::query()->create(['name' => 'Board']);
+    $group = Group::query()
+        ->create(['name' => 'Board']);
     $user->groups()->attach($group);
 
     grant($mailbox, $user, AccessLevel::Read);
@@ -95,8 +99,10 @@ it('gives admins manage on every mailbox and the global ability', function (): v
 
 it('requires a verified email for admins whose model verifies email', function (): void {
     config()->set('mailbox.access.admins', ['admin@example.com']);
-    $unverified = VerifiedUser::query()->create(['email' => 'admin@example.com', 'name' => 'Admin']);
-    $verified = VerifiedUser::query()->create(['email' => 'admin@example.com', 'email_verified_at' => now(), 'name' => 'Admin']);
+    $unverified = VerifiedUser::query()
+        ->create(['email' => 'admin@example.com', 'name' => 'Admin']);
+    $verified = VerifiedUser::query()
+        ->create(['email' => 'admin@example.com', 'email_verified_at' => now(), 'name' => 'Admin']);
 
     expect(Gate::forUser($unverified)->allows('manageMailboxes'))->toBeFalse()
         ->and(Gate::forUser($unverified)->allows('accessMailbox', mailbox()))->toBeFalse()
@@ -123,9 +129,24 @@ it('hides an inactive mailbox from everyone except admins', function (): void {
 });
 
 it('leaves abilities the host app defined itself alone', function (): void {
-    expect(Gate::has('accessMailbox'))->toBeTrue();
-
     Gate::define('accessMailbox', fn (): bool => true);
 
-    expect(Gate::forUser(user())->allows('accessMailbox', mailbox()))->toBeTrue();
+    MailboxServiceProvider::defineAbilities();
+
+    expect(Gate::forUser(user())->allows('accessMailbox', mailbox()))->toBeTrue()
+        ->and(Gate::forUser(user())->allows('workInMailbox', mailbox()))->toBeFalse();
+});
+
+it('allows the mailbox menu for users with access to any active mailbox', function (): void {
+    config()->set('mailbox.access.admins', ['admin@example.com']);
+    $reader = user();
+    grant(mailbox(), $reader, AccessLevel::Read);
+    $inactiveManager = user();
+    grant(mailbox(['active' => false, 'name' => 'Old']), $inactiveManager, AccessLevel::Manage);
+
+    expect(Gate::forUser($reader)->allows('accessAnyMailbox'))->toBeTrue()
+        ->and(Gate::forUser($inactiveManager)->allows('accessAnyMailbox'))->toBeFalse()
+        ->and(Gate::forUser(user())->allows('accessAnyMailbox'))->toBeFalse()
+        ->and(Gate::forUser(user(['email' => 'admin@example.com']))->allows('accessAnyMailbox'))->toBeTrue()
+        ->and(Gate::forUser(null)->allows('accessAnyMailbox'))->toBeFalse();
 });

@@ -18,12 +18,14 @@ it('grants, changes and revokes access with an audit trail', function (): void {
     $access = $grant->handle($mailbox, $member->getMorphClass(), $member->id, AccessLevel::Write, null);
     $grant->revoke($access, null);
 
-    expect(MailboxAccess::query()->count())->toBe(0)
-        ->and(MailboxAuditEntry::query()->pluck('action')->all())->toBe([
-            AuditAction::AccessGranted,
-            AuditAction::AccessGranted,
-            AuditAction::AccessRevoked,
-        ]);
+    expect(MailboxAccess::query()
+        ->count())->toBe(0)
+        ->and(MailboxAuditEntry::query()
+            ->pluck('action')->all())->toBe([
+                AuditAction::AccessGranted,
+                AuditAction::AccessGranted,
+                AuditAction::AccessRevoked,
+            ]);
 });
 
 it('refuses to revoke the last manage row of a mailbox', function (): void {
@@ -32,7 +34,8 @@ it('refuses to revoke the last manage row of a mailbox', function (): void {
     $access = app(GrantAccess::class)->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Manage, null);
 
     expect(fn () => app(GrantAccess::class)->revoke($access, null))->toThrow(ValidationException::class);
-    expect(MailboxAccess::query()->count())->toBe(1);
+    expect(MailboxAccess::query()
+        ->count())->toBe(1);
 });
 
 it('refuses to lower the last manage row of a mailbox', function (): void {
@@ -43,7 +46,8 @@ it('refuses to lower the last manage row of a mailbox', function (): void {
 
     expect(fn () => $grant->handle($mailbox, $manager->getMorphClass(), $manager->id, AccessLevel::Read, null))
         ->toThrow(ValidationException::class);
-    expect(MailboxAccess::query()->sole()->level)->toBe(AccessLevel::Manage);
+    expect(MailboxAccess::query()
+        ->sole()->level)->toBe(AccessLevel::Manage);
 });
 
 it('revokes a manage row while another manager remains', function (): void {
@@ -56,5 +60,6 @@ it('revokes a manage row while another manager remains', function (): void {
 
     $grant->revoke($access, null);
 
-    expect(MailboxAccess::query()->pluck('accessor_id')->all())->toBe([$second->id]);
+    expect(MailboxAccess::query()
+        ->pluck('accessor_id')->all())->toBe([$second->id]);
 });
