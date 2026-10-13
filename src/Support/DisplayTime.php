@@ -9,11 +9,16 @@ use DateTimeZone;
 
 class DisplayTime
 {
+    /**
+     * @var array<int, string>|null
+     */
+    private static ?array $identifiers = null;
+
     public static function timezone(): string
     {
         $timezone = config('mailbox.display_timezone');
 
-        if (is_string($timezone) && in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
+        if (is_string($timezone) && in_array($timezone, self::identifiers(), true)) {
             return $timezone;
         }
 
@@ -37,5 +42,13 @@ class DisplayTime
     public static function isToday(CarbonInterface $date): bool
     {
         return self::local($date)->isSameDay(now(self::timezone()));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function identifiers(): array
+    {
+        return self::$identifiers ??= DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC);
     }
 }
