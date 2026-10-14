@@ -7,6 +7,8 @@
 - New contract `ResolvesInlineImageUrls` (bound to a no-op by default) and `FetchMessageBody::inlineAttachments()`.
 - The default HugeRTE options keep `data-mailbox-cid` on images (`extended_valid_elements`). Hosts with a published `config/mailbox.php` add that line.
 - Translations `quote_forwarded` and `quote_wrote`.
+- Quotes only keep `https:` and `data:` images, drop `srcset` and any `data-mailbox-cid` the original carried; quoted images are matched on real `src` attributes only.
+- Without a quote source, marked or signed inline images are removed from the sent HTML; `FetchMessageBody::inlineAttachments()` skips parts without a Content-ID.
 
 ## 0.2.0 - 2026-10-13
 

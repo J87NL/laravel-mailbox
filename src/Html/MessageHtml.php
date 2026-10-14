@@ -14,6 +14,8 @@ class MessageHtml
 
     public const CID_ATTRIBUTE = 'data-mailbox-cid';
 
+    private const INLINE_PLACEHOLDER = 'data:mailbox-inline-';
+
     private const RESOURCE_LOADING_CSS = '/(url|image|image-set|cross-fade|element)\(|\\\\|@import/';
 
     public function render(?string $html, ?string $text, Closure $cidUrl, bool $allowRemoteImages = false): string
@@ -40,17 +42,24 @@ class MessageHtml
             return nl2br(e((string) $text));
         }
 
-        $withInlineUrls = $this->markContentIds($html, $cidUrl);
+        $inlineUrls = [];
+        $marked = $this->markContentIds($this->withoutCidMarkers($html), $cidUrl, $inlineUrls);
 
         $config = $this->baseConfig()
             ->allowMediaSchemes([
                 'data',
-                'http',
                 'https',
             ])
+            ->dropAttribute('srcset', '*')
             ->allowAttribute(self::CID_ATTRIBUTE, 'img');
 
-        return $this->stripResourceLoadingStyles((new HtmlSanitizer($config))->sanitize($withInlineUrls));
+        $clean = $this->stripResourceLoadingStyles((new HtmlSanitizer($config))->sanitize($marked));
+
+        return preg_replace_callback(
+            sprintf('/%s(\d+)/', preg_quote(self::INLINE_PLACEHOLDER, '/')),
+            fn (array $match): string => e($inlineUrls[(int) $match[1]] ?? ''),
+            $clean,
+        ) ?? $clean;
     }
 
     public function sanitizeSignature(?string $html): ?string
@@ -111,14 +120,27 @@ class MessageHtml
         return preg_match(self::RESOURCE_LOADING_CSS, $normalized) === 1;
     }
 
-    private function markContentIds(string $html, Closure $cidUrl): string
+    private function withoutCidMarkers(string $html): string
+    {
+        return preg_replace(
+            sprintf('/\s%s\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', preg_quote(self::CID_ATTRIBUTE, '/')),
+            '',
+            $html,
+        ) ?? $html;
+    }
+
+    /**
+     * @param  array<int, string>  $inlineUrls
+     */
+    private function markContentIds(string $html, Closure $cidUrl, array &$inlineUrls): string
     {
         return preg_replace_callback(
-            '/(<img\b[^>]*?\bsrc\s*=\s*)(["\'])cid:([^"\']+)\2/i',
-            function (array $match) use ($cidUrl): string {
+            '/(<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*?(?<![\w-])src\s*=\s*)(["\'])cid:([^"\']+)\2/i',
+            function (array $match) use ($cidUrl, &$inlineUrls): string {
                 $contentId = html_entity_decode($match[3]);
+                $inlineUrls[] = (string) $cidUrl($contentId);
 
-                return sprintf('%1$s%2$s%3$s%2$s %4$s="%5$s"', $match[1], $match[2], e((string) $cidUrl($contentId)), self::CID_ATTRIBUTE, e($contentId));
+                return sprintf('%1$s%2$s%3$s%4$d%2$s %5$s="%6$s"', $match[1], $match[2], self::INLINE_PLACEHOLDER, count($inlineUrls) - 1, self::CID_ATTRIBUTE, e($contentId));
             },
             $html,
         ) ?? $html;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Attachment;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
+use J87NL\Mailbox\Actions\FetchMessageBody;
 use J87NL\Mailbox\Actions\SendMessage;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
 use J87NL\Mailbox\Html\MessageHtml;
@@ -124,4 +125,121 @@ it('quotes the sanitised html body and marks inline images for the editor', func
 it('falls back to the escaped text part when there is no html', function (): void {
     expect(app(MessageHtml::class)->quote(null, "Line <one>\nLine two", fn (string $contentId): string => $contentId))
         ->toBe("Line &lt;one&gt;<br />\nLine two");
+});
+
+function quoteOf(string $html): string
+{
+    return html_entity_decode(app(MessageHtml::class)->quote(
+        $html,
+        null,
+        fn (string $contentId): string => sprintf('https://app.test/inline/1/%s', $contentId),
+    ));
+}
+
+it('removes active and tracking content from the quote', function (string $html, string $forbidden): void {
+    expect(quoteOf($html))->not->toContain($forbidden);
+})->with([
+    'script' => [
+        '<p>Hi</p><script>alert(1)</script>',
+        'alert(1)',
+    ],
+    'event handler' => [
+        '<p onclick="steal()">Hi</p><img src="https://cdn.example.org/a.png" onerror="steal()">',
+        'steal()',
+    ],
+    'javascript link' => [
+        '<a href="javascript:steal()">x</a>',
+        'javascript:',
+    ],
+    'style url' => [
+        '<div style="background: url(https://tracker.test/a.gif)">x</div>',
+        'tracker.test',
+    ],
+    'plain http image' => [
+        '<img src="http://tracker.test/a.gif">',
+        'tracker.test',
+    ],
+    'srcset' => [
+        '<img src="https://cdn.example.org/a.png" srcset="https://tracker.test/2x.png 2x">',
+        'tracker.test',
+    ],
+    'forged inline marker' => [
+        '<img src="https://cdn.example.org/a.png" data-mailbox-cid="other-part">',
+        'other-part',
+    ],
+]);
+
+it('escapes the content id it writes into the marker attribute', function (): void {
+    $quote = app(MessageHtml::class)->quote(
+        '<img src="cid:a&lt;b onload=&quot;steal()&quot;&gt;">',
+        null,
+        fn (string $contentId): string => 'https://app.test/inline/1/x',
+    );
+
+    expect($quote)->toContain('data-mailbox-cid="')
+        ->not->toContain('<b')
+        ->not->toContain('onload="');
+});
+
+it('only rewrites real src attributes of inline images', function (): void {
+    $quote = quoteOf('<img data-src="cid:lazy" alt="see src=&quot;cid:nope&quot;" src="https://cdn.example.org/a.png">');
+
+    expect($quote)->toContain('src="https://cdn.example.org/a.png"')
+        ->not->toContain('data-mailbox-cid')
+        ->not->toContain('app.test/inline');
+});
+
+it('leaves no marked images or markers behind without a quote source', function (): void {
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+
+    app(SendMessage::class)->handle($mailbox, [
+        'body' => '<p>Hi</p><img src="https://app.test/inline/9/logo" data-mailbox-cid="logo"><img src="https://cdn.example.org/ok.png">',
+        'subject' => 'Hi',
+        'to' => [
+            'colleague@example.org',
+        ],
+    ], null);
+
+    $html = (string) test()->connector->transport->sent[0]->getHtmlBody();
+
+    expect($html)->toBe('<p>Hi</p><img src="https://cdn.example.org/ok.png">');
+});
+
+it('keeps unrelated images whose other attributes mention src', function (): void {
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+    $tag = '<img alt="src=&quot;https://app.test/inline/9/x&quot;" data-src="https://app.test/inline/9/y" src="https://cdn.example.org/ok.png">';
+
+    app(SendMessage::class)->handle($mailbox, [
+        'body' => $tag,
+        'subject' => 'Hi',
+        'to' => [
+            'colleague@example.org',
+        ],
+    ], null);
+
+    expect((string) test()->connector->transport->sent[0]->getHtmlBody())->toBe($tag);
+});
+
+it('lists only inline parts that have a content id', function (): void {
+    $mailbox = mailbox();
+    $message = storedMessage(folder($mailbox), 1)->load('folder');
+    $raw = (new Email)
+        ->from('sender@example.org')
+        ->to('team@example.com')
+        ->html('<img src="cid:logo">')
+        ->embed('LOGO', 'logo', 'image/png')
+        ->attach('PDF', 'offer.pdf', 'application/pdf')
+        ->toString();
+    remoteFolder($mailbox, 'INBOX')->setMessages([
+        new FakeMessage(1, [], $raw),
+    ]);
+
+    $parts = app(FetchMessageBody::class)->inlineAttachments($message);
+
+    expect($parts)->toHaveCount(1)
+        ->and(array_values($parts)[0]->contentType())->toBe('image/png');
 });

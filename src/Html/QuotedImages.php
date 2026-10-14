@@ -26,17 +26,22 @@ class QuotedImages
         $wanted = [];
 
         $marked = preg_replace_callback(
-            '/<img\b[^>]*>/i',
+            '/<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>/i',
             function (array $match) use ($source, &$wanted): string {
-                $contentId = $this->sourceContentId($match[0], $source);
+                $attributes = $this->attributes($match[0]);
+                $contentId = $this->sourceContentId($attributes, $source);
 
                 if (is_null($contentId)) {
-                    return $this->keepsOwnSource($match[0]) ? $match[0] : '';
+                    return $this->keepsOwnSource($attributes) ? $match[0] : '';
+                }
+
+                if ($contentId === '') {
+                    return '';
                 }
 
                 $wanted[] = [
+                    'attributes' => $attributes,
                     'content_id' => $contentId,
-                    'tag' => $match[0],
                 ];
 
                 return sprintf(self::MARKER, count($wanted) - 1);
@@ -52,7 +57,7 @@ class QuotedImages
     }
 
     /**
-     * @param  array<int, array{content_id: string, tag: string}>  $wanted
+     * @param  array<int, array{attributes: array<string, string>, content_id: string}>  $wanted
      * @param  array<string, Attachment>  $parts
      */
     private function replaceMarkers(Email $email, string $html, array $wanted, array $parts): string
@@ -65,7 +70,7 @@ class QuotedImages
     }
 
     /**
-     * @param  array{content_id: string, tag: string}  $image
+     * @param  array{attributes: array<string, string>, content_id: string}  $image
      * @param  array<string, Attachment>  $parts
      */
     private function embedded(Email $email, array $image, array $parts): string
@@ -80,15 +85,29 @@ class QuotedImages
 
         $email->embed($part->contents(), $name, $part->contentType());
 
-        $tag = (string) preg_replace('/\s'.preg_quote(MessageHtml::CID_ATTRIBUTE, '/').'\s*=\s*(["\']).*?\1/i', '', $image['tag']);
+        $attributes = [
+            ...array_diff_key($image['attributes'], array_flip([
+                MessageHtml::CID_ATTRIBUTE,
+                'src',
+                'srcset',
+            ])),
+            'src' => sprintf('cid:%s', $name),
+        ];
 
-        return (string) preg_replace('/\bsrc\s*=\s*(["\']).*?\1/i', sprintf('src="cid:%s"', $name), $tag, 1);
+        return sprintf('<img%s>', implode('', array_map(
+            fn (string $attribute, string $value): string => sprintf(' %s="%s"', $attribute, e($value)),
+            array_keys($attributes),
+            $attributes,
+        )));
     }
 
-    private function sourceContentId(string $tag, ?MailboxMessage $source): ?string
+    /**
+     * @param  array<string, string>  $attributes
+     */
+    private function sourceContentId(array $attributes, ?MailboxMessage $source): ?string
     {
-        $marked = $this->attribute($tag, MessageHtml::CID_ATTRIBUTE);
-        $parsed = $this->urls->parse((string) $this->attribute($tag, 'src'));
+        $marked = $attributes[MessageHtml::CID_ATTRIBUTE] ?? null;
+        $parsed = $this->urls->parse($attributes['src'] ?? '');
 
         if (is_null($marked) && is_null($parsed)) {
             return null;
@@ -105,20 +124,41 @@ class QuotedImages
         return $parsed['content_id'];
     }
 
-    private function keepsOwnSource(string $tag): bool
+    /**
+     * @param  array<string, string>  $attributes
+     */
+    private function keepsOwnSource(array $attributes): bool
     {
-        $source = strtolower(trim((string) $this->attribute($tag, 'src')));
+        $source = strtolower(trim($attributes['src'] ?? ''));
 
         return $source !== '' && ! str_starts_with($source, 'cid:');
     }
 
-    private function attribute(string $tag, string $name): ?string
+    /**
+     * @return array<string, string>
+     */
+    private function attributes(string $tag): array
     {
-        if (preg_match(sprintf('/\s%s\s*=\s*(["\'])(.*?)\1/is', preg_quote($name, '/')), $tag, $match) !== 1) {
-            return null;
+        preg_match_all(
+            '/([^\s"\'=<>\/]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'=<>`]+)))?/',
+            (string) preg_replace('/^<img\b|\/?>$/i', '', $tag),
+            $matches,
+            PREG_SET_ORDER,
+        );
+
+        $attributes = [];
+
+        foreach ($matches as $match) {
+            $name = strtolower($match[1]);
+
+            if (array_key_exists($name, $attributes)) {
+                continue;
+            }
+
+            $attributes[$name] = html_entity_decode(($match[2] ?? '').($match[3] ?? '').($match[4] ?? ''), ENT_QUOTES | ENT_HTML5);
         }
 
-        return html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5);
+        return $attributes;
     }
 
     /**

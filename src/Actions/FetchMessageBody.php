@@ -57,7 +57,7 @@ class FetchMessageBody
     public function inlineAttachments(MailboxMessage $message): array
     {
         return collect($this->remote($message)->attachments())
-            ->filter(fn (Attachment $attachment): bool => ! is_null($attachment->contentId()))
+            ->filter(fn (Attachment $attachment): bool => trim((string) $attachment->contentId(), '<> ') !== '')
             ->keyBy(fn (Attachment $attachment): string => trim((string) $attachment->contentId(), '<>'))
             ->all();
     }
