@@ -10,4 +10,6 @@ interface ResolvesInlineImageUrls
      * @return array{message_id: int, content_id: string}|null
      */
     public function parse(string $url): ?array;
+
+    public function urlPrefix(): ?string;
 }

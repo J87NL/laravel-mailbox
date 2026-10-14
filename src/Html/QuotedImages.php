@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Html;
 
 use DirectoryTree\ImapEngine\Attachment;
+use Dom\Element;
+use Dom\Text;
+use Dom\XPath;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Actions\FetchMessageBody;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
@@ -14,8 +17,6 @@ use Symfony\Component\Mime\Email;
 
 class QuotedImages
 {
-    private const MARKER = '<!--mailbox-quoted-image:%d-->';
-
     public function __construct(
         private readonly FetchMessageBody $fetch,
         private readonly ResolvesInlineImageUrls $urls,
@@ -23,91 +24,73 @@ class QuotedImages
 
     public function embed(Email $email, string $html, ?MailboxMessage $source): string
     {
+        $body = HtmlFragment::parse($html);
         $wanted = [];
 
-        $marked = preg_replace_callback(
-            '/<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>/i',
-            function (array $match) use ($source, &$wanted): string {
-                $attributes = $this->attributes($match[0]);
-                $contentId = $this->sourceContentId($attributes, $source);
+        foreach (HtmlFragment::elements($body, 'img') as $image) {
+            $contentId = $this->sourceContentId($image, $source);
 
-                if (is_null($contentId)) {
-                    return $this->keepsOwnSource($attributes) ? $match[0] : '';
-                }
+            if (is_null($contentId)) {
+                $this->keepOrRemove($image);
 
-                if ($contentId === '') {
-                    return '';
-                }
+                continue;
+            }
 
-                $wanted[] = [
-                    'attributes' => $attributes,
-                    'content_id' => $contentId,
-                ];
+            if ($contentId === '') {
+                $image->remove();
 
-                return sprintf(self::MARKER, count($wanted) - 1);
-            },
-            $html,
-        ) ?? $html;
+                continue;
+            }
 
+            $wanted[] = [
+                'content_id' => $contentId,
+                'image' => $image,
+            ];
+        }
+
+        $this->embedWanted($email, $wanted, $source);
+        $this->removeInlineUrls($body);
+
+        return HtmlFragment::serialize($body);
+    }
+
+    /**
+     * @param  array<int, array{content_id: string, image: Element}>  $wanted
+     */
+    private function embedWanted(Email $email, array $wanted, ?MailboxMessage $source): void
+    {
         if ($wanted === [] || is_null($source)) {
-            return $marked;
+            return;
         }
 
-        return $this->replaceMarkers($email, $marked, $wanted, $this->inlineParts($source));
-    }
+        $parts = $this->inlineParts($source);
 
-    /**
-     * @param  array<int, array{attributes: array<string, string>, content_id: string}>  $wanted
-     * @param  array<string, Attachment>  $parts
-     */
-    private function replaceMarkers(Email $email, string $html, array $wanted, array $parts): string
-    {
-        foreach ($wanted as $index => $image) {
-            $html = str_replace(sprintf(self::MARKER, $index), $this->embedded($email, $image, $parts), $html);
+        foreach ($wanted as $item) {
+            $this->embedImage($email, $item['image'], $parts[$item['content_id']] ?? null);
         }
-
-        return $html;
     }
 
-    /**
-     * @param  array{attributes: array<string, string>, content_id: string}  $image
-     * @param  array<string, Attachment>  $parts
-     */
-    private function embedded(Email $email, array $image, array $parts): string
+    private function embedImage(Email $email, Element $image, ?Attachment $part): void
     {
-        $part = $parts[$image['content_id']] ?? null;
-
         if (is_null($part)) {
-            return '';
+            $image->remove();
+
+            return;
         }
 
         $name = sprintf('quoted-%s', Str::lower(Str::random(16)));
 
         $email->embed($part->contents(), $name, $part->contentType());
 
-        $attributes = [
-            ...array_diff_key($image['attributes'], array_flip([
-                MessageHtml::CID_ATTRIBUTE,
-                'src',
-                'srcset',
-            ])),
-            'src' => sprintf('cid:%s', $name),
-        ];
-
-        return sprintf('<img%s>', implode('', array_map(
-            fn (string $attribute, string $value): string => sprintf(' %s="%s"', $attribute, e($value)),
-            array_keys($attributes),
-            $attributes,
-        )));
+        $image->removeAttribute(MessageHtml::CID_ATTRIBUTE);
+        $image->removeAttribute('srcset');
+        $image->setAttribute('src', sprintf('cid:%s', $name));
     }
 
-    /**
-     * @param  array<string, string>  $attributes
-     */
-    private function sourceContentId(array $attributes, ?MailboxMessage $source): ?string
+    private function sourceContentId(Element $image, ?MailboxMessage $source): ?string
     {
-        $marked = $attributes[MessageHtml::CID_ATTRIBUTE] ?? null;
-        $parsed = $this->urls->parse($attributes['src'] ?? '');
+        $marked = $image->getAttribute(MessageHtml::CID_ATTRIBUTE);
+        $parsed = $this->urls->parse((string) $image->getAttribute('src'));
 
         if (is_null($marked) && is_null($parsed)) {
             return null;
@@ -124,41 +107,57 @@ class QuotedImages
         return $parsed['content_id'];
     }
 
-    /**
-     * @param  array<string, string>  $attributes
-     */
-    private function keepsOwnSource(array $attributes): bool
+    private function keepOrRemove(Element $image): void
     {
-        $source = strtolower(trim($attributes['src'] ?? ''));
+        $source = strtolower(trim((string) $image->getAttribute('src')));
 
-        return $source !== '' && ! str_starts_with($source, 'cid:');
+        if ($source !== '' && ! str_starts_with($source, 'cid:')) {
+            return;
+        }
+
+        $image->remove();
+    }
+
+    private function removeInlineUrls(Element $body): void
+    {
+        $prefix = $this->urls->urlPrefix();
+
+        if (is_null($prefix) || $prefix === '') {
+            return;
+        }
+
+        foreach (HtmlFragment::elements($body, '*') as $element) {
+            $this->removeInlineUrlAttributes($element, $prefix);
+        }
+
+        foreach ($this->textNodes($body) as $text) {
+            $text->data = (string) preg_replace(sprintf('#%s\S*#i', preg_quote($prefix, '#')), '', $text->data);
+        }
+    }
+
+    private function removeInlineUrlAttributes(Element $element, string $prefix): void
+    {
+        foreach ($element->getAttributeNames() as $name) {
+            if (str_contains(strtolower((string) $element->getAttribute($name)), strtolower($prefix))) {
+                $element->removeAttribute($name);
+            }
+        }
     }
 
     /**
-     * @return array<string, string>
+     * @return list<Text>
      */
-    private function attributes(string $tag): array
+    private function textNodes(Element $body): array
     {
-        preg_match_all(
-            '/([^\s"\'=<>\/]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'=<>`]+)))?/',
-            (string) preg_replace('/^<img\b|\/?>$/i', '', $tag),
-            $matches,
-            PREG_SET_ORDER,
-        );
+        $texts = [];
 
-        $attributes = [];
-
-        foreach ($matches as $match) {
-            $name = strtolower($match[1]);
-
-            if (array_key_exists($name, $attributes)) {
-                continue;
+        foreach ((new XPath($body->ownerDocument))->query('.//text()', $body) as $node) {
+            if ($node instanceof Text) {
+                $texts[] = $node;
             }
-
-            $attributes[$name] = html_entity_decode(($match[2] ?? '').($match[3] ?? '').($match[4] ?? ''), ENT_QUOTES | ENT_HTML5);
         }
 
-        return $attributes;
+        return $texts;
     }
 
     /**

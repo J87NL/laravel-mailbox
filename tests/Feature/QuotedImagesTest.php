@@ -7,6 +7,7 @@ use DirectoryTree\ImapEngine\Testing\FakeMessage;
 use J87NL\Mailbox\Actions\FetchMessageBody;
 use J87NL\Mailbox\Actions\SendMessage;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
+use J87NL\Mailbox\Html\HtmlFragment;
 use J87NL\Mailbox\Html\MessageHtml;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Part\DataPart;
@@ -23,6 +24,11 @@ class TestInlineImageUrls implements ResolvesInlineImageUrls
             'content_id' => $match[2],
             'message_id' => (int) $match[1],
         ];
+    }
+
+    public function urlPrefix(): ?string
+    {
+        return 'https://app.test/inline/';
     }
 }
 
@@ -114,7 +120,8 @@ it('quotes the sanitised html body and marks inline images for the editor', func
     );
 
     expect(html_entity_decode($quote))->toContain('<p style="color: blue">Hello <a href="https://example.org"')
-        ->toContain('src="https://app.test/inline/1/logo@example.org" data-mailbox-cid="logo@example.org"')
+        ->toContain('src="https://app.test/inline/1/logo@example.org"')
+        ->toContain('data-mailbox-cid="logo@example.org"')
         ->toContain('src="https://cdn.example.org/logo.png"')
         ->not->toContain('Title')
         ->not->toContain('color:red')
@@ -176,9 +183,12 @@ it('escapes the content id it writes into the marker attribute', function (): vo
         fn (string $contentId): string => 'https://app.test/inline/1/x',
     );
 
-    expect($quote)->toContain('data-mailbox-cid="')
-        ->not->toContain('<b')
-        ->not->toContain('onload="');
+    $body = HtmlFragment::parse($quote);
+    $images = HtmlFragment::elements($body, 'img');
+
+    expect($images)->toHaveCount(1)
+        ->and($images[0]->getAttribute('data-mailbox-cid'))->toBe('a<b onload="steal()">')
+        ->and(HtmlFragment::elements($body, '[onload], b'))->toBe([]);
 });
 
 it('only rewrites real src attributes of inline images', function (): void {
@@ -207,7 +217,7 @@ it('leaves no marked images or markers behind without a quote source', function 
     expect($html)->toBe('<p>Hi</p><img src="https://cdn.example.org/ok.png">');
 });
 
-it('keeps unrelated images whose other attributes mention src', function (): void {
+it('keeps unrelated images and strips inline urls from their other attributes', function (): void {
     $mailbox = mailbox([
         'append_sent' => false,
     ]);
@@ -221,7 +231,7 @@ it('keeps unrelated images whose other attributes mention src', function (): voi
         ],
     ], null);
 
-    expect((string) test()->connector->transport->sent[0]->getHtmlBody())->toBe($tag);
+    expect((string) test()->connector->transport->sent[0]->getHtmlBody())->toBe('<img src="https://cdn.example.org/ok.png">');
 });
 
 it('lists only inline parts that have a content id', function (): void {
@@ -243,3 +253,78 @@ it('lists only inline parts that have a content id', function (): void {
     expect($parts)->toHaveCount(1)
         ->and(array_values($parts)[0]->contentType())->toBe('image/png');
 });
+
+it('marks only images whose real src is a cid reference', function (string $html, int $marked): void {
+    $quote = app(MessageHtml::class)->quote(
+        $html,
+        null,
+        fn (string $contentId): string => sprintf('https://app.test/inline/1/%s', $contentId),
+    );
+    $body = HtmlFragment::parse($quote);
+    $markers = HtmlFragment::elements($body, '[data-mailbox-cid]');
+
+    expect($markers)->toHaveCount($marked)
+        ->and(substr_count($quote, 'app.test/inline'))->toBe($marked)
+        ->and(trim($body->textContent))->not->toContain('app.test');
+
+    foreach ($markers as $marker) {
+        expect($marker->getAttribute('src'))->toBe(sprintf('https://app.test/inline/1/%s', $marker->getAttribute('data-mailbox-cid')));
+    }
+})->with([
+    'slash before the marker attribute' => [
+        '<img src="https://cdn.example.org/a.png" /data-mailbox-cid=other>',
+        0,
+    ],
+    'duplicate src, first wins' => [
+        '<img src="https://cdn.example.org/a.png" src="cid:logo">',
+        0,
+    ],
+    'first src is the cid' => [
+        '<img src="cid:logo" src="https://cdn.example.org/a.png">',
+        1,
+    ],
+    'src text inside another attribute' => [
+        '<img title=/src="cid:x" src="https://cdn.example.org/a.png">',
+        0,
+    ],
+    'unquoted src with an equals sign' => [
+        '<img src=cid:logo?size=2 alt=it\'s>',
+        1,
+    ],
+    'placeholder-looking text' => [
+        '<p>data:mailbox-inline-0 https://mailbox-inline.invalid/abc</p><img src="data:mailbox-inline-0">',
+        0,
+    ],
+]);
+
+it('never sends an inline route url', function (string $body): void {
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+
+    app(SendMessage::class)->handle($mailbox, [
+        'body' => $body,
+        'subject' => 'Hi',
+        'to' => [
+            'colleague@example.org',
+        ],
+    ], null);
+
+    $sent = test()->connector->transport->sent[0];
+
+    expect((string) $sent->getHtmlBody())->not->toContain('app.test/inline')
+        ->and((string) $sent->getTextBody())->not->toContain('app.test/inline');
+})->with([
+    'unquoted alt with an apostrophe' => [
+        '<img alt=it\'s src=https://app.test/inline/9/logo?signature=a=b>',
+    ],
+    'link' => [
+        '<p><a href="https://app.test/inline/9/logo?signature=abc">logo</a></p>',
+    ],
+    'text' => [
+        '<p>see https://app.test/inline/9/logo?signature=abc please</p>',
+    ],
+    'background attribute' => [
+        '<table background="https://app.test/inline/9/logo"><tr><td>x</td></tr></table>',
+    ],
+]);

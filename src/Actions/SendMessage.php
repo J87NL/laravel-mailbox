@@ -93,10 +93,12 @@ class SendMessage
         $email = (new Email)
             ->from(new Address($mailbox->email, (string) $mailbox->from_name))
             ->to(...$this->addresses($data['to']))
-            ->subject((string) $data['subject'])
-            ->text($this->plainText((string) $data['body']));
+            ->subject((string) $data['subject']);
 
-        $email->html($this->quotedImages->embed($email, (string) $data['body'], $data['quote_source'] ?? null));
+        $html = $this->quotedImages->embed($email, (string) $data['body'], $data['quote_source'] ?? null);
+
+        $email->html($html)
+            ->text($this->plainText($html));
 
         $this->copies($email, $data);
         $this->attach($email, $data['attachments'] ?? []);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Html;
 
 use Closure;
+use Illuminate\Support\Str;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
@@ -14,7 +15,7 @@ class MessageHtml
 
     public const CID_ATTRIBUTE = 'data-mailbox-cid';
 
-    private const INLINE_PLACEHOLDER = 'data:mailbox-inline-';
+    private const INLINE_PLACEHOLDER = 'https://mailbox-inline.invalid/';
 
     private const RESOURCE_LOADING_CSS = '/(url|image|image-set|cross-fade|element)\(|\\\\|@import/';
 
@@ -42,24 +43,18 @@ class MessageHtml
             return nl2br(e((string) $text));
         }
 
-        $inlineUrls = [];
-        $marked = $this->markContentIds($this->withoutCidMarkers($html), $cidUrl, $inlineUrls);
+        $tokens = [];
 
         $config = $this->baseConfig()
             ->allowMediaSchemes([
                 'data',
                 'https',
             ])
-            ->dropAttribute('srcset', '*')
-            ->allowAttribute(self::CID_ATTRIBUTE, 'img');
+            ->dropAttribute('srcset', '*');
 
-        $clean = $this->stripResourceLoadingStyles((new HtmlSanitizer($config))->sanitize($marked));
+        $clean = (new HtmlSanitizer($config))->sanitize($this->tokeniseInlineImages($html, $tokens));
 
-        return preg_replace_callback(
-            sprintf('/%s(\d+)/', preg_quote(self::INLINE_PLACEHOLDER, '/')),
-            fn (array $match): string => e($inlineUrls[(int) $match[1]] ?? ''),
-            $clean,
-        ) ?? $clean;
+        return $this->restoreInlineImages($this->stripResourceLoadingStyles($clean), $tokens, $cidUrl);
     }
 
     public function sanitizeSignature(?string $html): ?string
@@ -120,30 +115,55 @@ class MessageHtml
         return preg_match(self::RESOURCE_LOADING_CSS, $normalized) === 1;
     }
 
-    private function withoutCidMarkers(string $html): string
+    /**
+     * @param  array<string, string>  $tokens
+     */
+    private function tokeniseInlineImages(string $html, array &$tokens): string
     {
-        return preg_replace(
-            sprintf('/\s%s\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', preg_quote(self::CID_ATTRIBUTE, '/')),
-            '',
-            $html,
-        ) ?? $html;
+        $body = HtmlFragment::parse($html);
+
+        foreach (HtmlFragment::elements($body, sprintf('[%s]', self::CID_ATTRIBUTE)) as $element) {
+            $element->removeAttribute(self::CID_ATTRIBUTE);
+        }
+
+        foreach (HtmlFragment::elements($body, 'img[src]') as $image) {
+            $source = trim((string) $image->getAttribute('src'));
+
+            if (! str_starts_with(strtolower($source), 'cid:')) {
+                continue;
+            }
+
+            $token = sprintf('%s%s', self::INLINE_PLACEHOLDER, Str::random(40));
+            $tokens[$token] = substr($source, 4);
+            $image->setAttribute('src', $token);
+        }
+
+        return HtmlFragment::serialize($body);
     }
 
     /**
-     * @param  array<int, string>  $inlineUrls
+     * @param  array<string, string>  $tokens
      */
-    private function markContentIds(string $html, Closure $cidUrl, array &$inlineUrls): string
+    private function restoreInlineImages(string $html, array $tokens, Closure $cidUrl): string
     {
-        return preg_replace_callback(
-            '/(<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*?(?<![\w-])src\s*=\s*)(["\'])cid:([^"\']+)\2/i',
-            function (array $match) use ($cidUrl, &$inlineUrls): string {
-                $contentId = html_entity_decode($match[3]);
-                $inlineUrls[] = (string) $cidUrl($contentId);
+        $body = HtmlFragment::parse($html);
 
-                return sprintf('%1$s%2$s%3$s%4$d%2$s %5$s="%6$s"', $match[1], $match[2], self::INLINE_PLACEHOLDER, count($inlineUrls) - 1, self::CID_ATTRIBUTE, e($contentId));
-            },
-            $html,
-        ) ?? $html;
+        foreach (HtmlFragment::elements($body, sprintf('[%s]', self::CID_ATTRIBUTE)) as $element) {
+            $element->removeAttribute(self::CID_ATTRIBUTE);
+        }
+
+        foreach (HtmlFragment::elements($body, 'img[src]') as $image) {
+            $contentId = $tokens[(string) $image->getAttribute('src')] ?? null;
+
+            if (is_null($contentId)) {
+                continue;
+            }
+
+            $image->setAttribute('src', (string) $cidUrl($contentId));
+            $image->setAttribute(self::CID_ATTRIBUTE, $contentId);
+        }
+
+        return HtmlFragment::serialize($body);
     }
 
     /**

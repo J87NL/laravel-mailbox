@@ -12,4 +12,9 @@ class NoInlineImageUrls implements ResolvesInlineImageUrls
     {
         return null;
     }
+
+    public function urlPrefix(): ?string
+    {
+        return null;
+    }
 }
