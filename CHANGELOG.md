@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-10-14
+
+- `MarkMessages::read()` and `unread()` keep the folder's `unseen_count` in step: it changes by the number of messages whose seen state actually changed and never drops below zero. Until now it only changed on the next sync.
+
 ## 0.3.0 - 2026-10-14
 
 - `MessageHtml::quote()` sanitises an original message for quoting: body content only, inline styles without resource-loading declarations, remote images kept, `cid:` images rewritten to the given URL and marked with `data-mailbox-cid`. Without an HTML part the text part is quoted.

@@ -7,8 +7,10 @@ namespace J87NL\Mailbox\Actions;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
+use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 
 class MarkMessages
@@ -74,6 +76,8 @@ class MarkMessages
                 $query->uid($group->pluck('uid')->all());
                 $query->flag($flag, $operation);
 
+                $this->adjustUnseenCount($group, $attributes);
+
                 MailboxMessage::query()
                     ->whereKey($group->pluck('id')->all())
                     ->update($attributes);
@@ -84,5 +88,38 @@ class MarkMessages
 
                 $this->audit->forMessages($group, $action, $user);
             });
+    }
+
+    /**
+     * @param  Collection<int, MailboxMessage>  $group
+     * @param  array<string, bool>  $attributes
+     */
+    private function adjustUnseenCount(Collection $group, array $attributes): void
+    {
+        if (! array_key_exists('is_seen', $attributes)) {
+            return;
+        }
+
+        $changed = MailboxMessage::query()
+            ->whereKey($group->pluck('id')->all())
+            ->where('is_seen', ! $attributes['is_seen'])
+            ->count();
+
+        if ($changed === 0) {
+            return;
+        }
+
+        $folder = MailboxFolder::query()
+            ->whereKey($group->first()->mailbox_folder_id);
+
+        if (! $attributes['is_seen']) {
+            $folder->increment('unseen_count', $changed);
+
+            return;
+        }
+
+        $folder->update([
+            'unseen_count' => DB::raw(sprintf('CASE WHEN unseen_count > %1$d THEN unseen_count - %1$d ELSE 0 END', $changed)),
+        ]);
     }
 }

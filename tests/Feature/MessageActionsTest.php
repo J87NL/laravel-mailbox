@@ -195,6 +195,43 @@ it('marks messages read, unread, flagged and unflagged on the server and in the 
         ->where('is_seen', true)->count())->toBe(0);
 });
 
+it('keeps the unseen count of the folder in step when messages are marked', function (): void {
+    $mailbox = mailbox();
+    $inbox = folder($mailbox, attributes: [
+        'unseen_count' => 2,
+    ]);
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1), remoteMessage(2), remoteMessage(3)]);
+    $messages = MailboxMessage::query()
+        ->with('folder')->findMany([
+            storedMessage($inbox, 1)->id,
+            storedMessage($inbox, 2)->id,
+            storedMessage($inbox, 3, [
+                'is_seen' => true,
+            ])->id,
+        ]);
+    $mark = app(MarkMessages::class);
+
+    $mark->read($messages->take(1), null);
+
+    expect($inbox->refresh()->unseen_count)->toBe(1);
+
+    $mark->read($messages, null);
+    $mark->read($messages, null);
+
+    expect($inbox->refresh()->unseen_count)->toBe(0);
+
+    $mark->unread($messages->take(2), null);
+
+    expect($inbox->refresh()->unseen_count)->toBe(2);
+
+    $inbox->update([
+        'unseen_count' => 0,
+    ]);
+    $mark->read($messages, null);
+
+    expect($inbox->refresh()->unseen_count)->toBe(0);
+});
+
 it('adds a contact once per mailbox, case-insensitively', function (): void {
     $mailbox = mailbox();
     $add = app(AddContact::class);
