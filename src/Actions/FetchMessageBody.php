@@ -51,6 +51,17 @@ class FetchMessageBody
         return array_map(fn (int $index): ?Attachment => $attachments[$index] ?? null, $indexes);
     }
 
+    /**
+     * @return array<string, Attachment>
+     */
+    public function inlineAttachments(MailboxMessage $message): array
+    {
+        return collect($this->remote($message)->attachments())
+            ->filter(fn (Attachment $attachment): bool => ! is_null($attachment->contentId()))
+            ->keyBy(fn (Attachment $attachment): string => trim((string) $attachment->contentId(), '<>'))
+            ->all();
+    }
+
     public function inlineAttachment(MailboxMessage $message, string $contentId): ?Attachment
     {
         return collect($this->remote($message)->attachments())

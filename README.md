@@ -80,6 +80,10 @@ interface ProvidesContactSuggestions
 
 A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos); style declarations that load resources (`url(…)`) are removed. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
 
+## Quoting
+
+`MessageHtml::quote()` prepares an original message for a reply or forward with the reading pane's sanitiser: body content only, inline styles without `url(…)` and similar, remote images kept as plain `<img>`, and `cid:` images rewritten to a URL you pass plus a `data-mailbox-cid` attribute so the editor can show them. On send, `SendMessage` embeds those images again from the quoted message (`quote_source`) with fresh Content-IDs. It only accepts images marked with `data-mailbox-cid` or pointing at a signed inline URL of that same message (resolved through `ResolvesInlineImageUrls`); anything else that refers to a message part is dropped.
+
 ## SMTP security
 
 SMTP always requires TLS: implicit TLS on port 465, mandatory STARTTLS otherwise. A relay without TLS needs `smtp_tls = false` on the mailbox row; the form does not offer this on purpose.

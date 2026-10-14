@@ -12,6 +12,8 @@ class MessageHtml
 {
     private const REMOTE_REFERENCE = '/(<img[^>]+src|background)\s*=\s*["\']?\s*https?:|srcset\s*=\s*["\']?[^"\'>]*(https?:)?\/\/|url\(\s*["\']?\s*(https?:)?\/\//i';
 
+    public const CID_ATTRIBUTE = 'data-mailbox-cid';
+
     private const RESOURCE_LOADING_CSS = '/(url|image|image-set|cross-fade|element)\(|\\\\|@import/';
 
     public function render(?string $html, ?string $text, Closure $cidUrl, bool $allowRemoteImages = false): string
@@ -30,6 +32,25 @@ class MessageHtml
         }
 
         return $this->stripResourceLoadingStyles($clean);
+    }
+
+    public function quote(?string $html, ?string $text, Closure $cidUrl): string
+    {
+        if (is_null($html) || trim($html) === '') {
+            return nl2br(e((string) $text));
+        }
+
+        $withInlineUrls = $this->markContentIds($html, $cidUrl);
+
+        $config = $this->baseConfig()
+            ->allowMediaSchemes([
+                'data',
+                'http',
+                'https',
+            ])
+            ->allowAttribute(self::CID_ATTRIBUTE, 'img');
+
+        return $this->stripResourceLoadingStyles((new HtmlSanitizer($config))->sanitize($withInlineUrls));
     }
 
     public function sanitizeSignature(?string $html): ?string
@@ -88,6 +109,19 @@ class MessageHtml
         ], '', $declaration));
 
         return preg_match(self::RESOURCE_LOADING_CSS, $normalized) === 1;
+    }
+
+    private function markContentIds(string $html, Closure $cidUrl): string
+    {
+        return preg_replace_callback(
+            '/(<img\b[^>]*?\bsrc\s*=\s*)(["\'])cid:([^"\']+)\2/i',
+            function (array $match) use ($cidUrl): string {
+                $contentId = html_entity_decode($match[3]);
+
+                return sprintf('%1$s%2$s%3$s%2$s %4$s="%5$s"', $match[1], $match[2], e((string) $cidUrl($contentId)), self::CID_ATTRIBUTE, e($contentId));
+            },
+            $html,
+        ) ?? $html;
     }
 
     /**

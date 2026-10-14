@@ -13,6 +13,7 @@ use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageSent;
+use J87NL\Mailbox\Html\QuotedImages;
 use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxMessage;
@@ -24,6 +25,7 @@ class SendMessage
     public function __construct(
         private readonly MailboxConnector $connector,
         private readonly EnsureFolder $ensureFolder,
+        private readonly QuotedImages $quotedImages,
         private readonly MarkMessages $markMessages,
         private readonly RecordAudit $audit,
     ) {}
@@ -92,8 +94,9 @@ class SendMessage
             ->from(new Address($mailbox->email, (string) $mailbox->from_name))
             ->to(...$this->addresses($data['to']))
             ->subject((string) $data['subject'])
-            ->html((string) $data['body'])
             ->text($this->plainText((string) $data['body']));
+
+        $email->html($this->quotedImages->embed($email, (string) $data['body'], $data['quote_source'] ?? null));
 
         $this->copies($email, $data);
         $this->attach($email, $data['attachments'] ?? []);

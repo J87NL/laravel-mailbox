@@ -14,7 +14,9 @@ use J87NL\Mailbox\Commands\PruneBodiesCommand;
 use J87NL\Mailbox\Commands\SyncCommand;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
+use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
 use J87NL\Mailbox\Enums\AccessLevel;
+use J87NL\Mailbox\Html\NoInlineImageUrls;
 use J87NL\Mailbox\Models\Mailbox;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -44,6 +46,7 @@ class MailboxServiceProvider extends PackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->scoped(MailboxConnector::class);
+        $this->app->bindIf(ResolvesInlineImageUrls::class, NoInlineImageUrls::class);
         $this->app->scoped(MailboxAccessResolver::class);
         $this->app->scoped(ResolvesAccessors::class, fn (): ResolvesAccessors => $this->app->make(config('mailbox.access.resolver')));
     }

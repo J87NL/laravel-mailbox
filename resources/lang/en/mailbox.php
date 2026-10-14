@@ -96,6 +96,8 @@ return [
     'password' => 'Password',
     'password_keep' => 'Leave empty to keep the current password.',
     'password_required_on_change' => 'Enter the password again when you change the server, port, encryption or username.',
+    'quote_forwarded' => 'Forwarded message',
+    'quote_wrote' => 'On :date, :name wrote:',
     'received' => 'Received',
     'remote_images_blocked' => 'Remote images are hidden to protect your privacy.',
     'reply' => 'Reply',

@@ -96,6 +96,8 @@ return [
     'password' => 'Wachtwoord',
     'password_keep' => 'Leeg laten om het huidige wachtwoord te houden.',
     'password_required_on_change' => 'Vul het wachtwoord opnieuw in als je de server, poort, versleuteling of gebruikersnaam wijzigt.',
+    'quote_forwarded' => 'Doorgestuurd bericht',
+    'quote_wrote' => 'Op :date schreef :name:',
     'received' => 'Ontvangen',
     'remote_images_blocked' => 'Externe afbeeldingen zijn verborgen om je privacy te beschermen.',
     'reply' => 'Beantwoorden',

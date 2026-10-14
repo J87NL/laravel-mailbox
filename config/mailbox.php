@@ -29,6 +29,7 @@ return [
                 'entity_encoding' => 'raw',
                 'paste_data_images' => false,
                 'min_height' => 320,
+                'extended_valid_elements' => 'img[src|alt|title|width|height|style|class|data-mailbox-cid]',
             ],
         ],
     ],
