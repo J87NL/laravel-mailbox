@@ -91,6 +91,9 @@ FormBuilder's own `default-editor`. Both editors use the FormBuilder `email` pro
 `data-mailbox-cid` in `extended_valid_elements` for HugeRTE: quoted inline images need that attribute, see
 [Sending mail](sending.md#quoting-and-inline-images). A config published before 0.3.0 lacks this line; add it.
 
+This package only names the editor. The frontend has to install and register it; for the UI package see its
+[installation guide](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/installation.md#4-install-the-compose-editor).
+
 ## Contacts
 
 ```php

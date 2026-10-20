@@ -141,6 +141,9 @@ $this->app->bind(ResolvesInlineImageUrls::class, App\Mailbox\InlineImageUrls::cl
 
 The package binds its default with `bindIf()`, so a binding of your own wins.
 
+The UI package binds its own implementation, `J87NL\VueMailbox\Support\InlineUrls`, for its signed inline route. See
+its [inline images](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/inline-images.md) docs.
+
 ## Replacing the connector
 
 All IMAP and SMTP traffic goes through `J87NL\Mailbox\Connection\MailboxConnector`, bound as a scoped singleton. The

@@ -1,7 +1,7 @@
 - [Introduction](index.md)
 - [Installation](installation.md)
 - [Configuration](configuration.md)
-- Core Concepts
+- Core concepts
     - [Data model](data-model.md)
     - [Synchronization](sync.md)
     - [Access control](access.md)
@@ -19,3 +19,5 @@
     - [Artisan commands](artisan-commands.md)
     - [Security](security.md)
     - [Testing](testing.md)
+- Related packages
+    - [Vue/Inertia UI (laravel-vue-mailbox)](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/index.md)

@@ -19,8 +19,27 @@ composer require j87nl/laravel-mailbox
 
 The service provider `J87NL\Mailbox\MailboxServiceProvider` registers automatically via Laravel's package discovery.
 
-For the Vue/Inertia user interface install `j87nl/laravel-vuemailbox` instead. It requires this package and offers
-`php artisan mailbox:install`, which does the publishing below for you.
+### You probably want the UI package as well
+
+For a mailbox screen in your app, install
+[`j87nl/laravel-vue-mailbox`](https://github.com/J87NL/laravel-vue-mailbox) instead. It requires this package, so one
+`require` installs both:
+
+```bash
+composer require j87nl/laravel-vue-mailbox
+```
+
+Follow its [installation guide](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/installation.md). Its
+`php artisan mailbox:install` publishes the config and migrations of this package, so skip the publish step below. The
+other steps on this page still apply, because the UI only calls this package:
+
+| Step on this page                                               | Needed with the UI                                                                                                                                                          |
+|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Publish config and migrations](#publish-config-and-migrations) | Done by `mailbox:install`; you still run `php artisan migrate`                                                                                                              |
+| [Bootstrap an admin](#bootstrap-an-admin)                       | Only to create mailboxes on the settings page. That needs `manageMailboxes`, which only admins pass unless your app defines that ability itself. `mailbox:add` always works |
+| [Add a mailbox](#add-a-mailbox)                                 | Optional. Admins can add mailboxes and grant access on the settings page                                                                                                    |
+| [Schedule the sync](#schedule-the-sync)                         | Yes. The UI shows what the sync stored and queues sync jobs itself                                                                                                          |
+| [OAuth mailboxes](#oauth-mailboxes)                             | Only for mailboxes with OAuth authentication                                                                                                                                |
 
 ## Publish config and migrations
 
@@ -68,6 +87,9 @@ php artisan mailbox:grant {mailbox-id}
 
 `mailbox:add` asks for the address, the IMAP and SMTP servers and the credentials, tests the connection and stores the
 mailbox. `mailbox:grant` gives a user or group access. See [Artisan commands](artisan-commands.md).
+
+With the UI package, an admin can do both on the
+[mailbox settings page](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/pages/settings.md).
 
 ## Schedule the sync
 

@@ -52,9 +52,13 @@ $messageHtml->remoteImagesAllowed(true);            // true
 
 ## Showing the result
 
-The package returns a string; it does not render it. Show the HTML in a sandboxed iframe, not inline in your page. The
-UI package uses an iframe with `srcdoc`, a CSP meta tag and `sandbox` without `allow-scripts`. See
+The package returns a string; it does not render it. Show the HTML in a sandboxed iframe, not inline in your page. See
 [Security](security.md).
+
+The UI package does this for you with an iframe with `srcdoc`, a CSP meta tag and `sandbox` without `allow-scripts`, and
+serves the inline images through a signed route. See its
+[message frame](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/pages/messages.md#the-message-frame) and
+[inline images](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/inline-images.md).
 
 ## Quotes and signatures
 

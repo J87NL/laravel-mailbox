@@ -1,11 +1,14 @@
 # Forms
 
 The forms in `J87NL\Mailbox\Forms` are TranquilTools FormBuilder forms (`AbstractForm`). They hold the fields and the
-validation rules; a renderer, such as the Vue package, shows them. See the FormBuilder documentation for rendering and
-validating a form.
+validation rules; a renderer shows them. See the FormBuilder documentation for rendering and validating a form.
 
 Labels come from the `mailbox::mailbox` translations. This package registers no routes; the route names in the
 examples stand for routes of your own app.
+
+The UI package renders `MailboxForm`, `AccessForm`, `ComposeForm`, `FolderForm` and `ContactForm` on its pages and
+handles the submit. See the
+[laravel-vue-mailbox docs](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/index.md).
 
 ## MailboxForm
 
@@ -122,7 +125,8 @@ characters).
 ## EmailEditor
 
 `EmailEditor::make(string $name)` returns a FormBuilder `Wysiwyg` field with the editor from `mailbox.compose.editor`,
-the `email` profile and the options from `mailbox.compose.editor_options.<editor>`. The body and signature fields use it.
+the `email` profile and the options from `mailbox.compose.editor_options.<editor>`. The body and signature fields use
+it.
 
 ```php
 use J87NL\Mailbox\Forms\EmailEditor;

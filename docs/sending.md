@@ -56,9 +56,9 @@ Pass the original message as `$replyTo`:
 $messageId = app(SendMessage::class)->handle($mailbox, $data, $request->user(), $original);
 ```
 
-When the original has a `Message-ID`, the message gets `In-Reply-To: <original-id>` and a `References` header with the original `References` followed by the
-original id. Recipients are not filled in for you; the cached message has `from_email`, `reply_to`, `to` and `cc` to
-build them from.
+When the original has a `Message-ID`, the message gets `In-Reply-To: <original-id>` and a `References` header with the
+original `References` followed by the original id. Recipients are not filled in for you; the cached message has
+`from_email`, `reply_to`, `to` and `cc` to build them from.
 
 ## Forwarding attachments
 
@@ -112,10 +112,11 @@ A mailbox can have an HTML `signature`. `SaveMailbox` sanitizes it with `Message
 - a signature without text or images is stored as `null`.
 
 The package does not insert the signature into the body. The UI package puts it below an empty first paragraph and
-above the quote, wrapped in `<div class="mailbox-signature">`.
+above the quote, wrapped in `<div class="mailbox-signature">`. See its
+[compose page](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/pages/compose.md#body-and-signature).
 
 ## SMTP connection
 
-The transport is a Symfony `EsmtpTransport` built per mailbox, with the timeout from `mailbox.connection.timeout`. TLS is
-required unless `smtp_tls` is `false`, see [Security](security.md#smtp-requires-tls). OAuth mailboxes authenticate with XOAUTH2 and a token from the
-[token provider](extension-points.md#providesaccesstoken).
+The transport is a Symfony `EsmtpTransport` built per mailbox, with the timeout from `mailbox.connection.timeout`. TLS
+is required unless `smtp_tls` is `false`, see [Security](security.md#smtp-requires-tls). OAuth mailboxes authenticate
+with XOAUTH2 and a token from the [token provider](extension-points.md#providesaccesstoken).

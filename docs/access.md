@@ -5,13 +5,13 @@ your app has not defined an ability with the same name.
 
 ## Abilities
 
-| Ability            | Arguments            | Allows                                                                 |
-|--------------------|----------------------|------------------------------------------------------------------------|
-| `accessMailbox`    | `Mailbox $mailbox`   | Read: view folders, messages and attachments                           |
-| `workInMailbox`    | `Mailbox $mailbox`   | Write: also send, reply, forward, move, archive, delete, flag, mark read or unread, create folders |
-| `manageMailbox`    | `Mailbox $mailbox`   | Manage: also edit the mailbox settings and its access list             |
-| `accessAnyMailbox` | none                 | True for admins and for users with at least read on an active mailbox  |
-| `manageMailboxes`  | none                 | Global: create and delete mailboxes. True for admins only              |
+| Ability            | Arguments          | Allows                                                                                                                           |
+|--------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `accessMailbox`    | `Mailbox $mailbox` | Read: view folders, messages and attachments                                                                                     |
+| `workInMailbox`    | `Mailbox $mailbox` | Write: also send, reply, forward, move, archive, delete, flag, mark read or unread, create folders, manage address book contacts |
+| `manageMailbox`    | `Mailbox $mailbox` | Manage: also edit the mailbox settings and its access list                                                                       |
+| `accessAnyMailbox` | none               | True for admins and for users with at least read on an active mailbox                                                            |
+| `manageMailboxes`  | none               | Global: create and delete mailboxes. True for admins only                                                                        |
 
 ```php
 use Illuminate\Support\Facades\Gate;
@@ -27,6 +27,9 @@ Use `accessAnyMailbox` to decide whether to show a mailbox menu link. Guests are
 
 The package checks no abilities itself, except `SaveMailbox` for OAuth server changes (see
 [Security](security.md#saving-a-mailbox)). Call `Gate::authorize()` in your controllers before calling an action.
+
+The UI package checks these abilities on every route it registers, except the signed inline image route and the settings
+list. See its [routes and authorization](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/routes.md).
 
 ## Levels
 

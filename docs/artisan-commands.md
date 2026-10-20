@@ -84,5 +84,6 @@ Schedule::command('mailbox:prune-bodies')->daily();
 
 ## `mailbox:install`
 
-This command belongs to the UI package `j87nl/laravel-vuemailbox`, not to this package. It publishes the config and
-migrations of this package together with the UI files.
+This command belongs to the UI package `j87nl/laravel-vue-mailbox`, not to this package. It publishes the config and
+migrations of this package together with the UI files. See its
+[Artisan commands](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/artisan-commands.md).

@@ -18,6 +18,10 @@ what your app has to do.
 - **Serve attachments as downloads.** Use `application/octet-stream` and `X-Content-Type-Options: nosniff`, and only
   serve common image types inline.
 
+The UI package does all of this for its own routes. See its
+[security](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/security.md) page. Routes of your own still
+need these checks.
+
 ## Credentials
 
 The IMAP and SMTP passwords use Laravel's `encrypted` cast and are hidden when a `Mailbox` is turned into an array or
