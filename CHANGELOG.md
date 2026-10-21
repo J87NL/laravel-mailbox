@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-- `MailboxMessage::links()` only returns the links of the message's own mailbox, also when eager loaded or used in `has()`. Until now a copy of the same `Message-ID` in another mailbox shared its links.
+- `MailboxMessage::links()` only returns the links of the message's own mailbox, also when eager loaded, counted or used in `has()`/`whereHas()`, and `$message->links()->create()` fills the `mailbox_id`. Until now a copy of the same `Message-ID` in another mailbox shared its links. The method still declares `HasMany`; it returns the new `J87NL\Mailbox\Relations\MessageLinks`.
 - `FolderForm` only accepts a `parent_id` of the form's mailbox.
-- New action `LinkMessage` links a message to a model and writes the `linked` audit entry, which was never written until now. `RecordAudit::forMessages()` takes an optional `meta`.
+- New action `LinkMessage` links a message to a model and writes the `linked` audit entry, which was never written until now. It refuses an unsaved model and writes the link and the entry in one transaction. `RecordAudit::forMessages()` takes an optional `meta`.
 - A `sent` audit entry stores `to` as a list of bare addresses, also when the recipients were given as one string.
 - Removed the autoload entry for the non-existent `database/factories` folder.
 - The README no longer says dates are stored in UTC: like Laravel's own timestamps they are stored in `app.timezone`. `docs/ARCHITECTURE.md` is linked as the historical v0.1 design notes.

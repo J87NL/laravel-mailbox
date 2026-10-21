@@ -20,6 +20,11 @@ class MailboxException extends RuntimeException
         return new self("Message [{$message->id}] has no Message-ID and cannot be linked.");
     }
 
+    public static function unsavedLinkable(): self
+    {
+        return new self('A message can only be linked to a saved model.');
+    }
+
     public static function missingTokenProvider(Mailbox $mailbox): self
     {
         return new self("Mailbox [{$mailbox->name}] uses OAuth, but no mailbox.oauth_token_provider is configured.");

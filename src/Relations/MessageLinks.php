@@ -23,7 +23,24 @@ class MessageLinks extends HasMany
             return;
         }
 
-        $this->query->where($this->related->qualifyColumn('mailbox_id'), $this->parent->getAttribute('mailbox_id'));
+        $this->query->withAttributes(['mailbox_id' => $this->parent->getAttribute('mailbox_id')]);
+    }
+
+    /**
+     * @param  array<int, MailboxMessage>  $models
+     */
+    public function addEagerConstraints(array $models): void
+    {
+        parent::addEagerConstraints($models);
+
+        $mailboxIds = collect($models)
+            ->map(fn (MailboxMessage $model): mixed => $model->getAttribute('mailbox_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->query->whereIn($this->related->qualifyColumn('mailbox_id'), $mailboxIds);
     }
 
     /**
@@ -37,9 +54,23 @@ class MessageLinks extends HasMany
         $dictionary = $results->groupBy(fn (MailboxMessageLink $link): string => $this->dictionaryKeyFor($link->mailbox_id, $link->message_id));
 
         foreach ($models as $model) {
-            $key = $this->dictionaryKeyFor($model->getAttribute('mailbox_id'), $model->getAttribute('message_id'));
+            $messageId = $model->getAttribute('message_id');
 
-            $model->setRelation($relation, $this->related->newCollection($dictionary->get($key)?->all() ?? []));
+            if (blank($messageId)) {
+                continue;
+            }
+
+            $related = $dictionary->get($this->dictionaryKeyFor($model->getAttribute('mailbox_id'), $messageId));
+
+            if (is_null($related)) {
+                continue;
+            }
+
+            $links = $this->related->newCollection($related->all());
+
+            $model->setRelation($relation, $links);
+
+            $this->applyInverseRelationToCollection($links, $model);
         }
 
         return $models;

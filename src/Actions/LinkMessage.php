@@ -23,6 +23,15 @@ class LinkMessage
             throw MailboxException::missingMessageId($message);
         }
 
+        if (! $linkable->exists) {
+            throw MailboxException::unsavedLinkable();
+        }
+
+        return $message->getConnection()->transaction(fn (): MailboxMessageLink => $this->link($message, $linkable, $user));
+    }
+
+    private function link(MailboxMessage $message, Model $linkable, ?Authenticatable $user): MailboxMessageLink
+    {
         $link = MailboxMessageLink::query()
             ->firstOrCreate([
                 'linkable_id' => $linkable->getKey(),

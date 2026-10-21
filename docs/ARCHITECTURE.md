@@ -134,7 +134,7 @@ An accessor is a user or any group model of the host app. The highest level over
 
 ## Timeouts and time zones
 
-IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` seconds (default 10). Dates are stored in UTC; dates the server formats for display (message list, reply quote) use `mailbox.display_timezone`, falling back to `app.timezone`. ISO strings sent to the frontend stay ISO.
+IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` seconds (default 10). Dates are stored in `app.timezone`; dates the server formats for display (message list, reply quote) use `mailbox.display_timezone`, falling back to `app.timezone`. ISO strings sent to the frontend stay ISO.
 
 ## Testing
 

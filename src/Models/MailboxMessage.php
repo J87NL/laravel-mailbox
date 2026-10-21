@@ -6,6 +6,7 @@ namespace J87NL\Mailbox\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use J87NL\Mailbox\Relations\MessageLinks;
 
@@ -69,7 +70,10 @@ class MailboxMessage extends Model
         return $this->belongsTo(MailboxFolder::class, 'mailbox_folder_id');
     }
 
-    public function links(): MessageLinks
+    /**
+     * @return MessageLinks
+     */
+    public function links(): HasMany
     {
         $link = new MailboxMessageLink;
 
