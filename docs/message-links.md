@@ -46,31 +46,36 @@ relation, so call `get()` or `paginate()` on it.
 
 ## Creating a link
 
-The package has no action for this. Create the row yourself:
+Use the `LinkMessage` action:
 
 ```php
-use J87NL\Mailbox\Models\MailboxMessageLink;
+use J87NL\Mailbox\Actions\LinkMessage;
 
-MailboxMessageLink::query()->firstOrCreate([
-    'mailbox_id' => $message->mailbox_id,
-    'message_id' => $message->message_id,
-    'linkable_type' => $customer->getMorphClass(),
-    'linkable_id' => $customer->getKey(),
-], [
-    'user_id' => $request->user()?->getAuthIdentifier(),
-]);
+$link = app(LinkMessage::class)->handle($message, $customer, $request->user());
 ```
 
-A message without a `Message-ID` header cannot be linked. The `linked` audit action exists for your own entries, see
-[Audit trail](audit-trail.md#writing-your-own-entries).
+It creates the link for the message's mailbox and `Message-ID`, stores who made it in `user_id`, and writes a `linked`
+[audit entry](audit-trail.md) with `linkable` (`morph-class:id`) in its meta. Linking the same message to the same model
+again returns the existing link and writes no new entry. A message without a `Message-ID` header, or a model that is not
+saved yet, cannot be linked: the action throws a `MailboxException`. The link and its audit entry are written in one
+transaction. The action does not check access; authorize the request first.
+
+Links you create yourself, for example with `MailboxMessageLink::query()->create()` or `$message->links()->create()`,
+are not audited. Use `LinkMessage` when the audit trail should show the link.
 
 ## From the message side
 
-`MailboxMessage::links()` returns the links with the same `Message-ID`. It matches on the `Message-ID` only, not on the
-mailbox, so filter on `mailbox_id` when the same message can be in several mailboxes:
+`MailboxMessage::links()` returns the links with the same mailbox and `Message-ID`, so a copy of the same message in
+another mailbox does not share them. This also holds for eager loading, `withCount('links')` and `whereHas('links')`. Creating through the relation fills
+both the mailbox and the `Message-ID`:
 
 ```php
-$message->links()->where('mailbox_id', $message->mailbox_id)->with('linkable')->get();
+$message->links()->with('linkable')->get();
+
+$message->links()->create([
+    'linkable_type' => $customer->getMorphClass(),
+    'linkable_id' => $customer->getKey(),
+]);
 ```
 
 Deleting a mailbox deletes its links.

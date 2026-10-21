@@ -19,5 +19,6 @@
     - [Artisan commands](artisan-commands.md)
     - [Security](security.md)
     - [Testing](testing.md)
+    - [Architecture (v0.1 design notes, historical)](ARCHITECTURE.md)
 - Related packages
     - [Vue/Inertia UI (laravel-vue-mailbox)](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/index.md)

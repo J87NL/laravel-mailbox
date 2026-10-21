@@ -15,12 +15,14 @@ class RecordAudit
 {
     /**
      * @param  Collection<int, MailboxMessage>  $messages
+     * @param  array<string, mixed>  $meta
      */
     public function forMessages(
         Collection $messages,
         AuditAction $action,
         ?Authenticatable $user,
         ?string $targetPath = null,
+        array $meta = [],
     ): void {
         if ($messages->isEmpty()) {
             return;
@@ -28,6 +30,7 @@ class RecordAudit
 
         $createdAt = now();
         $userId = $user?->getAuthIdentifier();
+        $encodedMeta = $meta ? json_encode($meta, JSON_THROW_ON_ERROR) : null;
 
         MailboxAuditEntry::query()
             ->insert(
@@ -38,7 +41,7 @@ class RecordAudit
                         'folder_path' => $message->folder->path,
                         'mailbox_id' => $message->mailbox_id,
                         'message_id' => $message->message_id,
-                        'meta' => null,
+                        'meta' => $encodedMeta,
                         'subject' => $message->subject,
                         'target_path' => $targetPath,
                         'user_id' => $userId,

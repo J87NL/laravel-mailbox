@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Exceptions;
 
 use J87NL\Mailbox\Models\Mailbox;
+use J87NL\Mailbox\Models\MailboxMessage;
 use RuntimeException;
 
 class MailboxException extends RuntimeException
@@ -12,6 +13,16 @@ class MailboxException extends RuntimeException
     public static function folderNotFound(Mailbox $mailbox, string $path): self
     {
         return new self("Folder [{$path}] does not exist in mailbox [{$mailbox->name}].");
+    }
+
+    public static function missingMessageId(MailboxMessage $message): self
+    {
+        return new self("Message [{$message->id}] has no Message-ID and cannot be linked.");
+    }
+
+    public static function unsavedLinkable(): self
+    {
+        return new self('A message can only be linked to a saved model.');
     }
 
     public static function missingTokenProvider(Mailbox $mailbox): self

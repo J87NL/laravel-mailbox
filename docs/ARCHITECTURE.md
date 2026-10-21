@@ -1,5 +1,7 @@
 # J87 Mailbox — architecture and handoff
 
+> Historical: the design notes of v0.1. The current behaviour is described in the other pages of these docs; where they differ, those pages win.
+
 Status: **v0.1, tested against fakes**. A J87 package that builds on the TranquilTools FormBuilder and TableBuilder; changes it needs in those packages are in `HANDOFF-tranquil-tools.md`. Both packages install standalone, pass Pest (Testbench), PHPStan (Larastan, level 5) and Pint. Verified against the installed `directorytree/imapengine` 1.25, `laravel-form-builder` 1.6, `laravel-vue-form-builder` 1.9 and `laravel-vue-table-builder` 1.8. Nothing has run against a real IMAP server or inside a host app yet.
 
 ## Goal
@@ -132,7 +134,7 @@ An accessor is a user or any group model of the host app. The highest level over
 
 ## Timeouts and time zones
 
-IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` seconds (default 10). Dates are stored in UTC; dates the server formats for display (message list, reply quote) use `mailbox.display_timezone`, falling back to `app.timezone`. ISO strings sent to the frontend stay ISO.
+IMAP and SMTP connection attempts give up after `mailbox.connection.timeout` seconds (default 10). Dates are stored in `app.timezone`; dates the server formats for display (message list, reply quote) use `mailbox.display_timezone`, falling back to `app.timezone`. ISO strings sent to the frontend stay ISO.
 
 ## Testing
 

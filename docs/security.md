@@ -9,8 +9,8 @@ what your app has to do.
   `workInMailbox` or `manageMailbox` before reading or changing a mailbox, and `manageMailboxes` before creating or
   deleting one. See [Access control](access.md).
 - **Scope ids to the mailbox.** Load folders and messages through the authorized mailbox, for example
-  `$mailbox->messages()->whereKey($ids)->get()`, so a request cannot reach rows of another mailbox. This includes the
-  `parent_id` of the [FolderForm](forms.md#folderform).
+  `$mailbox->messages()->whereKey($ids)->get()`, so a request cannot reach rows of another mailbox. The `parent_id` of
+  the [FolderForm](forms.md#folderform) is validated against the mailbox; load it through `$mailbox->folders()` too.
 - **Isolate rendered mail.** Show the output of `MessageHtml::render()` in a sandboxed iframe without `allow-scripts`,
   ideally with a CSP that matches the remote-image choice. See [HTML rendering](html.md).
 - **Sign inline image URLs** and keep them short-lived. Only return a result from

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Relations\MessageLinks;
 
 /**
  * @property int $id
@@ -70,11 +71,13 @@ class MailboxMessage extends Model
     }
 
     /**
-     * @return HasMany<MailboxMessageLink, $this>
+     * @return MessageLinks
      */
     public function links(): HasMany
     {
-        return $this->hasMany(MailboxMessageLink::class, 'message_id', 'message_id');
+        $link = new MailboxMessageLink;
+
+        return new MessageLinks($link->newQuery(), $this, $link->qualifyColumn('message_id'), 'message_id');
     }
 
     /**

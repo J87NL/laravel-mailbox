@@ -63,7 +63,7 @@ class SendMessage
             subject: $email->getSubject(),
             meta: [
                 'in_reply_to' => $replyTo?->message_id,
-                'to' => $data['to'],
+                'to' => array_map(fn (Address $address): string => $address->getAddress(), $email->getTo()),
             ],
         );
 
