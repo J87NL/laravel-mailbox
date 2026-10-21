@@ -105,8 +105,8 @@ new FolderForm($mailbox, route('mail.folders.store', $mailbox));
 Fields: `name` (required, at most 100 characters, no `/`, `\`, `*` or `%`) and `parent_id` (optional, a select of the
 mailbox's folders with decoded paths). Pass them to [CreateFolder](message-actions.md#creating-folders).
 
-The `parent_id` rule is `exists:mailbox_folders,id`, which does not limit the folder to this mailbox. Look the parent up
-through `$mailbox->folders()` before using it.
+The `parent_id` rule only accepts a folder of this mailbox; a folder of another mailbox fails validation. Still look
+the parent up through `$mailbox->folders()` before using it.
 
 ## ContactForm
 

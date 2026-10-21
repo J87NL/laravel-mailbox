@@ -52,7 +52,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `access.admins` | `MAILBOX_ADMINS` | empty | Comma-separated admin emails |
 | `access.mode` | `MAILBOX_ACCESS_MODE` | `restricted` | `open` gives every user write access |
 | `connection.timeout` | `MAILBOX_CONNECTION_TIMEOUT` | `10` | Seconds before an IMAP or SMTP connection attempt gives up |
-| `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in UTC |
+| `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in `app.timezone`, like Laravel's own timestamps |
 | `cache.body_days` | `MAILBOX_BODY_CACHE_DAYS` | `30` | Days a fetched body stays cached; `null` never prunes |
 | `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
 | `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |

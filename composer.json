@@ -34,8 +34,7 @@
     },
     "autoload": {
         "psr-4": {
-            "J87NL\\Mailbox\\": "src/",
-            "J87NL\\Mailbox\\Database\\Factories\\": "database/factories/"
+            "J87NL\\Mailbox\\": "src/"
         }
     },
     "autoload-dev": {

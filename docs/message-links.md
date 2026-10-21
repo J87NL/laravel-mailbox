@@ -46,31 +46,26 @@ relation, so call `get()` or `paginate()` on it.
 
 ## Creating a link
 
-The package has no action for this. Create the row yourself:
+Use the `LinkMessage` action:
 
 ```php
-use J87NL\Mailbox\Models\MailboxMessageLink;
+use J87NL\Mailbox\Actions\LinkMessage;
 
-MailboxMessageLink::query()->firstOrCreate([
-    'mailbox_id' => $message->mailbox_id,
-    'message_id' => $message->message_id,
-    'linkable_type' => $customer->getMorphClass(),
-    'linkable_id' => $customer->getKey(),
-], [
-    'user_id' => $request->user()?->getAuthIdentifier(),
-]);
+$link = app(LinkMessage::class)->handle($message, $customer, $request->user());
 ```
 
-A message without a `Message-ID` header cannot be linked. The `linked` audit action exists for your own entries, see
-[Audit trail](audit-trail.md#writing-your-own-entries).
+It creates the link for the message's mailbox and `Message-ID`, stores who made it in `user_id`, and writes a `linked`
+[audit entry](audit-trail.md) with `linkable` (`morph-class:id`) in its meta. Linking the same message to the same model
+again returns the existing link and writes no new entry. A message without a `Message-ID` header cannot be linked: the
+action throws a `MailboxException`. The action does not check access; authorize the request first.
 
 ## From the message side
 
-`MailboxMessage::links()` returns the links with the same `Message-ID`. It matches on the `Message-ID` only, not on the
-mailbox, so filter on `mailbox_id` when the same message can be in several mailboxes:
+`MailboxMessage::links()` returns the links with the same mailbox and `Message-ID`, so a copy of the same message in
+another mailbox does not share them. This also holds for eager loading and `has('links')`:
 
 ```php
-$message->links()->where('mailbox_id', $message->mailbox_id)->with('linkable')->get();
+$message->links()->with('linkable')->get();
 ```
 
 Deleting a mailbox deletes its links.

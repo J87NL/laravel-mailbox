@@ -161,3 +161,16 @@ it('sends to address lists and attaches forwarded originals', function (): void 
         ->and(array_map(fn (DataPart $part): string => (string) $part->getFilename(), $sent->getAttachments()))->toBe(['offer.pdf'])
         ->and($sent->getAttachments()[0]->getBody())->toBe('PDF-CONTENT');
 });
+
+it('records the recipients as a list of addresses', function (string|array $to): void {
+    app(SendMessage::class)->handle(mailbox(), composed(['to' => $to]), null);
+
+    expect(MailboxAuditEntry::query()
+        ->sole()->meta['to'])->toBe([
+            'customer@example.org',
+            'second@example.org',
+        ]);
+})->with([
+    'a string' => ['customer@example.org; second@example.org'],
+    'a list' => [[' customer@example.org ', 'Second <second@example.org>']],
+]);

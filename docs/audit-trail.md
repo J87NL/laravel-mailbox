@@ -41,7 +41,7 @@ $history = MailboxAuditEntry::query()
 | Case             | Value             | Written by                         | Meta                      |
 |------------------|-------------------|------------------------------------|---------------------------|
 | `Received`       | `received`        | the sync, for new messages         |                           |
-| `Sent`           | `sent`            | `SendMessage`                      | `in_reply_to`, `to`       |
+| `Sent`           | `sent`            | `SendMessage`                      | `in_reply_to`, `to`: list of addresses |
 | `Moved`          | `moved`           | `MoveMessages`                     |                           |
 | `Archived`       | `archived`        | `ArchiveMessages`                  |                           |
 | `Trashed`        | `trashed`         | `DeleteMessages`, outside Trash    |                           |
@@ -55,9 +55,10 @@ $history = MailboxAuditEntry::query()
 | `MailboxUpdated` | `mailbox_updated` | `SaveMailbox`                      | `changed`: field names    |
 | `AccessGranted`  | `access_granted`  | `GrantAccess::handle()`            | `accessor`, `level`       |
 | `AccessRevoked`  | `access_revoked`  | `GrantAccess::revoke()`            | `accessor`, `level`       |
-| `Linked`         | `linked`          | not written by this package        |                           |
+| `Linked`         | `linked`          | `LinkMessage`, for a new link      | `linkable`                |
 
-`changed` never contains the passwords. `accessor` has the form `morph-class:id`.
+`changed` never contains the passwords. `accessor` and `linkable` have the form `morph-class:id`. `to` holds the bare
+addresses of the `To` header, also when the recipients were given as one string.
 
 The translations hold a label per action under `mailbox::mailbox.audit_<value>`, for example
 `__('mailbox::mailbox.audit_moved')`.
@@ -74,17 +75,18 @@ $audit = app(RecordAudit::class);
 
 $audit->forMessages($messages, AuditAction::Moved, $user, targetPath: 'Archive/2026');
 
+$audit->forMessages($messages, AuditAction::Flagged, $user, meta: ['reason' => 'follow-up']);
+
 $audit->forMailbox(
     $mailbox,
-    AuditAction::Linked,
+    AuditAction::MailboxUpdated,
     $user,
-    messageId: $message->message_id,
-    subject: $message->subject,
-    meta: ['ticket' => $ticket->id],
+    meta: ['changed' => ['name']],
 );
 ```
 
 `forMessages()` inserts one entry per message in a single query and reads `folder_path` from each message's folder.
+Its optional `meta` is stored on every entry.
 `forMailbox()` creates one entry and returns it.
 
 ## The audit trail and `MessageReceived`

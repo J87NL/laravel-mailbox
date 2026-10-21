@@ -176,3 +176,7 @@ $test->passes($result);
 ## Address book
 
 `AddContact` adds an address to the address book, see [Address book & suggestions](contacts.md).
+
+## Links
+
+`LinkMessage` links a message to a model of your app, see [Linking messages to models](message-links.md).

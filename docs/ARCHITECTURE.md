@@ -1,5 +1,7 @@
 # J87 Mailbox — architecture and handoff
 
+> Historical: the design notes of v0.1. The current behaviour is described in the other pages of these docs; where they differ, those pages win.
+
 Status: **v0.1, tested against fakes**. A J87 package that builds on the TranquilTools FormBuilder and TableBuilder; changes it needs in those packages are in `HANDOFF-tranquil-tools.md`. Both packages install standalone, pass Pest (Testbench), PHPStan (Larastan, level 5) and Pint. Verified against the installed `directorytree/imapengine` 1.25, `laravel-form-builder` 1.6, `laravel-vue-form-builder` 1.9 and `laravel-vue-table-builder` 1.8. Nothing has run against a real IMAP server or inside a host app yet.
 
 ## Goal

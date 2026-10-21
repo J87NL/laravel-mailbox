@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Forms;
 
 use DirectoryTree\ImapEngine\Support\Str;
+use Illuminate\Validation\Rule;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
 use TranquilTools\FormBuilder\AbstractForm;
@@ -40,7 +41,10 @@ class FolderForm extends AbstractForm
                 ->options($this->parentOptions())
                 ->optionLabel('path')
                 ->optionValue('id')
-                ->rules('nullable', 'exists:mailbox_folders,id'),
+                ->rules(
+                    'nullable',
+                    Rule::exists(MailboxFolder::class, 'id')->where('mailbox_id', $this->mailbox->id),
+                ),
             Submit::make('create')
                 ->label(__('mailbox::mailbox.folder_create')),
         ];
