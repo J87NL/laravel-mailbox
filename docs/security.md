@@ -22,6 +22,12 @@ The UI package does all of this for its own routes. See its
 [security](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/security.md) page. Routes of your own still
 need these checks.
 
+## Cached raw messages
+
+Opened messages are kept as raw `.eml` files on `cache.raw_disk` (default `local`, which is private) for
+`cache.raw_hours` hours, with private visibility. Do not point it at a public disk. Serving from that file goes through the same routes and
+checks as before; the cache only saves the IMAP fetch.
+
 ## Credentials
 
 The IMAP and SMTP passwords use Laravel's `encrypted` cast and are hidden when a `Mailbox` is turned into an array or

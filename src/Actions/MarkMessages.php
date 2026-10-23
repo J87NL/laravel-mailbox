@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
+use J87NL\Mailbox\Jobs\FlagRemoteMessagesJob;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 
@@ -26,6 +27,25 @@ class MarkMessages
     public function read(Collection $messages, ?Authenticatable $user): void
     {
         $this->apply($messages, ImapFlag::Seen, '+', ['is_seen' => true], AuditAction::MarkedRead, $user);
+    }
+
+    /**
+     * @param  Collection<int, MailboxMessage>  $messages
+     */
+    public function readInBackground(Collection $messages, ?Authenticatable $user): void
+    {
+        $messages
+            ->groupBy('mailbox_folder_id')
+            ->each(function (Collection $group) use ($user): void {
+                $this->store($group, ['is_seen' => true], AuditAction::MarkedRead, $user);
+
+                FlagRemoteMessagesJob::dispatchAfterResponse(
+                    (int) $group->first()->mailbox_folder_id,
+                    $group->pluck('uid')->map(fn (mixed $uid): int => (int) $uid)->values()->all(),
+                    ImapFlag::Seen,
+                    '+',
+                );
+            });
     }
 
     /**
@@ -76,18 +96,27 @@ class MarkMessages
                 $query->uid($group->pluck('uid')->all());
                 $query->flag($flag, $operation);
 
-                $this->adjustUnseenCount($group, $attributes);
-
-                MailboxMessage::query()
-                    ->whereKey($group->pluck('id')->all())
-                    ->update($attributes);
-
-                if (is_null($action)) {
-                    return;
-                }
-
-                $this->audit->forMessages($group, $action, $user);
+                $this->store($group, $attributes, $action, $user);
             });
+    }
+
+    /**
+     * @param  Collection<int, MailboxMessage>  $group
+     * @param  array<string, bool>  $attributes
+     */
+    private function store(Collection $group, array $attributes, ?AuditAction $action, ?Authenticatable $user): void
+    {
+        $this->adjustUnseenCount($group, $attributes);
+
+        MailboxMessage::query()
+            ->whereKey($group->pluck('id')->all())
+            ->update($attributes);
+
+        if (is_null($action)) {
+            return;
+        }
+
+        $this->audit->forMessages($group, $action, $user);
     }
 
     /**

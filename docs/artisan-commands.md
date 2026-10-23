@@ -65,7 +65,9 @@ See [Synchronization](sync.md).
 
 ## `mailbox:prune-bodies`
 
-Forgets cached message bodies and attachment lists. A message fetches its body again when it is opened.
+Forgets cached message bodies and attachment lists, and the cached raw messages of those bodies. A message fetches its
+body again when it is opened. It also removes raw messages older than `mailbox.cache.raw_hours`, also when body pruning
+is switched off.
 
 ```bash
 php artisan mailbox:prune-bodies
@@ -76,7 +78,7 @@ php artisan mailbox:prune-bodies --days=7
 |----------|----------------------------------------------------------------------|
 | `--days` | Drop bodies fetched longer ago than this many days. Defaults to `mailbox.cache.body_days` (`30`) |
 
-When the option is not given and `mailbox.cache.body_days` is `null`, the command does nothing. Schedule it:
+When the option is not given and `mailbox.cache.body_days` is `null`, the command keeps the bodies. Schedule it:
 
 ```php
 Schedule::command('mailbox:prune-bodies')->daily();

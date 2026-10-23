@@ -61,6 +61,7 @@ use J87NL\Mailbox\Actions\MarkMessages;
 $mark = app(MarkMessages::class);
 
 $mark->read($messages, $user);
+$mark->readInBackground($messages, $user);
 $mark->unread($messages, $user);
 $mark->flag($messages, $user);
 $mark->unflag($messages, $user);
@@ -69,6 +70,13 @@ $mark->answered($message); // no audit entry
 
 One `UID STORE` per folder. `read()` and `unread()` keep the `unseen_count` of the folder in step: it changes by the
 number of messages whose seen state actually changed, and never drops below zero.
+
+`readInBackground()` updates the rows, the `unseen_count` and the audit trail right away, like `read()`, but sets the
+`\Seen` flag on the server after the response has been sent (`FlagRemoteMessagesJob`, dispatched after the response).
+Opening a message then does not wait for an IMAP round trip. The job runs in the same process once the response is
+sent, without a queue worker; meant for HTTP requests (in a command it runs when the command ends). A failure is
+reported, not thrown, and the next sync shows the message as unread again. Until the job ran, a sync of that folder can
+still see the message as unread on the server.
 
 ## Creating folders
 
@@ -103,7 +111,9 @@ $message->attachments; // [['content_id' => ..., 'content_type' => ..., 'filenam
 The body is fetched once and cached until `mailbox:prune-bodies` forgets it. Opening a message therefore does not mark
 it as read for the other users; call `MarkMessages::read()` when you want that.
 
-Other methods, each fetching the message from the server:
+Other methods. The first one fetches the whole message from the server and keeps the raw message for
+`cache.raw_hours` hours (see [Configuration](configuration.md#body-cache)); later calls read it from there, so a message
+with many inline images costs one fetch. Concurrent requests for the same message wait for that one fetch:
 
 | Method                                              | Returns                                                     |
 |-----------------------------------------------------|-------------------------------------------------------------|

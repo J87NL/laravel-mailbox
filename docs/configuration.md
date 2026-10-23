@@ -58,12 +58,22 @@ A group entry looks like this:
 ```php
 'cache' => [
     'body_days' => env('MAILBOX_BODY_CACHE_DAYS', 30),
+    'raw_disk' => env('MAILBOX_RAW_CACHE_DISK', 'local'),
+    'raw_hours' => env('MAILBOX_RAW_CACHE_HOURS', 24),
 ],
 ```
 
-How many days a fetched body and attachment list stay cached. `mailbox:prune-bodies` forgets older ones; a message
-fetches its body again when it is opened. `null` switches pruning off. See
+`body_days` is how many days a fetched body and attachment list stay cached. `mailbox:prune-bodies` forgets older ones;
+a message fetches its body again when it is opened. `null` switches pruning off. See
 [Artisan commands](artisan-commands.md#mailboxprune-bodies).
+
+The first fetch of a message also stores the raw message on the `raw_disk` disk (`mailbox/raw/{mailbox id}/{message id}.eml`)
+for `raw_hours` hours. Inline images, attachment downloads, forwarded attachments and quoted images are served from that
+file instead of fetching the whole message from the server again. Use a private disk: the file holds the complete mail.
+Files are written with private visibility. Moving, deleting or forgetting a message, a sync that finds it gone from the
+server or a changed UIDVALIDITY, and deleting its mailbox remove the file. `mailbox:prune-bodies` removes expired files
+and those of pruned bodies, so schedule it: it also catches files of folders the sync removed. `null` or `0` switches the raw cache off. A published config without these keys uses
+the defaults.
 
 ## Compose editor
 
@@ -201,6 +211,8 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_ACCESS_MODE`        | `access.mode`           | `restricted`        |
 | `MAILBOX_ADMINS`             | `access.admins`         | empty               |
 | `MAILBOX_BODY_CACHE_DAYS`    | `cache.body_days`       | `30`                |
+| `MAILBOX_RAW_CACHE_DISK`     | `cache.raw_disk`        | `local`             |
+| `MAILBOX_RAW_CACHE_HOURS`    | `cache.raw_hours`       | `24`                |
 | `MAILBOX_COMPOSE_EDITOR`     | `compose.editor`        | `hugerte`           |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |

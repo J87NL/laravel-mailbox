@@ -17,6 +17,8 @@ return [
 
     'cache' => [
         'body_days' => env('MAILBOX_BODY_CACHE_DAYS', 30),
+        'raw_disk' => env('MAILBOX_RAW_CACHE_DISK', 'local'),
+        'raw_hours' => env('MAILBOX_RAW_CACHE_HOURS', 24),
     ],
 
     'compose' => [

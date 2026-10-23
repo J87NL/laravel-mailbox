@@ -41,7 +41,7 @@ Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 Schedule::command('mailbox:prune-bodies')->daily();
 ```
 
-`mailbox:prune-bodies` forgets cached bodies and attachment lists fetched more than `cache.body_days` days ago (`--days=` overrides); a message fetches its body again when it is opened.
+`mailbox:prune-bodies` forgets cached bodies and attachment lists fetched more than `cache.body_days` days ago (`--days=` overrides); a message fetches its body again when it is opened. It also removes cached raw messages older than `cache.raw_hours`.
 
 ## Configuration
 
@@ -54,6 +54,8 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `connection.timeout` | `MAILBOX_CONNECTION_TIMEOUT` | `10` | Seconds before an IMAP or SMTP connection attempt gives up |
 | `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in `app.timezone`, like Laravel's own timestamps |
 | `cache.body_days` | `MAILBOX_BODY_CACHE_DAYS` | `30` | Days a fetched body stays cached; `null` never prunes |
+| `cache.raw_disk` | `MAILBOX_RAW_CACHE_DISK` | `local` | Private disk for the cached raw messages that serve inline images and attachments |
+| `cache.raw_hours` | `MAILBOX_RAW_CACHE_HOURS` | `24` | Hours a raw message stays cached; `null` or `0` fetches every time |
 | `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
 | `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Support\RawMessageCache;
 
 /**
  * @property int $id
@@ -39,6 +40,13 @@ class Mailbox extends Model
         'imap_password',
         'smtp_password',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleted(function (Mailbox $mailbox): void {
+            app(RawMessageCache::class)->forgetMailbox($mailbox);
+        });
+    }
 
     protected function casts(): array
     {

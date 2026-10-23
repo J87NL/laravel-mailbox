@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4 - 2026-10-23
+
+- `FetchMessageBody` keeps the raw message of its first fetch on a private disk (`mailbox/raw/{mailbox id}/{message id}.eml`) for `cache.raw_hours` hours (`MAILBOX_RAW_CACHE_HOURS`, default `24`) on `cache.raw_disk` (`MAILBOX_RAW_CACHE_DISK`, default `local`). Inline images, attachment downloads, forwarded attachments and quoted images are served from it instead of fetching the whole message from the server again for every image. Concurrent requests for the same message wait for one fetch under a cache lock. `null` or `0` switches it off. A published config without these keys uses the defaults.
+- Raw messages are written with private visibility through a temporary file, so a concurrent reader never sees half a message.
+- Moving, deleting and forgetting a message, a sync that finds messages gone from the server or a changed UIDVALIDITY, and deleting a mailbox remove the raw messages. `mailbox:prune-bodies` removes expired raw messages and those of the bodies it prunes, also when body pruning is switched off.
+- New `MarkMessages::readInBackground()`: updates the rows, the `unseen_count` and the audit trail right away and sets the `\Seen` flag on the server after the response through the new `FlagRemoteMessagesJob`, without a queue worker. A failure of that IMAP call is reported instead of thrown.
+- `RecordingFolder::$messageFetches` counts single-message fetches in tests.
+
 ## 0.3.3 - 2026-10-21
 
 - `MailboxMessage::links()` only returns the links of the message's own mailbox, also when eager loaded, counted or used in `has()`/`whereHas()`, and `$message->links()->create()` fills the `mailbox_id`. Until now a copy of the same `Message-ID` in another mailbox shared its links. The method still declares `HasMany`; it returns the new `J87NL\Mailbox\Relations\MessageLinks`.

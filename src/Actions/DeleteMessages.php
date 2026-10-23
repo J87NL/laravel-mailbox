@@ -11,6 +11,7 @@ use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Support\RawMessageCache;
 
 class DeleteMessages
 {
@@ -58,11 +59,17 @@ class DeleteMessages
         $this->connector->expunge($folder, $uids);
 
         $this->audit->forMessages($messages, AuditAction::Deleted, $user);
+        $this->raw()->forget($messages);
 
         MailboxMessage::query()
             ->whereKey($messages->pluck('id')->all())
             ->delete();
 
         return $messages->count();
+    }
+
+    private function raw(): RawMessageCache
+    {
+        return app(RawMessageCache::class);
     }
 }

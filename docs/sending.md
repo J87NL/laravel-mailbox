@@ -94,7 +94,7 @@ $quote = app(MessageHtml::class)->quote(
 When sending, put the quoted message in `quote_source`. `QuotedImages` then goes over every `<img>` in the body:
 
 - An image marked with `data-mailbox-cid`, or whose `src` is a signed inline URL of that same message (resolved through
-  `ResolvesInlineImageUrls`), is fetched from the quoted message over IMAP and embedded with a fresh Content-ID.
+  `ResolvesInlineImageUrls`), is fetched from the quoted message (from the raw cache, or over IMAP) and embedded with a fresh Content-ID.
 - An image that points at another message, at an unknown part, or at a `cid:` the client made up, is removed.
 - Other images, such as `https:` images, are left alone.
 - Any remaining occurrence of the inline URL prefix (`ResolvesInlineImageUrls::urlPrefix()`) is removed from attributes

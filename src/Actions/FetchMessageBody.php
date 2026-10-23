@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Actions;
 
 use DirectoryTree\ImapEngine\Attachment;
+use DirectoryTree\ImapEngine\FileMessage;
 use DirectoryTree\ImapEngine\MessageInterface;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ItemNotFoundException;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Exceptions\MessageGoneException;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Support\RawMessageCache;
 
 class FetchMessageBody
 {
@@ -91,6 +95,38 @@ class FetchMessageBody
 
     private function remote(MailboxMessage $message): MessageInterface
     {
+        $cached = $this->cached($message);
+
+        if (! is_null($cached) || ! $this->raw()->enabled()) {
+            return $cached ?? $this->fetch($message);
+        }
+
+        try {
+            return Cache::lock(sprintf('mailbox:raw:%d', $message->getKey()), 60)
+                ->block(30, fn (): MessageInterface => $this->cached($message) ?? $this->fetchAndRemember($message));
+        } catch (LockTimeoutException) {
+            return $this->fetch($message);
+        }
+    }
+
+    private function cached(MailboxMessage $message): ?MessageInterface
+    {
+        $raw = $this->raw()->get($message);
+
+        return is_null($raw) ? null : new FileMessage($raw);
+    }
+
+    private function fetchAndRemember(MailboxMessage $message): MessageInterface
+    {
+        $remote = $this->fetch($message);
+
+        $this->raw()->put($message, (string) $remote);
+
+        return $remote;
+    }
+
+    private function fetch(MailboxMessage $message): MessageInterface
+    {
         try {
             return $this->connector->folder($message->folder)
                 ->messages()
@@ -102,5 +138,10 @@ class FetchMessageBody
         } catch (ItemNotFoundException $exception) {
             throw MessageGoneException::for($message, $exception);
         }
+    }
+
+    private function raw(): RawMessageCache
+    {
+        return app(RawMessageCache::class);
     }
 }

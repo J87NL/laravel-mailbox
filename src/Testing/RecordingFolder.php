@@ -20,6 +20,8 @@ class RecordingFolder extends FakeFolder
      */
     public array $operations = [];
 
+    public int $messageFetches = 0;
+
     public function messages(): MessageQueryInterface
     {
         $this->select(true);

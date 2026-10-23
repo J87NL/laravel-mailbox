@@ -6,6 +6,7 @@ namespace J87NL\Mailbox\Testing;
 
 use BackedEnum;
 use DirectoryTree\ImapEngine\Collections\MessageCollection;
+use DirectoryTree\ImapEngine\Enums\ImapFetchIdentifier;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\MessageInterface;
 use DirectoryTree\ImapEngine\Testing\FakeMessageQuery;
@@ -46,6 +47,20 @@ class RecordingMessageQuery extends FakeMessageQuery
             ->filter(fn (MessageInterface $message): bool => in_array($message->uid(), $this->uids, true))
             ->values()
             ->all());
+    }
+
+    public function find(int $id, ImapFetchIdentifier $identifier = ImapFetchIdentifier::Uid): ?MessageInterface
+    {
+        $this->recordingFolder->messageFetches++;
+
+        return parent::find($id, $identifier);
+    }
+
+    public function findOrFail(int $id, ImapFetchIdentifier $identifier = ImapFetchIdentifier::Uid): MessageInterface
+    {
+        $this->recordingFolder->messageFetches++;
+
+        return parent::findOrFail($id, $identifier);
     }
 
     public function flag(BackedEnum|string $flag, string $operation, bool $expunge = false): int

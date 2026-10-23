@@ -1,7 +1,8 @@
 # Synchronization
 
 The sync mirrors the IMAP folder list and the message headers into the database. Bodies are not synced; they are
-fetched when a message is opened.
+fetched when a message is opened (and the raw message is kept for `cache.raw_hours`, see
+[Configuration](configuration.md#body-cache)).
 
 ## Running the sync
 

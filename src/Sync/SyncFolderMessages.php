@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Support\RawMessageCache;
 
 class SyncFolderMessages
 {
@@ -86,6 +87,7 @@ class SyncFolderMessages
             return false;
         }
 
+        app(RawMessageCache::class)->forgetMatching($folder->messages()->getQuery()->clone());
         $folder->messages()->delete();
         $folder->last_uid = 0;
 
@@ -195,8 +197,14 @@ class SyncFolderMessages
             ->mapWithKeys(fn (MessageInterface $message): array => [$message->uid() => $this->flagAttributes($message->flags())])
             ->only($known->all());
 
+        $gone = $known->diff($remoteFlags->keys())->values()->all();
+
+        if ($gone !== []) {
+            app(RawMessageCache::class)->forgetMatching($folder->messages()->whereIn('uid', $gone)->getQuery()->clone());
+        }
+
         $folder->messages()
-            ->whereIn('uid', $known->diff($remoteFlags->keys())->values()->all())
+            ->whereIn('uid', $gone)
             ->delete();
 
         $remoteFlags

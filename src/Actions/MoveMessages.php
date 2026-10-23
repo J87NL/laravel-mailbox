@@ -11,6 +11,7 @@ use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Support\RawMessageCache;
 
 class MoveMessages
 {
@@ -50,11 +51,17 @@ class MoveMessages
         $query->move($target->path);
 
         $this->audit->forMessages($group, $action, $user, $target->path);
+        $this->raw()->forget($group);
 
         MailboxMessage::query()
             ->whereKey($group->pluck('id')->all())
             ->delete();
 
         return $group->count();
+    }
+
+    private function raw(): RawMessageCache
+    {
+        return app(RawMessageCache::class);
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use J87NL\Mailbox\MailboxServiceProvider;
 use J87NL\Mailbox\Testing\FakeConnector;
 use J87NL\Mailbox\Tests\Support\Group;
@@ -26,6 +27,7 @@ abstract class TestCase extends Orchestra
         parent::setUp();
 
         Http::preventStrayRequests();
+        Storage::fake('local');
 
         $this->connector = FakeConnector::install();
     }
