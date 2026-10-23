@@ -47,6 +47,8 @@ return [
     'contact_saved' => 'Contact opgeslagen',
     'contacts' => 'Adresboek',
     'contacts_empty' => 'Nog geen contacten',
+    'conversation_view' => 'Berichten groeperen als gesprekken',
+    'conversation_view_help' => 'Toont één regel per gesprek in de berichtenlijst, gekoppeld via Message-ID, In-Reply-To en References, of via het onderwerp als die ontbreken.',
     'date' => 'Datum',
     'delete' => 'Verwijderen',
     'delete_confirm' => 'Geselecteerde berichten verwijderen?',

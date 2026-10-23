@@ -18,7 +18,7 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table` and `add_sent_at_index_to_mailbox_messages_table`. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
+The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table`, `add_sent_at_index_to_mailbox_messages_table` and `add_conversations_to_mailbox_tables`. Upgrading to 0.4: publish the migrations again, migrate and run `php artisan mailbox:threads` once. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
 
 Bootstrap at least one admin and pick the access mode in `.env`:
 

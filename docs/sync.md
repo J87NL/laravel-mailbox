@@ -62,8 +62,40 @@ scheduled sync and a folder job never sync the same folder at once.
 4. **Unseen count** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
    report it. `synced_at` is set on the folder.
 
+New messages get their conversation key right after they are stored, see below.
+
 Messages flagged `\Deleted` on the server are treated as gone. A purge on a server without UIDPLUS therefore does not
 bring them back, see [Message actions](message-actions.md#deleting).
+
+## Conversations
+
+`J87NL\Mailbox\Threading\ConversationKeys` gives every stored message a `thread_key`. Messages with the same key in
+a mailbox form one conversation; the UI package groups the message list by it when the mailbox has
+`conversation_view` on. The key is found in this order:
+
+1. **References and In-Reply-To** - the ids in `References` (in order) and `In-Reply-To`. When one of them is a message
+   of the same mailbox that already has a key, the message takes that key (the one nearest the start of `References`
+   wins). Otherwise the key is the first referenced id, the root of the conversation.
+2. **Subject** - a message without those headers whose subject starts with a reply or forward prefix (`Re:`, `Fw:`,
+   `Fwd:`, `AW:`, `WG:`, `Antw:`, `Doorst:`, `TR:`, `SV:`, `VS:`, `RV:`, also repeated or numbered like `Re[2]:`) joins
+   the newest keyed message of the mailbox from the `threading.subject_days` days (default 90) before the reply's own
+   date (or before now, for a message without a date), with the same normalized subject (prefixes removed, whitespace
+   collapsed, lower case). The window is relative to the reply, so a backfill of old mail gives the same result as the
+   sync did. The database narrows the candidates with a `LIKE` in which every non-ASCII letter is a single-character
+   wildcard (SQLite's `lower()` only folds ASCII); the exact comparison happens on the normalized subject in PHP.
+3. **Own id** - otherwise its own `Message-ID`, so a first message is the root of its conversation.
+4. Without any id: `subject:` followed by the SHA-1 of the normalized subject.
+
+A message without reply headers and without a reply prefix never joins another conversation, so newsletters with the
+same subject stay apart. Keys are mailbox-wide, so a reply in Sent and the answer in the Inbox share one.
+
+A reply synced before its parent gets the parent's id as key. When the parent is keyed later and joins another
+conversation (its own `In-Reply-To` points further up), the messages of the mailbox keyed with the parent's id move to
+that conversation as well. Re-keying does not touch `updated_at`. `php artisan mailbox:threads --fresh` recomputes every key when needed; it
+works in batches of 200, each in a transaction.
+
+The sync assigns keys to newly stored messages, oldest first. For messages stored before 0.4, run
+`php artisan mailbox:threads` once, see [Artisan commands](artisan-commands.md#mailboxthreads).
 
 ## Received messages
 
