@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Validation\ValidationException;
 use J87NL\Mailbox\Actions\SaveMailbox;
 use J87NL\Mailbox\Contracts\ProvidesAccessToken;
+use J87NL\Mailbox\Forms\MailboxForm;
 use J87NL\Mailbox\Jobs\SyncMailboxJob;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxAuditEntry;
@@ -239,4 +241,19 @@ it('stores an empty signature as null', function (): void {
     $mailbox = app(SaveMailbox::class)->handle(null, mailboxData(['signature' => '<p><br></p>']), user(), test: false);
 
     expect($mailbox->signature)->toBeNull();
+});
+
+it('turns on the conversation view through the mailbox form', function (): void {
+    $mailbox = mailbox();
+    $data = (new MailboxForm('', $mailbox))->validate(Request::create('/', 'PUT', [
+        ...mailboxData(),
+        'conversation_view' => true,
+    ]));
+
+    app(SaveMailbox::class)->handle($mailbox, $data, user(), test: false);
+
+    expect($mailbox->refresh()->conversation_view)->toBeTrue()
+        ->and(mailbox([
+            'name' => 'New',
+        ])->conversation_view)->toBeFalse();
 });

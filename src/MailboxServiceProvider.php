@@ -12,6 +12,7 @@ use J87NL\Mailbox\Commands\AddMailboxCommand;
 use J87NL\Mailbox\Commands\GrantAccessCommand;
 use J87NL\Mailbox\Commands\PruneBodiesCommand;
 use J87NL\Mailbox\Commands\SyncCommand;
+use J87NL\Mailbox\Commands\ThreadCommand;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
@@ -34,12 +35,14 @@ class MailboxServiceProvider extends PackageServiceProvider
                 'add_signature_to_mailboxes_table',
                 'create_mailbox_contacts_table',
                 'add_sent_at_index_to_mailbox_messages_table',
+                'add_conversations_to_mailbox_tables',
             ])
             ->hasCommands([
                 AddMailboxCommand::class,
                 GrantAccessCommand::class,
                 PruneBodiesCommand::class,
                 SyncCommand::class,
+                ThreadCommand::class,
             ]);
     }
 

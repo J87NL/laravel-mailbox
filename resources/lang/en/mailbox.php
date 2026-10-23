@@ -47,6 +47,8 @@ return [
     'contact_saved' => 'Contact saved',
     'contacts' => 'Address book',
     'contacts_empty' => 'No contacts yet',
+    'conversation_view' => 'Group messages into conversations',
+    'conversation_view_help' => 'Shows one row per conversation in the message list, threaded on Message-ID, In-Reply-To and References, or on the subject when those are missing.',
     'date' => 'Date',
     'delete' => 'Delete',
     'delete_confirm' => 'Delete the selected messages?',
