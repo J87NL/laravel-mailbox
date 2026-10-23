@@ -271,3 +271,69 @@ it('threads only the given mailbox from the command', function (): void {
     expect($mine->refresh()->thread_key)->toBe($mine->message_id)
         ->and($other->refresh()->thread_key)->toBeNull();
 });
+
+it('looks for the subject in the days before the reply itself', function (): void {
+    config()->set('mailbox.threading.subject_days', 30);
+    $folder = folder(mailbox());
+    threaded(storedMessage($folder, 1, [
+        'message_id' => 'parent@example.org',
+        'sent_at' => now()->subDays(201),
+        'subject' => 'Annual meeting',
+    ]));
+    threaded(storedMessage($folder, 2, [
+        'message_id' => 'later@example.org',
+        'sent_at' => now()->subDays(150),
+        'subject' => 'Annual meeting',
+    ]));
+    $reply = storedMessage($folder, 3, [
+        'message_id' => 'reply@example.org',
+        'sent_at' => now()->subDays(200),
+        'subject' => 'Re: Annual meeting',
+    ]);
+
+    expect(threaded($reply))->toBe('parent@example.org');
+});
+
+it('matches subjects with non-ASCII letters in any case', function (): void {
+    $folder = folder(mailbox());
+    threaded(storedMessage($folder, 1, [
+        'message_id' => 'root@example.org',
+        'sent_at' => now()->subDay(),
+        'subject' => 'Über Öffnungszeiten',
+    ]));
+    $reply = storedMessage($folder, 2, [
+        'message_id' => 'reply@example.org',
+        'sent_at' => now(),
+        'subject' => 'AW: über öffnungszeiten',
+    ]);
+
+    expect(threaded($reply))->toBe('root@example.org');
+});
+
+it('keeps the updated_at of messages it moves into another conversation', function (): void {
+    $folder = folder(mailbox());
+    $root = storedMessage($folder, 1, [
+        'message_id' => 'root@example.org',
+    ]);
+    $answer = storedMessage($folder, 3, [
+        'in_reply_to' => 'reply@example.org',
+        'message_id' => 'answer@example.org',
+    ]);
+    $reply = storedMessage($folder, 2, [
+        'in_reply_to' => 'root@example.org',
+        'message_id' => 'reply@example.org',
+    ]);
+    threaded($root);
+    threaded($answer);
+    MailboxMessage::query()
+        ->whereKey($answer->id)
+        ->toBase()
+        ->update([
+            'updated_at' => '2020-01-01 00:00:00',
+        ]);
+
+    threaded($reply);
+
+    expect($answer->refresh()->thread_key)->toBe('root@example.org')
+        ->and($answer->updated_at->toDateTimeString())->toBe('2020-01-01 00:00:00');
+});

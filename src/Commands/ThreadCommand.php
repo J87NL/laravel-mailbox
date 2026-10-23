@@ -7,6 +7,7 @@ namespace J87NL\Mailbox\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Threading\ConversationKeys;
 
@@ -21,7 +22,7 @@ class ThreadCommand extends Command
         $assigned = 0;
 
         if ($this->option('fresh')) {
-            $this->messages()->update([
+            $this->messages()->toBase()->update([
                 'thread_key' => null,
             ]);
         }
@@ -36,7 +37,7 @@ class ThreadCommand extends Command
                 ->limit(200)
                 ->get();
 
-            $assigned += $conversations->assign($batch);
+            $assigned += DB::transaction(fn (): int => $conversations->assign($batch));
         } while ($batch->isNotEmpty());
 
         $this->components->info(sprintf('%d messages threaded.', $assigned));

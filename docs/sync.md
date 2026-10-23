@@ -78,9 +78,11 @@ a mailbox form one conversation; the UI package groups the message list by it wh
    wins). Otherwise the key is the first referenced id, the root of the conversation.
 2. **Subject** - a message without those headers whose subject starts with a reply or forward prefix (`Re:`, `Fw:`,
    `Fwd:`, `AW:`, `WG:`, `Antw:`, `Doorst:`, `TR:`, `SV:`, `VS:`, `RV:`, also repeated or numbered like `Re[2]:`) joins
-   the newest keyed message of the mailbox from the last `threading.subject_days` days (default 90) with the same
-   normalized subject (prefixes removed, whitespace collapsed, lower case). The database narrows the candidates
-   case-insensitively; the exact comparison happens on the normalized subject.
+   the newest keyed message of the mailbox from the `threading.subject_days` days (default 90) before the reply's own
+   date (or before now, for a message without a date), with the same normalized subject (prefixes removed, whitespace
+   collapsed, lower case). The window is relative to the reply, so a backfill of old mail gives the same result as the
+   sync did. The database narrows the candidates with a `LIKE` in which every non-ASCII letter is a single-character
+   wildcard (SQLite's `lower()` only folds ASCII); the exact comparison happens on the normalized subject in PHP.
 3. **Own id** - otherwise its own `Message-ID`, so a first message is the root of its conversation.
 4. Without any id: `subject:` followed by the SHA-1 of the normalized subject.
 
@@ -89,7 +91,8 @@ same subject stay apart. Keys are mailbox-wide, so a reply in Sent and the answe
 
 A reply synced before its parent gets the parent's id as key. When the parent is keyed later and joins another
 conversation (its own `In-Reply-To` points further up), the messages of the mailbox keyed with the parent's id move to
-that conversation as well. `php artisan mailbox:threads --fresh` recomputes every key when needed.
+that conversation as well. Re-keying does not touch `updated_at`. `php artisan mailbox:threads --fresh` recomputes every key when needed; it
+works in batches of 200, each in a transaction.
 
 The sync assigns keys to newly stored messages, oldest first. For messages stored before 0.4, run
 `php artisan mailbox:threads` once, see [Artisan commands](artisan-commands.md#mailboxthreads).

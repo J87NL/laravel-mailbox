@@ -27,7 +27,15 @@ class ConversationKeys
 
         foreach ($messages as $message) {
             $message->thread_key = $this->keyFor($message);
-            $message->saveQuietly();
+
+            MailboxMessage::query()
+                ->whereKey($message->getKey())
+                ->toBase()
+                ->update([
+                    'thread_key' => $message->thread_key,
+                ]);
+
+            $message->syncOriginalAttribute('thread_key');
             $this->adoptEarlierReplies($message);
             $assigned++;
         }
@@ -71,6 +79,7 @@ class ConversationKeys
         MailboxMessage::query()
             ->where('mailbox_id', $message->mailbox_id)
             ->where('thread_key', $this->limit($own))
+            ->toBase()
             ->update([
                 'thread_key' => $message->thread_key,
             ]);
@@ -146,17 +155,18 @@ class ConversationKeys
             return null;
         }
 
+        $sentAt = $message->sent_at ?? now();
         $words = preg_split('/\s+/u', Str::squish((string) preg_replace(self::REPLY_PREFIX, '', (string) $message->subject))) ?: [];
-        $pattern = sprintf('%%%s', mb_strtolower(implode('%', array_map(
-            fn (string $word): string => str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $word),
-            $words,
-        ))));
+        $pattern = sprintf('%%%s%%', implode('%', array_map($this->likeWord(...), $words)));
 
         $match = MailboxMessage::query()
             ->where('mailbox_id', $message->mailbox_id)
             ->whereKeyNot($message->getKey())
             ->whereNotNull('thread_key')
-            ->where('sent_at', '>=', now()->subDays($this->subjectDays()))
+            ->whereBetween('sent_at', [
+                $sentAt->copy()->subDays($this->subjectDays()),
+                $sentAt,
+            ])
             ->whereRaw("lower(mailbox_messages.subject) like ? escape '!'", [$pattern])
             ->orderByDesc('sent_at')
             ->orderByDesc('id')
@@ -165,6 +175,13 @@ class ConversationKeys
             ->first(fn (MailboxMessage $candidate): bool => self::normalizeSubject($candidate->subject) === $normalized);
 
         return $match?->thread_key;
+    }
+
+    private function likeWord(string $word): string
+    {
+        $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($word));
+
+        return (string) preg_replace('/[^\x00-\x7F]/u', '_', $escaped);
     }
 
     private function subjectDays(): int
