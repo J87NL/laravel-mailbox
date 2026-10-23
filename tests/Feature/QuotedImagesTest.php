@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Attachment;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
+use Illuminate\Support\Facades\Exceptions;
 use J87NL\Mailbox\Actions\FetchMessageBody;
 use J87NL\Mailbox\Actions\SendMessage;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
@@ -105,6 +106,27 @@ it('embeds the quoted inline images the user kept and drops the rest', function 
         ->and($html)->not->toContain('app.test/inline')
         ->and($html)->not->toContain('guessed@example.org')
         ->and($sent->toString())->toContain('multipart/related');
+});
+
+it('sends without the quoted images and reports nothing when the quoted message left the server', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+    $source = storedMessage(folder($mailbox), 1)->load('folder');
+    remoteFolder($mailbox, 'INBOX')->setMessages([]);
+
+    app(SendMessage::class)->handle($mailbox, [
+        'body' => sprintf('<p>See below</p><img src="https://app.test/inline/%d/logo" data-mailbox-cid="logo">', $source->id),
+        'quote_source' => $source,
+        'subject' => 'Fwd: Newsletter',
+        'to' => [
+            'colleague@example.org',
+        ],
+    ], null);
+
+    expect((string) test()->connector->transport->sent[0]->getHtmlBody())->toBe('<p>See below</p>');
+    Exceptions::assertNothingReported();
 });
 
 it('quotes the sanitised html body and marks inline images for the editor', function (): void {
