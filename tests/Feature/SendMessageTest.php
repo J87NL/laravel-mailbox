@@ -174,3 +174,29 @@ it('records the recipients as a list of addresses', function (string|array $to):
     'a string' => ['customer@example.org; second@example.org'],
     'a list' => [[' customer@example.org ', 'Second <second@example.org>']],
 ]);
+
+it('sends an html signature with a readable plain-text alternative', function (): void {
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+    $body = implode('', [
+        '<p>Hello</p>',
+        '<div class="mailbox-signature">',
+        '<p><strong>Team</strong> &amp; co</p>',
+        '<p><a href="https://example.org/contact">Contact us</a> or <a href="https://example.org">https://example.org</a></p>',
+        '<table><tr><td>Phone</td><td>012</td></tr></table>',
+        '<a href="https://example.org/site"><img src="data:image/png;base64,AAAA" alt="Logo"></a>',
+        '</div>',
+    ]);
+
+    app(SendMessage::class)->handle($mailbox, composed([
+        'body' => $body,
+        'cc' => '',
+    ]), null);
+
+    /** @var Email $sent */
+    $sent = test()->connector->transport->sent[0];
+
+    expect((string) $sent->getHtmlBody())->toContain('<strong>Team</strong>')
+        ->and($sent->getTextBody())->toBe("Hello\nTeam & co\nContact us (https://example.org/contact) or https://example.org\nPhone 012\nhttps://example.org/site");
+});
