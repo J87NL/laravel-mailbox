@@ -63,6 +63,18 @@ Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 
 See [Synchronization](sync.md).
 
+## `mailbox:threads`
+
+Gives stored messages without a conversation key their key, oldest first, in batches of 200:
+
+```bash
+php artisan mailbox:threads          # every mailbox
+php artisan mailbox:threads 3        # only mailbox 3
+php artisan mailbox:threads --fresh  # recompute every key, also those already set
+```
+
+Run it once after upgrading to 0.4. The sync keys new messages itself. See [Conversations](sync.md#conversations).
+
 ## `mailbox:prune-bodies`
 
 Forgets cached message bodies and attachment lists, and the cached raw messages of those bodies. A message fetches its

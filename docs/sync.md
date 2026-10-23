@@ -62,8 +62,34 @@ scheduled sync and a folder job never sync the same folder at once.
 4. **Unseen count** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
    report it. `synced_at` is set on the folder.
 
+New messages get their conversation key right after they are stored, see below.
+
 Messages flagged `\Deleted` on the server are treated as gone. A purge on a server without UIDPLUS therefore does not
 bring them back, see [Message actions](message-actions.md#deleting).
+
+## Conversations
+
+`J87NL\Mailbox\Threading\ConversationKeys` gives every stored message a `thread_key`. Messages with the same key in
+a mailbox form one conversation; the UI package groups the message list by it when the mailbox has
+`conversation_view` on. The key is found in this order:
+
+1. **References and In-Reply-To** - the ids in `References` (in order) and `In-Reply-To`. When one of them is a message
+   of the same mailbox that already has a key, the message takes that key (the one nearest the start of `References`
+   wins). Otherwise the key is the first referenced id, the root of the conversation.
+2. **Subject** - a message without those headers whose subject starts with a reply or forward prefix (`Re:`, `Fw:`,
+   `Fwd:`, `AW:`, `WG:`, `Antw:`, `Doorst:`, `TR:`, `SV:`, `VS:`, `RV:`, also repeated or numbered like `Re[2]:`) joins
+   the oldest keyed message of the mailbox with the same normalized subject (prefixes removed, whitespace collapsed,
+   lower case).
+3. **Own id** - otherwise its own `Message-ID`, so a first message is the root of its conversation.
+4. Without any id: `subject:` followed by the SHA-1 of the normalized subject.
+
+A message without reply headers and without a reply prefix never joins another conversation, so newsletters with the
+same subject stay apart. Keys are mailbox-wide, so a reply in Sent and the answer in the Inbox share one. A reply that
+only has `In-Reply-To` and is synced before its parent starts with the parent id as key; when the chain has no
+`References` header at all, such out-of-order messages may end up in two conversations.
+
+The sync assigns keys to newly stored messages, oldest first. For messages stored before 0.4, run
+`php artisan mailbox:threads` once, see [Artisan commands](artisan-commands.md#mailboxthreads).
 
 ## Received messages
 

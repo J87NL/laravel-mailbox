@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+- **Needs a migration:** the new migration `add_conversations_to_mailbox_tables` adds `mailboxes.conversation_view` (boolean, default `false`) and `mailbox_messages.thread_key` with indexes on `(mailbox_folder_id, thread_key)` and `(mailbox_id, thread_key)`. The sync writes `thread_key`, so publish and run it before deploying this version (release it as 0.4.0). Then run `php artisan mailbox:threads` once.
+- Conversations: `J87NL\Mailbox\Threading\ConversationKeys` gives each message a conversation key from `References`/`In-Reply-To` (following messages already known in the mailbox), falling back to the normalized subject for a reply without those headers, and to the message's own `Message-ID`. The folder sync keys new messages; the new command `mailbox:threads {mailbox?} {--fresh}` keys stored ones. See `docs/sync.md#conversations`.
+- `MailboxForm` has a `conversation_view` toggle ("Group messages into conversations"), off by default; `Mailbox` casts it to bool.
+- The plain-text part of a sent message keeps link targets (`label (url)`), separates table cells, collapses whitespace per line and leaves out `<style>`, `<script>` and `<head>` content, so HTML signatures stay readable.
+- `QuotedImages` no longer reports a `MessageGoneException` when the quoted message left the server; it logs an info line and sends without the quoted images.
+
 ## 0.3.4 - 2026-10-23
 
 - `FetchMessageBody` keeps the raw message of its first fetch on a private disk (`mailbox/raw/{mailbox id}/{message id}.eml`) for `cache.raw_hours` hours (`MAILBOX_RAW_CACHE_HOURS`, default `24`) on `cache.raw_disk` (`MAILBOX_RAW_CACHE_DISK`, default `local`). Inline images, attachment downloads, forwarded attachments and quoted images are served from it instead of fetching the whole message from the server again for every image. Concurrent requests for the same message wait for one fetch under a cache lock. `null` or `0` switches it off. A published config without these keys uses the defaults.
