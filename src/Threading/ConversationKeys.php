@@ -16,6 +16,8 @@ class ConversationKeys
 
     private const KEY_LENGTH = 255;
 
+    private const SUBJECT_DAYS = 90;
+
     /**
      * @param  iterable<int, MailboxMessage>  $messages
      */
@@ -26,6 +28,7 @@ class ConversationKeys
         foreach ($messages as $message) {
             $message->thread_key = $this->keyFor($message);
             $message->saveQuietly();
+            $this->adoptEarlierReplies($message);
             $assigned++;
         }
 
@@ -55,6 +58,22 @@ class ConversationKeys
         }
 
         return sprintf('subject:%s', sha1(self::normalizeSubject($message->subject)));
+    }
+
+    private function adoptEarlierReplies(MailboxMessage $message): void
+    {
+        $own = $this->bare($message->message_id);
+
+        if (is_null($own) || $own === $message->thread_key) {
+            return;
+        }
+
+        MailboxMessage::query()
+            ->where('mailbox_id', $message->mailbox_id)
+            ->where('thread_key', $this->limit($own))
+            ->update([
+                'thread_key' => $message->thread_key,
+            ]);
     }
 
     public static function normalizeSubject(?string $subject): string
@@ -128,23 +147,31 @@ class ConversationKeys
         }
 
         $words = preg_split('/\s+/u', Str::squish((string) preg_replace(self::REPLY_PREFIX, '', (string) $message->subject))) ?: [];
-        $pattern = sprintf('%%%s', implode('%', array_map(
+        $pattern = sprintf('%%%s', mb_strtolower(implode('%', array_map(
             fn (string $word): string => str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $word),
             $words,
-        )));
+        ))));
 
         $match = MailboxMessage::query()
             ->where('mailbox_id', $message->mailbox_id)
             ->whereKeyNot($message->getKey())
             ->whereNotNull('thread_key')
-            ->whereRaw("mailbox_messages.subject like ? escape '!'", [$pattern])
-            ->orderBy('sent_at')
-            ->orderBy('id')
+            ->where('sent_at', '>=', now()->subDays($this->subjectDays()))
+            ->whereRaw("lower(mailbox_messages.subject) like ? escape '!'", [$pattern])
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
             ->limit(self::CANDIDATES)
             ->get(['id', 'subject', 'thread_key'])
             ->first(fn (MailboxMessage $candidate): bool => self::normalizeSubject($candidate->subject) === $normalized);
 
         return $match?->thread_key;
+    }
+
+    private function subjectDays(): int
+    {
+        $days = config('mailbox.threading.subject_days', self::SUBJECT_DAYS);
+
+        return is_numeric($days) ? (int) $days : self::SUBJECT_DAYS;
     }
 
     private function bare(?string $id): ?string

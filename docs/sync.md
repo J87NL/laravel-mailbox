@@ -78,15 +78,18 @@ a mailbox form one conversation; the UI package groups the message list by it wh
    wins). Otherwise the key is the first referenced id, the root of the conversation.
 2. **Subject** - a message without those headers whose subject starts with a reply or forward prefix (`Re:`, `Fw:`,
    `Fwd:`, `AW:`, `WG:`, `Antw:`, `Doorst:`, `TR:`, `SV:`, `VS:`, `RV:`, also repeated or numbered like `Re[2]:`) joins
-   the oldest keyed message of the mailbox with the same normalized subject (prefixes removed, whitespace collapsed,
-   lower case).
+   the newest keyed message of the mailbox from the last `threading.subject_days` days (default 90) with the same
+   normalized subject (prefixes removed, whitespace collapsed, lower case). The database narrows the candidates
+   case-insensitively; the exact comparison happens on the normalized subject.
 3. **Own id** - otherwise its own `Message-ID`, so a first message is the root of its conversation.
 4. Without any id: `subject:` followed by the SHA-1 of the normalized subject.
 
 A message without reply headers and without a reply prefix never joins another conversation, so newsletters with the
-same subject stay apart. Keys are mailbox-wide, so a reply in Sent and the answer in the Inbox share one. A reply that
-only has `In-Reply-To` and is synced before its parent starts with the parent id as key; when the chain has no
-`References` header at all, such out-of-order messages may end up in two conversations.
+same subject stay apart. Keys are mailbox-wide, so a reply in Sent and the answer in the Inbox share one.
+
+A reply synced before its parent gets the parent's id as key. When the parent is keyed later and joins another
+conversation (its own `In-Reply-To` points further up), the messages of the mailbox keyed with the parent's id move to
+that conversation as well. `php artisan mailbox:threads --fresh` recomputes every key when needed.
 
 The sync assigns keys to newly stored messages, oldest first. For messages stored before 0.4, run
 `php artisan mailbox:threads` once, see [Artisan commands](artisan-commands.md#mailboxthreads).

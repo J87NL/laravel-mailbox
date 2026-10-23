@@ -200,3 +200,22 @@ it('sends an html signature with a readable plain-text alternative', function ()
     expect((string) $sent->getHtmlBody())->toContain('<strong>Team</strong>')
         ->and($sent->getTextBody())->toBe("Hello\nTeam & co\nContact us (https://example.org/contact) or https://example.org\nPhone 012\nhttps://example.org/site");
 });
+
+it('keeps a plain-text part when a pattern gives up on a large unclosed tag', function (): void {
+    $mailbox = mailbox([
+        'append_sent' => false,
+    ]);
+    $limit = ini_get('pcre.backtrack_limit');
+    ini_set('pcre.backtrack_limit', '1000');
+
+    try {
+        app(SendMessage::class)->handle($mailbox, composed([
+            'body' => sprintf('<p>Hello</p><a href="https://example.org">%s', str_repeat('x ', 5000)),
+            'cc' => '',
+        ]), null);
+    } finally {
+        ini_set('pcre.backtrack_limit', (string) $limit);
+    }
+
+    expect(test()->connector->transport->sent[0]->getTextBody())->toStartWith("Hello\n");
+});

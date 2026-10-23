@@ -59,6 +59,10 @@ return [
         'trash_fallback' => 'Trash',
     ],
 
+    'threading' => [
+        'subject_days' => 90,
+    ],
+
     'html' => [
         'block_remote_images' => true,
     ],

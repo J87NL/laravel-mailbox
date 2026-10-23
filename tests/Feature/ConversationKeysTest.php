@@ -61,6 +61,7 @@ it('falls back to the normalized subject for a reply without threading headers',
     $folder = folder(mailbox());
     $root = storedMessage($folder, 1, [
         'message_id' => 'root@example.org',
+        'sent_at' => now()->subDay(),
         'subject' => 'Opening hours  100%_sure',
     ]);
     $reply = storedMessage($folder, 2, [
@@ -177,4 +178,96 @@ it('threads stored messages oldest first from the command', function (): void {
         ->all())->toBe([
             'root@example.org',
         ]);
+});
+
+it('joins the newest recent message with the same subject and ignores old ones', function (): void {
+    config()->set('mailbox.threading.subject_days', 30);
+    $folder = folder(mailbox());
+    threaded(storedMessage($folder, 1, [
+        'message_id' => 'ancient@example.org',
+        'sent_at' => now()->subDays(60),
+        'subject' => 'Weekly report',
+    ]));
+    threaded(storedMessage($folder, 2, [
+        'message_id' => 'older@example.org',
+        'sent_at' => now()->subDays(20),
+        'subject' => 'WEEKLY report',
+    ]));
+    threaded(storedMessage($folder, 3, [
+        'message_id' => 'newer@example.org',
+        'sent_at' => now()->subDays(2),
+        'subject' => 'Weekly report',
+    ]));
+    $reply = storedMessage($folder, 4, [
+        'message_id' => 'loose@example.org',
+        'sent_at' => now(),
+        'subject' => 'Re: weekly REPORT',
+    ]);
+    $late = storedMessage(folder(mailbox([
+        'name' => 'Other',
+    ])), 1, [
+        'message_id' => 'late@example.org',
+        'subject' => 'Re: Weekly report',
+    ]);
+
+    expect(threaded($reply))->toBe('newer@example.org')
+        ->and(threaded($late))->toBe('late@example.org');
+});
+
+it('moves replies that arrived before their parent into the parent conversation', function (): void {
+    $folder = folder(mailbox());
+    $root = storedMessage($folder, 1, [
+        'message_id' => 'root@example.org',
+    ]);
+    $answer = storedMessage($folder, 3, [
+        'in_reply_to' => 'reply@example.org',
+        'message_id' => 'answer@example.org',
+    ]);
+    $reply = storedMessage($folder, 2, [
+        'in_reply_to' => 'root@example.org',
+        'message_id' => 'reply@example.org',
+    ]);
+    $other = storedMessage(folder(mailbox([
+        'name' => 'Other',
+    ])), 1, [
+        'message_id' => 'elsewhere@example.org',
+        'thread_key' => 'reply@example.org',
+    ]);
+
+    threaded($root);
+
+    expect(threaded($answer))->toBe('reply@example.org')
+        ->and(threaded($reply))->toBe('root@example.org')
+        ->and($answer->refresh()->thread_key)->toBe('root@example.org')
+        ->and($other->refresh()->thread_key)->toBe('reply@example.org');
+});
+
+it('ignores a known parent of another mailbox', function (): void {
+    threaded(storedMessage(folder(mailbox([
+        'name' => 'Other',
+    ])), 1, [
+        'message_id' => 'parent@example.org',
+        'thread_key' => null,
+        'references' => '<origin@example.org>',
+    ]));
+    $mine = storedMessage(folder(mailbox()), 1, [
+        'in_reply_to' => 'parent@example.org',
+        'message_id' => 'mine@example.org',
+    ]);
+
+    expect(threaded($mine))->toBe('parent@example.org');
+});
+
+it('threads only the given mailbox from the command', function (): void {
+    $mine = storedMessage(folder(mailbox()), 1);
+    $other = storedMessage(folder(mailbox([
+        'name' => 'Other',
+    ])), 1);
+
+    $this->artisan('mailbox:threads', [
+        'mailbox' => (string) $mine->mailbox_id,
+    ])->assertSuccessful();
+
+    expect($mine->refresh()->thread_key)->toBe($mine->message_id)
+        ->and($other->refresh()->thread_key)->toBeNull();
 });

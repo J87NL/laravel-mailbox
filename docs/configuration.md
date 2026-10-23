@@ -170,6 +170,18 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
 
 See [Synchronization](sync.md).
 
+## Threading
+
+```php
+'threading' => [
+    'subject_days' => 90,
+],
+```
+
+| Key | Default | Description |
+|---|---|---|
+| `subject_days` | `90` | How far back a reply without reply headers looks for a message with the same subject, see [Conversations](sync.md#conversations). A published config without this key uses the default |
+
 ## Folders
 
 ```php

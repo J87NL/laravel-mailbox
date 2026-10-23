@@ -120,18 +120,19 @@ class SendMessage
 
     private function plainText(string $html): string
     {
-        $withoutStyles = (string) preg_replace('/<(style|script|head)\b[^>]*>.*?<\/\1>/is', '', $html);
-        $withLinks = (string) preg_replace_callback('/<a\b[^>]*\bhref\s*=\s*(["\'])(https?:[^"\']+|mailto:[^"\']+)\1[^>]*>(.*?)<\/a>/is', $this->plainLink(...), $withoutStyles);
-        $withCells = (string) preg_replace('/<\/(td|th)>/i', ' ', $withLinks);
-        $withBreaks = (string) preg_replace('/<br\s*\/?>|<\/(p|li|div|blockquote|h[1-6]|tr)>/i', "\n", $withCells);
+        $withoutStyles = preg_replace('/<(style|script|head)\b[^>]*>.*?<\/\1>/is', '', $html) ?? $html;
+        $withLinks = preg_replace_callback('/<a\b[^>]*\bhref\s*=\s*(["\'])(https?:[^"\']+|mailto:[^"\']+)\1[^>]*>(.*?)<\/a>/is', $this->plainLink(...), $withoutStyles) ?? $withoutStyles;
+        $withCells = preg_replace('/<\/(td|th)>/i', ' ', $withLinks) ?? $withLinks;
+        $withBreaks = preg_replace('/<br\s*\/?>|<\/(p|li|div|blockquote|h[1-6]|tr)>/i', "\n", $withCells) ?? $withCells;
         $text = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5);
 
         $lines = array_map(
-            fn (string $line): string => trim((string) preg_replace('/[ \t\x{00A0}]+/u', ' ', $line)),
+            fn (string $line): string => trim(preg_replace('/[ \t\x{00A0}]+/u', ' ', $line) ?? $line),
             explode("\n", $text),
         );
+        $joined = implode("\n", $lines);
 
-        return trim((string) preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)));
+        return trim(preg_replace("/\n{3,}/", "\n\n", $joined) ?? $joined);
     }
 
     /**
