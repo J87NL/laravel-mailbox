@@ -40,12 +40,22 @@ Grant a user or group access.
 ```php
 use J87NL\Mailbox\Forms\AccessForm;
 
-new AccessForm(route('mailboxes.access.store', $mailbox));
+new AccessForm(
+    action: route('mailboxes.access.store', $mailbox),
+    searchUrl: route('mailboxes.accessors', $mailbox),
+);
 ```
 
-Fields: `accessor` (a searchable select of everything `ResolvesAccessors::assignable()` returns, by key) and `level`
-(`read`, `write` or `manage`, default `read`). Split the `accessor` key on the first `:` into type and id, and pass them
-to [GrantAccess](access.md#granting-and-revoking).
+Fields: `accessor` and `level` (`read`, `write` or `manage`, default `read`). `accessor` is a select that searches on
+the server: from `AccessForm::MIN_SEARCH_LENGTH` (2) characters on it fetches `GET {searchUrl}?q=<term>`, which answers
+with JSON `[{"value": "type:id", "label": "User: Jane Doe"}]`. Build that endpoint on
+`ResolvesAccessors::search()` and authorize it like the access form itself (`manageMailbox` on the mailbox). The form
+sends no option list, so the browser never receives all users and groups.
+
+The `accessor` is validated with `J87NL\Mailbox\Rules\ExistingAccessor`: the key must name an existing model of a
+configured accessor source. Split it on the first `:` into type and id, and pass them to
+[GrantAccess](access.md#granting-and-revoking). To validate only, pass empty strings:
+`(new AccessForm('', ''))->validate($request)`.
 
 ## ComposeForm
 

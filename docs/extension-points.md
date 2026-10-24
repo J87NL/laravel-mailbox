@@ -28,6 +28,11 @@ interface ResolvesAccessors
     public function assignable(): array;
 
     /**
+     * @return array<int, array{key: string, label: string}>
+     */
+    public function search(string $term, int $limit): array;
+
+    /**
      * @param  array<int, array{type: string, id: int|string}>  $accessors
      * @return array<string, string>
      */
@@ -37,8 +42,11 @@ interface ResolvesAccessors
 
 - `accessorsFor()` returns the morph type and id of the user and every group they belong to. The access rows of these
   accessors decide the user's level.
-- `assignable()` returns the options for the access form and `mailbox:grant`. The `key` is `type:id`.
-- `labels()` returns a label per `type:id` key, for showing existing access rows.
+- `assignable()` returns every accessor that can be granted access, for `mailbox:grant`. The `key` is `type:id`.
+- `search()` returns at most `$limit` of those accessors that match `$term`, for the search endpoint of the access form.
+  Never return an accessor that `assignable()` would not list.
+- `labels()` returns a label per `type:id` key, for showing existing access rows. `ExistingAccessor` also uses it: a key
+  without a label is not a valid accessor.
 
 The default `RelationAccessorResolver` reads the groups from `mailbox.access.groups`, see
 [Access control](access.md#users-and-groups). Set your own class in the config:

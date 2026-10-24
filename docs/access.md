@@ -90,8 +90,12 @@ An access row belongs to an accessor: a user or a group model. Groups are config
 The default resolver, `J87NL\Mailbox\Access\RelationAccessorResolver`, reads the user itself plus every model in the
 `relation` of the user. A group whose relation method does not exist on the user is skipped.
 
-For the access form and `mailbox:grant` it lists every user (labelled with `access.user_label`) and every model of each
-group (labelled with the group's `label`), as `prefix: label`. Each option has the key `morph-class:id`.
+For `mailbox:grant` it lists every user (labelled with `access.user_label`) and every model of each group (labelled
+with the group's `label`), as `prefix: label`. Each option has the key `morph-class:id`.
+
+For the access form it searches the same models instead, case-insensitively: users on `access.user_search` (default
+`user_label` and `email`), groups on their `search` columns (default their `label`). A search returns at most the
+requested number of matches, sorted by label. See [AccessForm](forms.md#accessform).
 
 Another group concept? Bind your own `ResolvesAccessors`, see
 [Extension points](extension-points.md#resolvesaccessors).

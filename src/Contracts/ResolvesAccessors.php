@@ -19,6 +19,11 @@ interface ResolvesAccessors
     public function assignable(): array;
 
     /**
+     * @return array<int, array{key: string, label: string}>
+     */
+    public function search(string $term, int $limit): array;
+
+    /**
      * @param  array<int, array{type: string, id: int|string}>  $accessors
      * @return array<string, string>
      */

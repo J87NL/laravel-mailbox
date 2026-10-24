@@ -35,6 +35,7 @@ source in the access form and `mailbox:grant`.
 | `admins`     | `MAILBOX_ADMINS`      | empty                      | Comma-separated emails that get manage access everywhere                     |
 | `resolver`   |                       | `RelationAccessorResolver` | Class implementing `ResolvesAccessors`                                      |
 | `user_label` |                       | `name`                     | User attribute shown in the access form                                     |
+| `user_search`|                       | `user_label`, `email`      | User columns the access form searches (optional key)                        |
 | `groups`     |                       | `[]`                       | Group models (for example roles) that can be granted access                 |
 
 A group entry looks like this:
@@ -50,7 +51,9 @@ A group entry looks like this:
 ],
 ```
 
-`model` and `relation` are required. `label` defaults to `name` and `prefix` to the class basename of the model. See
+`model` and `relation` are required. `label` defaults to `name` and `prefix` to the class basename of the model. An
+optional `search` lists the columns the access form searches, by default only `label`. An empty `user_search` or
+`search` falls back to the default. Matching ignores case; on SQLite only for ASCII letters. See
 [Access control](access.md).
 
 ## Body cache

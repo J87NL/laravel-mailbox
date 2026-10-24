@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Access;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -59,6 +60,34 @@ class RelationAccessorResolver implements ResolvesAccessors
             ->all();
     }
 
+    public function search(string $term, int $limit): array
+    {
+        $pattern = sprintf('%%%s%%', str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term));
+
+        return collect($this->sources())
+            ->flatMap(fn (array $source): array => $source['model']::query()
+                ->where(function (Builder $query) use ($source, $pattern): void {
+                    foreach ($source['search'] as $column) {
+                        $query->orWhereRaw(
+                            sprintf("LOWER(%s) LIKE LOWER(?) ESCAPE '!'", $query->getQuery()->getGrammar()->wrap($column)),
+                            [$pattern],
+                        );
+                    }
+                })
+                ->orderByRaw(sprintf('LOWER(%s)', (new $source['model'])->getConnection()->getQueryGrammar()->wrap($source['label'])))
+                ->limit($limit)
+                ->get()
+                ->map(fn (Model $model): array => [
+                    'key' => sprintf('%s:%s', $model->getMorphClass(), $model->getKey()),
+                    'label' => $this->describe($source, $model),
+                ])
+                ->all())
+            ->sortBy(fn (array $accessor): string => mb_strtolower($accessor['label']))
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
     public function labels(array $accessors): array
     {
         return collect($accessors)
@@ -88,7 +117,7 @@ class RelationAccessorResolver implements ResolvesAccessors
     }
 
     /**
-     * @param  array{label: string, model: string, prefix: string}  $source
+     * @param  array{label: string, model: string, prefix: string, search: array<int, string>}  $source
      */
     private function describe(array $source, Model $model): string
     {
@@ -96,7 +125,7 @@ class RelationAccessorResolver implements ResolvesAccessors
     }
 
     /**
-     * @return array<int, array{label?: string, model: string, prefix?: string, relation: string}>
+     * @return array<int, array{label?: string, model: string, prefix?: string, relation: string, search?: array<int, string>}>
      */
     private function groups(): array
     {
@@ -104,20 +133,27 @@ class RelationAccessorResolver implements ResolvesAccessors
     }
 
     /**
-     * @return array<int, array{label: string, model: string, prefix: string}>
+     * @return array<int, array{label: string, model: string, prefix: string, search: array<int, string>}>
      */
     private function sources(): array
     {
+        $userLabel = config('mailbox.access.user_label', 'name');
+
         return [
             [
-                'label' => config('mailbox.access.user_label', 'name'),
+                'label' => $userLabel,
                 'model' => config('mailbox.user_model'),
                 'prefix' => __('mailbox::mailbox.accessor_user'),
+                'search' => array_values(array_filter(config('mailbox.access.user_search') ?? [])) ?: [
+                    $userLabel,
+                    'email',
+                ],
             ],
             ...array_map(fn (array $group): array => [
                 'label' => $group['label'] ?? 'name',
                 'model' => $group['model'],
                 'prefix' => $group['prefix'] ?? class_basename($group['model']),
+                'search' => array_values(array_filter($group['search'] ?? [])) ?: [$group['label'] ?? 'name'],
             ], $this->groups()),
         ];
     }

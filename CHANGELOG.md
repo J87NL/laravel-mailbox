@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 - 2026-10-24
+
+- The access form no longer sends every user and group to the browser. `AccessForm` takes a second argument, `searchUrl`, and its `accessor` select searches on the server from two characters on (`AccessForm::MIN_SEARCH_LENGTH`). The endpoint answers `GET {searchUrl}?q=<term>` with `[{value, label}]`; `j87nl/laravel-vue-mailbox` 0.7.0 ships it. See `docs/forms.md#accessform`.
+- New `ResolvesAccessors::search(string $term, int $limit)`. `RelationAccessorResolver` matches users on `access.user_search` (new optional config key, default `user_label` and `email`) and groups on their optional `search` columns (default `label`), case-insensitively, with `%` and `_` taken literally.
+- New validation rule `J87NL\Mailbox\Rules\ExistingAccessor`: the `type:id` key must name an existing model of a configured accessor source. `AccessForm` uses it instead of an `in:` rule over all accessors.
+- Requires `tranquil-tools/laravel-form-builder` ^1.8.
+- **Breaking for custom code:** pass a search url to `new AccessForm($action, $searchUrl)` (empty strings to validate only), and add `search()` to a custom `ResolvesAccessors`. Hosts on `j87nl/laravel-vue-mailbox` only bump both packages.
+
 ## 0.4.0 - 2026-10-24
 
 - **Needs a migration:** the new migration `add_conversations_to_mailbox_tables` adds `mailboxes.conversation_view` (boolean, default `false`) and `mailbox_messages.thread_key` with indexes on `(mailbox_folder_id, thread_key)` and `(mailbox_id, thread_key)`. The sync writes `thread_key`, so publish and run it before deploying this version (release it as 0.4.0). Then run `php artisan mailbox:threads` once.

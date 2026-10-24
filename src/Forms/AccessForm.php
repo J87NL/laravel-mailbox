@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Forms;
 
-use J87NL\Mailbox\Contracts\ResolvesAccessors;
 use J87NL\Mailbox\Enums\AccessLevel;
+use J87NL\Mailbox\Rules\ExistingAccessor;
 use TranquilTools\FormBuilder\AbstractForm;
 use TranquilTools\FormBuilder\Fields\Select;
 use TranquilTools\FormBuilder\Fields\Submit;
@@ -13,8 +13,11 @@ use TranquilTools\FormBuilder\FormConfig;
 
 class AccessForm extends AbstractForm
 {
+    public const int MIN_SEARCH_LENGTH = 2;
+
     public function __construct(
         private readonly string $action,
+        private readonly string $searchUrl,
     ) {}
 
     public function configure(FormConfig $form): void
@@ -24,16 +27,12 @@ class AccessForm extends AbstractForm
 
     public function fields(): array
     {
-        $assignable = app(ResolvesAccessors::class)->assignable();
-
         return [
             Select::make('accessor')
                 ->label(__('mailbox::mailbox.accessor'))
-                ->options($assignable)
-                ->optionLabel('label')
-                ->optionValue('key')
-                ->searchable()
-                ->rules('required', 'in:'.implode(',', array_column($assignable, 'key'))),
+                ->searchUrl($this->searchUrl)
+                ->minSearchLength(self::MIN_SEARCH_LENGTH)
+                ->rules('required', 'string', new ExistingAccessor),
             Select::make('level')
                 ->label(__('mailbox::mailbox.level'))
                 ->options(array_map(fn (AccessLevel $level): array => [

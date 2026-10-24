@@ -8,7 +8,7 @@
   [Deleting in Trash](message-actions.md#deleting).
 - A queue worker, because sync jobs are queued
 
-The package depends on `tranquil-tools/laravel-form-builder` ^1.7 for its forms, `directorytree/imapengine` for IMAP,
+The package depends on `tranquil-tools/laravel-form-builder` ^1.8 for its forms, `directorytree/imapengine` for IMAP,
 `symfony/mailer` for SMTP and `symfony/html-sanitizer` for HTML mail.
 
 ## Composer

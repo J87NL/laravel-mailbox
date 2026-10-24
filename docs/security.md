@@ -79,8 +79,10 @@ another client flagged `\Deleted` is never removed by accident. See [Message act
 
 ## Access data
 
-- The access form and `mailbox:grant` list every user and group the resolver knows. Every manager therefore sees all
-  user names.
+- The access form sends no option list. It searches users and groups on the server from two characters on and gets at
+  most 20 matches per search, so a manager only sees the names they search for. The UI package authorizes that search
+  with `manageMailbox` and throttles it. `mailbox:grant` still lists every user and group the resolver knows, for the
+  console only.
 - The last manage row of a mailbox cannot be removed or lowered.
 - Grants and revocations are written to the [audit trail](audit-trail.md).
 - Admins via `MAILBOX_ADMINS` need a verified email when the user model implements `MustVerifyEmail`.
