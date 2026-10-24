@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## 0.4.0 - 2026-10-24
 
 - **Needs a migration:** the new migration `add_conversations_to_mailbox_tables` adds `mailboxes.conversation_view` (boolean, default `false`) and `mailbox_messages.thread_key` with indexes on `(mailbox_folder_id, thread_key)` and `(mailbox_id, thread_key)`. The sync writes `thread_key`, so publish and run it before deploying this version (release it as 0.4.0). Then run `php artisan mailbox:threads` once.
 - Conversations: `J87NL\Mailbox\Threading\ConversationKeys` gives each message a conversation key from `References`/`In-Reply-To` (following messages already known in the mailbox), falling back to the normalized subject for a reply without those headers, and to the message's own `Message-ID`. The folder sync keys new messages; the new command `mailbox:threads {mailbox?} {--fresh}` keys stored ones. A reply without reply headers joins the newest message with the same normalized subject from the `threading.subject_days` days before the reply's own date (new config key, default 90). When a message is keyed, replies that arrived earlier and were keyed with its id move to its conversation. See `docs/sync.md#conversations`.
