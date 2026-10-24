@@ -111,6 +111,12 @@ A mailbox can have an HTML `signature`. `SaveMailbox` sanitizes it with `Message
 - style declarations that load resources are removed;
 - a signature without text or images is stored as `null`.
 
+Every message is sent with an HTML part and a plain-text part made from it. The plain text keeps the line structure
+(paragraphs, line breaks, list items, table rows), separates table cells with a space, writes links as
+`label (https://...)` (a link whose label is its address, or that has no text such as a linked logo, becomes just the
+address) and leaves out `<style>`, `<script>` and `<head>` content. So an HTML signature with links stays readable in
+the text part.
+
 The package does not insert the signature into the body. The UI package puts it below an empty first paragraph and
 above the quote, wrapped in `<div class="mailbox-signature">`. See its
 [compose page](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/pages/compose.md#body-and-signature).

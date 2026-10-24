@@ -18,6 +18,7 @@ use J87NL\Mailbox\Relations\MessageLinks;
  * @property string|null $message_id
  * @property string|null $in_reply_to
  * @property string|null $references
+ * @property string|null $thread_key
  * @property string|null $subject
  * @property string|null $from_email
  * @property string|null $from_name

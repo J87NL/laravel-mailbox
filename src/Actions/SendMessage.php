@@ -120,9 +120,39 @@ class SendMessage
 
     private function plainText(string $html): string
     {
-        $withBreaks = (string) preg_replace('/<br\s*\/?>|<\/(p|li|div|blockquote|h[1-6]|tr)>/i', "\n", $html);
+        $withoutStyles = preg_replace('/<(style|script|head)\b[^>]*>.*?<\/\1>/is', '', $html) ?? $html;
+        $withLinks = preg_replace_callback('/<a\b[^>]*\bhref\s*=\s*(["\'])(https?:[^"\']+|mailto:[^"\']+)\1[^>]*>(.*?)<\/a>/is', $this->plainLink(...), $withoutStyles) ?? $withoutStyles;
+        $withCells = preg_replace('/<\/(td|th)>/i', ' ', $withLinks) ?? $withLinks;
+        $withBreaks = preg_replace('/<br\s*\/?>|<\/(p|li|div|blockquote|h[1-6]|tr)>/i', "\n", $withCells) ?? $withCells;
+        $text = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5);
 
-        return trim(html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5));
+        $lines = array_map(
+            fn (string $line): string => trim(preg_replace('/[ \t\x{00A0}]+/u', ' ', $line) ?? $line),
+            explode("\n", $text),
+        );
+        $joined = implode("\n", $lines);
+
+        return trim(preg_replace("/\n{3,}/", "\n\n", $joined) ?? $joined);
+    }
+
+    /**
+     * @param  array<int, string>  $match
+     */
+    private function plainLink(array $match): string
+    {
+        $url = html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5);
+        $label = trim(html_entity_decode(strip_tags($match[3]), ENT_QUOTES | ENT_HTML5));
+        $address = Str::after($url, 'mailto:');
+
+        if ($label === '') {
+            return e($address);
+        }
+
+        if ($label === $url || $label === $address) {
+            return $match[3];
+        }
+
+        return sprintf('%s (%s)', $match[3], e($address));
     }
 
     /**

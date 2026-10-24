@@ -27,6 +27,7 @@ Table `mailboxes`. One row per shared mailbox.
 | `smtp_username`   | string           |                                                                          |
 | `smtp_password`   | text, nullable   | `encrypted` cast, hidden from arrays                                     |
 | `append_sent`     | bool             | Store a copy of sent mail in Sent. Default `true`                        |
+| `conversation_view` | bool           | Show the message list as conversations, see [Conversations](sync.md#conversations). Default `false` |
 | `active`          | bool             | Inactive mailboxes are not synced and only visible to admins             |
 | `synced_at`       | timestamp, nullable | Last completed sync                                                     |
 | `last_error`      | text, nullable   | The last sync error, or the folders that failed                          |
@@ -97,6 +98,7 @@ Table `mailbox_messages`. The header cache, one row per folder and UID.
 | `message_id`        | The `Message-ID` header without angle brackets                             |
 | `in_reply_to`       | First `In-Reply-To` id                                                     |
 | `references`        | The raw `References` header                                                |
+| `thread_key`        | Conversation key, see [Conversations](sync.md#conversations); `null` until threaded |
 | `subject`           |                                                                            |
 | `from_email`, `from_name` |                                                                      |
 | `to`, `cc`, `reply_to` | Arrays of `['email' => ..., 'name' => ...]`                             |

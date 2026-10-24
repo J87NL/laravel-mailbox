@@ -145,6 +145,10 @@ try {
 }
 ```
 
+A message that left the server is a normal situation (another client moved, deleted or relabelled it), not an error:
+do not `report()` it. The package itself only logs it at `info` level where it handles it (quoted images of a message
+that is gone are left out of the reply, see [Sending mail](sending.md#quoting-and-inline-images)).
+
 `MessageGoneException` extends `MailboxException`, which is also thrown when a folder no longer exists on the server or
 when an OAuth mailbox has no token provider.
 

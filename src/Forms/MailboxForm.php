@@ -99,6 +99,11 @@ class MailboxForm extends AbstractForm
                 ->help(__('mailbox::mailbox.append_sent_help'))
                 ->default(true)
                 ->rules('boolean'),
+            Toggle::make('conversation_view')
+                ->label(__('mailbox::mailbox.conversation_view'))
+                ->help(__('mailbox::mailbox.conversation_view_help'))
+                ->default(false)
+                ->rules('boolean'),
             EmailEditor::make('signature')
                 ->label(__('mailbox::mailbox.signature'))
                 ->help(__('mailbox::mailbox.signature_help'))

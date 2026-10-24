@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('mailboxes', function (Blueprint $table): void {
+            $table->boolean('conversation_view')->default(false)->after('append_sent');
+        });
+
+        Schema::table('mailbox_messages', function (Blueprint $table): void {
+            $table->string('thread_key')->nullable()->after('references');
+            $table->index(['mailbox_folder_id', 'thread_key']);
+            $table->index(['mailbox_id', 'thread_key']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('mailbox_messages', function (Blueprint $table): void {
+            $table->dropIndex(['mailbox_folder_id', 'thread_key']);
+            $table->dropIndex(['mailbox_id', 'thread_key']);
+            $table->dropColumn('thread_key');
+        });
+
+        Schema::table('mailboxes', function (Blueprint $table): void {
+            $table->dropColumn('conversation_view');
+        });
+    }
+};

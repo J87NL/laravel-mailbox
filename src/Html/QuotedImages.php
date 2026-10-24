@@ -8,6 +8,7 @@ use DirectoryTree\ImapEngine\Attachment;
 use Dom\Element;
 use Dom\Text;
 use Dom\XPath;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Actions\FetchMessageBody;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
@@ -168,7 +169,10 @@ class QuotedImages
         try {
             return $this->fetch->inlineAttachments($source->loadMissing('folder'));
         } catch (MessageGoneException $exception) {
-            report($exception);
+            Log::info($exception->getMessage(), [
+                'mailbox_id' => $source->mailbox_id,
+                'message_id' => $source->id,
+            ]);
 
             return [];
         }

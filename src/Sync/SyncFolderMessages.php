@@ -18,6 +18,7 @@ use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Support\RawMessageCache;
+use J87NL\Mailbox\Threading\ConversationKeys;
 
 class SyncFolderMessages
 {
@@ -46,6 +47,7 @@ class SyncFolderMessages
     public function __construct(
         private readonly AnnounceReceivedMessages $announcer,
         private readonly MailboxConnector $connector,
+        private readonly ConversationKeys $conversations,
     ) {}
 
     public function handle(MailboxFolder $folder): void
@@ -168,6 +170,13 @@ class SyncFolderMessages
                 ],
                 self::UPDATED_COLUMNS,
             );
+
+        $this->conversations->assign($folder->messages()
+            ->whereIn('uid', $uids)
+            ->whereNull('thread_key')
+            ->orderBy('sent_at')
+            ->orderBy('id')
+            ->get());
 
         return array_values(array_diff($uids, $existing));
     }
