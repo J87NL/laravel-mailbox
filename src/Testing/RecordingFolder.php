@@ -22,6 +22,10 @@ class RecordingFolder extends FakeFolder
 
     public int $messageFetches = 0;
 
+    public int $chunkFetches = 0;
+
+    public int $secondsPerChunk = 0;
+
     public function messages(): MessageQueryInterface
     {
         $this->select(true);

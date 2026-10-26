@@ -40,7 +40,9 @@ IMAP is the source of truth; the database is a cache that makes lists, sorting a
    - fetches new messages from `last_uid + 1` (first run: last `initial_days` days) with headers, flags, size and body structure — no bodies — and stores each chunk with one upsert; string headers are cut to their column length;
    - refreshes flags for the newest `flag_window` known UIDs with one grouped update per flag combination, and deletes rows that vanished remotely (handled in Thunderbird or a phone);
    - treats messages flagged `\Deleted` as gone, so a purge on a server without UIDPLUS does not bring them back;
-   - runs under a cache lock per folder, so a scheduled sync and a folder job never sync the same folder at once.
+   - runs under a cache lock per folder, so a scheduled sync and a folder job never sync the same folder at once;
+   - stops after a chunk when the job's time budget (`sync.time_budget_seconds`, default 40) is used up; `last_uid` is already saved, so the next run continues there.
+   Folders run inbox first, then folders that finished a sync before (longest ago first), then backfills, so a big first sync cannot keep new mail waiting.
    A folder that fails is reported and skipped; the other folders still sync, and `mailboxes.last_error` lists the failed folders.
 4. `MessageReceived` is the hook for app automation, so it fires only for genuinely new mail:
    - never on the first sync of a folder or after a `UIDVALIDITY` reset (those rebuild the cache, they do not receive mail); the messages found then do get a `received` audit entry, so they are known and never announced later;

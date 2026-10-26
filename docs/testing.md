@@ -63,6 +63,9 @@ expect($connector->remote($mailbox)->folder('INBOX')->operations)->toBe([
 `RecordingFolder::message(int $uid)` returns one fake message, for example to check its flags.
 `RecordingFolder::$messageFetches` counts single-message fetches (`find()` and `findOrFail()`), for example to check
 that inline images are served from the raw cache. Fake the raw cache disk with `Storage::fake('local')`.
+`RecordingFolder::$chunkFetches` counts the chunks the sync fetched, and `RecordingFolder::$secondsPerChunk` moves the
+test clock (`Carbon::setTestNow()`) that many seconds per chunk, so a test can use up a sync's time budget. The fake
+message query honours UID ranges like a server does.
 
 The connector records more:
 

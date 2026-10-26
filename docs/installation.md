@@ -107,7 +107,9 @@ Schedule::command('mailbox:prune-bodies')->daily();
 ```
 
 `mailbox:sync` queues a `SyncMailboxJob` per active mailbox, so run a queue worker. Set `MAILBOX_SYNC_QUEUE` to put the
-sync jobs on their own queue.
+sync jobs on their own queue. A job works for at most `sync.time_budget_seconds` (40) seconds and has a 55 second
+timeout, which fits Laravel's default worker timeout (60) and `retry_after` (90); a large mailbox is synced over several
+runs, see [Time budget](sync.md#time-budget).
 
 ## OAuth mailboxes
 

@@ -53,7 +53,7 @@ php artisan mailbox:sync --now
 | Argument / option | Description                                              |
 |-------------------|----------------------------------------------------------|
 | `mailbox`         | Only this mailbox id (optional)                          |
-| `--now`           | Run the sync inline instead of queueing a `SyncMailboxJob` |
+| `--now`           | Run the sync inline instead of queueing a `SyncMailboxJob`, without a time budget |
 
 Inactive mailboxes are skipped, also when their id is given. Schedule it:
 

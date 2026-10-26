@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Models\MailboxFolder;
+use J87NL\Mailbox\Sync\SyncBudget;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 
 class SyncFolderJob implements ShouldBeUnique, ShouldQueue
@@ -19,7 +20,13 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
+    public const DEFAULT_TIMEOUT = 55;
+
     public int $tries = 1;
+
+    public int $timeout = self::DEFAULT_TIMEOUT;
+
+    public bool $failOnTimeout = true;
 
     public int $uniqueFor = 120;
 
@@ -27,6 +34,7 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
         public readonly int $folderId,
     ) {
         $this->onQueue(config('mailbox.sync.queue'));
+        $this->timeout = (int) config('mailbox.sync.job_timeout_seconds', self::DEFAULT_TIMEOUT);
     }
 
     public function uniqueId(): string
@@ -45,7 +53,7 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
         }
 
         try {
-            $sync->handle($folder);
+            $sync->handle($folder, SyncBudget::fromConfig());
         } finally {
             $connector->disconnect($folder->mailbox);
         }

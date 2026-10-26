@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 - 2026-10-26
+
+- The sync jobs work within a time budget: `SyncMailboxJob` and `SyncFolderJob` stop after `sync.time_budget_seconds` seconds (new config key, `MAILBOX_SYNC_TIME_BUDGET`, default `40`) and leave the rest to the next scheduled run, instead of being killed by the worker timeout on a large mailbox. The budget is checked before every folder and after every stored chunk; a stopped folder keeps its progress (`last_uid` is saved per chunk) and continues there next run. No extra jobs are dispatched. See `docs/sync.md#time-budget`.
+- Folders are synced inbox first, then folders that finished a sync before (longest ago first), then folders that are still backfilling, so a big first sync no longer keeps new mail in the inbox and other folders waiting.
+- Both sync jobs have `$timeout = 55` (new config key `sync.job_timeout_seconds`, `MAILBOX_SYNC_JOB_TIMEOUT`) and `$failOnTimeout = true`. Keep budget < job timeout < the queue's `retry_after` (default `90`) when changing them.
+- The per-folder sync lock of a budgeted sync expires after the job timeout plus 60 seconds instead of 600 seconds, so a killed job no longer blocks that folder for ten minutes.
+- A `UIDVALIDITY` reset clears the folder's `synced_at` until it is fetched completely again, so a reset that takes several runs does not announce the refetched mail as received.
+- `SyncMailbox::handle()` and `SyncFolderMessages::handle()` take an optional `J87NL\Mailbox\Sync\SyncBudget`; without one (also `mailbox:sync --now`) they sync everything in one go, as before.
+- Testing: `RecordingFolder::$chunkFetches` and `RecordingFolder::$secondsPerChunk`, and the fake message query honours UID ranges.
+- No migration and no config publish needed. A published config without the new keys uses the defaults.
+
 ## 0.5.0 - 2026-10-24
 
 - The access form no longer sends every user and group to the browser. `AccessForm` takes a second argument, `searchUrl`, and its `accessor` select searches on the server from two characters on (`AccessForm::MIN_SEARCH_LENGTH`). The endpoint answers `GET {searchUrl}?q=<term>` with `[{value, label}]`; `j87nl/laravel-vue-mailbox` 0.7.0 ships it. See `docs/forms.md#accessform`.

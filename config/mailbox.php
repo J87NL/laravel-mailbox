@@ -51,7 +51,9 @@ return [
         'chunk_size' => 50,
         'flag_window' => 500,
         'initial_days' => 90,
+        'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
         'queue' => env('MAILBOX_SYNC_QUEUE'),
+        'time_budget_seconds' => (int) env('MAILBOX_SYNC_TIME_BUDGET', 40),
     ],
 
     'folders' => [

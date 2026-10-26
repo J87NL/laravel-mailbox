@@ -50,26 +50,42 @@ class SyncFolderMessages
         private readonly ConversationKeys $conversations,
     ) {}
 
-    public function handle(MailboxFolder $folder): void
+    public function handle(MailboxFolder $folder, ?SyncBudget $budget = null): void
     {
         if (! $folder->selectable) {
             return;
         }
 
-        Cache::lock(sprintf('mailbox-folder-sync:%d', $folder->id), 600)
-            ->get(function () use ($folder): void {
-                $this->sync($folder);
+        $budget ??= SyncBudget::unlimited();
+
+        Cache::lock(sprintf('mailbox-folder-sync:%d', $folder->id), $this->lockSeconds($budget))
+            ->get(function () use ($budget, $folder): void {
+                $this->sync($folder, $budget);
             });
     }
 
-    private function sync(MailboxFolder $folder): void
+    private function lockSeconds(SyncBudget $budget): int
+    {
+        if (! $budget->isLimited()) {
+            return 600;
+        }
+
+        return (int) config('mailbox.sync.job_timeout_seconds', 55) + 60;
+    }
+
+    private function sync(MailboxFolder $folder, SyncBudget $budget): void
     {
         $remote = $this->connector->folder($folder);
         $status = $remote->status();
 
-        $reset = $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
+        $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
 
-        $this->fetchNew($folder, $remote, ! is_null($folder->synced_at) && ! $reset);
+        if (! $this->fetchNew($folder, $remote, ! is_null($folder->synced_at), $budget)) {
+            $folder->save();
+
+            return;
+        }
+
         $this->refreshKnown($folder, $remote);
 
         $folder->unseen_count = isset($status['UNSEEN'])
@@ -79,24 +95,23 @@ class SyncFolderMessages
         $folder->save();
     }
 
-    private function resetWhenUidValidityChanged(MailboxFolder $folder, int $uidValidity): bool
+    private function resetWhenUidValidityChanged(MailboxFolder $folder, int $uidValidity): void
     {
         $changed = ! is_null($folder->uid_validity) && (int) $folder->uid_validity !== $uidValidity;
 
         $folder->uid_validity = $uidValidity;
 
         if (! $changed) {
-            return false;
+            return;
         }
 
         app(RawMessageCache::class)->forgetMatching($folder->messages()->getQuery()->clone());
         $folder->messages()->delete();
         $folder->last_uid = 0;
-
-        return true;
+        $folder->synced_at = null;
     }
 
-    private function fetchNew(MailboxFolder $folder, FolderInterface $remote, bool $established): void
+    private function fetchNew(MailboxFolder $folder, FolderInterface $remote, bool $established, SyncBudget $budget): bool
     {
         $after = (int) $folder->last_uid;
 
@@ -111,14 +126,15 @@ class SyncFolderMessages
         $this->constrainToNew($query, $after);
 
         $watched = $this->announcer->watches($folder);
+        $complete = true;
 
-        $query->chunk(function (MessageCollection $messages) use ($after, $established, $folder, $watched): void {
+        $query->chunk(function (MessageCollection $messages) use ($after, $budget, &$complete, $established, $folder, $watched): ?bool {
             $fresh = collect($messages->all())
                 ->filter(fn (MessageInterface $message): bool => $message->uid() > $after)
                 ->values();
 
             if ($fresh->isEmpty()) {
-                return;
+                return null;
             }
 
             $folder->last_uid = max((int) $folder->last_uid, (int) $fresh->max(fn (MessageInterface $message): int => $message->uid()));
@@ -130,7 +146,17 @@ class SyncFolderMessages
             if ($watched) {
                 $this->announcer->handle($folder, $stored, announce: $established);
             }
+
+            if (! $budget->exhausted()) {
+                return null;
+            }
+
+            $complete = false;
+
+            return false;
         }, (int) config('mailbox.sync.chunk_size'));
+
+        return $complete;
     }
 
     private function constrainToNew(MessageQueryInterface $query, int $after): void

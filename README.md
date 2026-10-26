@@ -61,6 +61,8 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
+| `sync.time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40` | Seconds a sync job works before it stops and leaves the rest to the next run |
+| `sync.job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55` | Timeout of the sync jobs; keep it above the budget and below the queue's `retry_after` |
 
 ## Access
 

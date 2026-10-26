@@ -160,16 +160,26 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
     'chunk_size' => 50,
     'flag_window' => 500,
     'initial_days' => 90,
+    'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
     'queue' => env('MAILBOX_SYNC_QUEUE'),
+    'time_budget_seconds' => (int) env('MAILBOX_SYNC_TIME_BUDGET', 40),
 ],
 ```
 
-| Key            | Env                  | Default       | Description                                                       |
-|----------------|----------------------|---------------|-------------------------------------------------------------------|
-| `chunk_size`   |                      | `50`          | Messages fetched and stored per chunk                             |
-| `flag_window`  |                      | `500`         | The newest known messages per folder whose flags are refreshed    |
-| `initial_days` |                      | `90`          | How far back the first sync of a folder goes                      |
-| `queue`        | `MAILBOX_SYNC_QUEUE` | default queue | Queue for `SyncMailboxJob` and `SyncFolderJob`                    |
+| Key                   | Env                        | Default       | Description                                                                 |
+|-----------------------|----------------------------|---------------|-----------------------------------------------------------------------------|
+| `chunk_size`          |                            | `50`          | Messages fetched and stored per chunk                                       |
+| `flag_window`         |                            | `500`         | The newest known messages per folder whose flags are refreshed              |
+| `initial_days`        |                            | `90`          | How far back the first sync of a folder goes                                |
+| `job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55`          | `$timeout` of `SyncMailboxJob` and `SyncFolderJob`                          |
+| `queue`               | `MAILBOX_SYNC_QUEUE`       | default queue | Queue for `SyncMailboxJob` and `SyncFolderJob`                              |
+| `time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40`          | Seconds a sync job spends on folders before it stops and leaves the rest to the next run |
+
+A published config without `job_timeout_seconds` or `time_budget_seconds` uses the defaults. Keep
+`time_budget_seconds` < `job_timeout_seconds` < the `retry_after` of the queue connection (Laravel's default is `90`),
+with room for one chunk and the flag refresh between the first two: a job that runs longer than its timeout is killed and
+marked failed, and a job that is still running at `retry_after` is handed to a second worker. See
+[Time budget](sync.md#time-budget).
 
 See [Synchronization](sync.md).
 
@@ -231,4 +241,6 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_COMPOSE_EDITOR`     | `compose.editor`        | `hugerte`           |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |
+| `MAILBOX_SYNC_JOB_TIMEOUT`   | `sync.job_timeout_seconds` | `55`             |
 | `MAILBOX_SYNC_QUEUE`         | `sync.queue`            | default queue       |
+| `MAILBOX_SYNC_TIME_BUDGET`   | `sync.time_budget_seconds` | `40`             |

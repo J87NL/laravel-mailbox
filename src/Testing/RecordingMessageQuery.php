@@ -10,6 +10,7 @@ use DirectoryTree\ImapEngine\Enums\ImapFetchIdentifier;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\MessageInterface;
 use DirectoryTree\ImapEngine\Testing\FakeMessageQuery;
+use Illuminate\Support\Carbon;
 
 class RecordingMessageQuery extends FakeMessageQuery
 {
@@ -17,6 +18,11 @@ class RecordingMessageQuery extends FakeMessageQuery
      * @var array<int, int>|null
      */
     private ?array $uids = null;
+
+    /**
+     * @var array{0: int, 1: int|float}|null
+     */
+    private ?array $uidRange = null;
 
     public function __construct(
         private readonly RecordingFolder $recordingFolder,
@@ -30,14 +36,21 @@ class RecordingMessageQuery extends FakeMessageQuery
 
         if (is_array($from)) {
             $this->uids = array_map('intval', $from);
+
+            return $this;
         }
+
+        $this->uidRange = [
+            (int) $from,
+            is_null($to) ? (int) $from : $to,
+        ];
 
         return $this;
     }
 
     public function get(): MessageCollection
     {
-        $messages = parent::get();
+        $messages = $this->withinUidRange(parent::get());
 
         if (is_null($this->uids)) {
             return $messages;
@@ -47,6 +60,19 @@ class RecordingMessageQuery extends FakeMessageQuery
             ->filter(fn (MessageInterface $message): bool => in_array($message->uid(), $this->uids, true))
             ->values()
             ->all());
+    }
+
+    public function chunk(callable $callback, int $chunkSize = 10, int $startChunk = 1): void
+    {
+        parent::chunk(function (MessageCollection $messages, int $page) use ($callback): mixed {
+            $this->recordingFolder->chunkFetches++;
+
+            if ($this->recordingFolder->secondsPerChunk > 0) {
+                Carbon::setTestNow(now()->addSeconds($this->recordingFolder->secondsPerChunk));
+            }
+
+            return $callback($messages, $page);
+        }, $chunkSize, $startChunk);
     }
 
     public function find(int $id, ImapFetchIdentifier $identifier = ImapFetchIdentifier::Uid): ?MessageInterface
@@ -114,5 +140,19 @@ class RecordingMessageQuery extends FakeMessageQuery
                 $message->flag(ImapFlag::Deleted, '+');
             }
         }
+    }
+
+    private function withinUidRange(MessageCollection $messages): MessageCollection
+    {
+        if (is_null($this->uidRange)) {
+            return $messages;
+        }
+
+        [$from, $to] = $this->uidRange;
+
+        return new MessageCollection($messages
+            ->filter(fn (MessageInterface $message): bool => $message->uid() >= $from && $message->uid() <= $to)
+            ->values()
+            ->all());
     }
 }

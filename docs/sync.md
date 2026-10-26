@@ -32,7 +32,44 @@ app(SyncMailbox::class)->handle($mailbox); // inline
 ```
 
 Both jobs implement `ShouldBeUnique` (per mailbox for 600 seconds, per folder for 120 seconds), run once
-(`$tries = 1`), use the queue from `mailbox.sync.queue` and skip inactive mailboxes.
+(`$tries = 1`), use the queue from `mailbox.sync.queue` and skip inactive mailboxes. They work within a
+[time budget](#time-budget), have a `$timeout` of `sync.job_timeout_seconds` (default 55) and `$failOnTimeout = true`.
+`mailbox:sync --now` and a direct `SyncMailbox::handle($mailbox)` call have no budget and sync everything in one go.
+
+## Time budget
+
+A large mailbox (a Gmail "All mail" folder with thousands of messages) does not fit in one queue job. The jobs therefore
+stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to the next scheduled run:
+
+- The budget is checked before every folder and after every stored chunk. A folder that is stopped keeps what it stored:
+  `last_uid` is saved after each chunk, so the next run fetches from there instead of starting over. Its `synced_at`
+  stays as it was, so it counts as not yet finished.
+- A run always starts the first folder in its order and finishes the chunk it is working on, so it makes progress
+  even with a tiny budget.
+- Nothing is dispatched when a run stops early; the next `mailbox:sync` simply continues.
+
+The folders are synced in this order, so one big backfill cannot keep new mail waiting:
+
+1. the inbox;
+2. folders that finished a sync before, the one finished longest ago first. A folder that was stopped or not reached
+   keeps its old `synced_at` and comes first in the next run;
+3. folders that never finished a sync (a first sync, or a `UIDVALIDITY` reset), oldest folder first. These are the
+   backfills: they get what is left of the budget.
+
+To use another budget, set `MAILBOX_SYNC_TIME_BUDGET` and, when needed, `MAILBOX_SYNC_JOB_TIMEOUT`. Keep
+budget < job timeout < the `retry_after` of the queue connection (default 90), with room between budget and timeout for
+one chunk and the flag refresh. The job's `$timeout` overrides the worker's `--timeout`. The per-folder cache lock of a
+budgeted sync expires after `job_timeout_seconds` + 60 seconds (600 without a budget), so a killed job does not keep a
+folder locked for long.
+
+You can call the classes with a budget yourself:
+
+```php
+use J87NL\Mailbox\Sync\SyncBudget;
+
+app(SyncMailbox::class)->handle($mailbox, SyncBudget::seconds(40));
+app(SyncFolderMessages::class)->handle($folder, SyncBudget::fromConfig());
+```
 
 ## What a mailbox sync does
 
@@ -40,7 +77,8 @@ Both jobs implement `ShouldBeUnique` (per mailbox for 600 seconds, per folder fo
 
 1. `SyncFolders` lists the folders on the server and upserts them with their role and flags. Folders that no longer
    exist are deleted, with their cached messages.
-2. `SyncFolderMessages` runs for every folder.
+2. `SyncFolderMessages` runs for every folder, in the order described under [Time budget](#time-budget), until the
+   budget is used up.
 3. `synced_at` is set on the mailbox. `last_error` is cleared, or lists the folders that failed with their error.
 
 A folder that fails is reported and skipped; the other folders still sync. When the folder list itself cannot be
@@ -52,11 +90,12 @@ fetched, the error is stored in `last_error` and the exception is thrown again. 
 scheduled sync and a folder job never sync the same folder at once.
 
 1. **UIDVALIDITY** - when the server reports another `UIDVALIDITY` than the stored one, the cached messages of the folder
-   are deleted and `last_uid` starts again at 0.
+   are deleted, `last_uid` starts again at 0 and `synced_at` is cleared until the folder is fetched again completely.
 2. **New messages** - fetches messages with a UID above `last_uid`. On the first sync of a folder (`last_uid` is 0) it
    fetches the messages of the last `sync.initial_days` days instead. It fetches headers, flags, size and body
    structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. Each chunk is stored with
-   one upsert.
+   one upsert and moves `last_uid` up. When the [time budget](#time-budget) is used up after a chunk, the folder sync
+   stops here and steps 3 and 4 wait for the next run.
 3. **Known messages** - refreshes the flags of the newest `sync.flag_window` cached messages and deletes cached rows
    that are gone from the server, for example because they were moved in another mail client.
 4. **Unseen count** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
@@ -102,7 +141,8 @@ The sync assigns keys to newly stored messages, oldest first. For messages store
 New messages in a folder can fire the `MessageReceived` event, see [Events](events.md#messagereceived). A message is
 only announced when all of these hold:
 
-- the folder has been synced before and was not just reset because of a new `UIDVALIDITY`;
+- the folder has finished a sync before and was not reset because of a new `UIDVALIDITY` since (a first sync or a
+  reset that takes several runs announces nothing);
 - the folder role is not `Sent`, `Drafts`, `Junk` or `Trash`;
 - the `Message-ID` is not yet known in the mailbox, as a cached message in another folder or in the audit trail.
 
