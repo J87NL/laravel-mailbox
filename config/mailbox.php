@@ -42,6 +42,7 @@ return [
     ],
 
     'connection' => [
+        'read_timeout' => (int) env('MAILBOX_CONNECTION_READ_TIMEOUT', 15),
         'timeout' => (int) env('MAILBOX_CONNECTION_TIMEOUT', 10),
     ],
 
@@ -49,10 +50,17 @@ return [
 
     'sync' => [
         'chunk_size' => 50,
+        'flag_chunk_size' => 100,
         'flag_window' => 500,
         'initial_days' => 90,
         'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
         'queue' => env('MAILBOX_SYNC_QUEUE'),
+        'skip_special_use' => [
+            '\\All',
+            '\\Important',
+            '\\Flagged',
+        ],
+        'step_reserve_seconds' => (int) env('MAILBOX_SYNC_STEP_RESERVE', 5),
         'time_budget_seconds' => (int) env('MAILBOX_SYNC_TIME_BUDGET', 40),
     ],
 

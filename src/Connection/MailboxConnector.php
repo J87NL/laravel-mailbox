@@ -16,6 +16,8 @@ use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 
 class MailboxConnector
 {
+    public const DEFAULT_READ_TIMEOUT = 15;
+
     /**
      * @var array<string, MailboxInterface>
      */
@@ -35,6 +37,7 @@ class MailboxConnector
             'host' => $mailbox->imap_host,
             'password' => $mailbox->usesOAuth() ? $this->accessToken($mailbox) : $mailbox->imap_password,
             'port' => $mailbox->imap_port,
+            'read_timeout' => $this->readTimeout(),
             'timeout' => $this->timeout(),
             'username' => $mailbox->imap_username,
         ]);
@@ -120,6 +123,11 @@ class MailboxConnector
     private function timeout(): int
     {
         return max(1, (int) config('mailbox.connection.timeout', 10));
+    }
+
+    private function readTimeout(): int
+    {
+        return max(1, (int) config('mailbox.connection.read_timeout', self::DEFAULT_READ_TIMEOUT));
     }
 
     private function key(Mailbox $mailbox): string

@@ -41,12 +41,32 @@ Both jobs implement `ShouldBeUnique` (per mailbox for 600 seconds, per folder fo
 A large mailbox (a Gmail "All mail" folder with thousands of messages) does not fit in one queue job. The jobs therefore
 stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to the next scheduled run:
 
-- The budget is checked before every folder and after every stored chunk. A folder that is stopped keeps what it stored:
-  `last_uid` is saved after each chunk, so the next run fetches from there instead of starting over. Its `synced_at`
-  stays as it was, so it counts as not yet finished.
-- A run always starts the first folder in its order and finishes the chunk it is working on, so it makes progress
-  even with a tiny budget.
+- A folder sync has four kinds of steps: `status` (selecting the folder and reading its status), `fetch` (the search
+  for new messages plus the first chunk), `chunk` (every further chunk of `sync.chunk_size` messages) and `refresh`
+  (one piece of `sync.flag_chunk_size` messages of the flag window). Before each step the sync compares the time left
+  with what that step took the last time in this folder (kept in the cache for a day), or `sync.step_reserve_seconds`
+  (default 5) when that is more. A measured duration counts for at most half the budget, so one slow outlier (such as
+  the first fetch of a folder) does not block that step for good. When the step no longer fits, it is deferred to the next run. So a run ends within the
+  budget, and only runs over when a step takes longer than its estimate, by at most that one step. Because the estimate
+  is capped at half the budget, a step that really takes longer than that can start with just over half the budget
+  left; `connection.read_timeout` and the job timeout still bound it, so keep the job timeout above one and a half
+  times the budget (40 and 55 by default).
+- A folder that is stopped keeps what it stored: `last_uid` is saved after each chunk, so the next run fetches from
+  there instead of starting over. Its `synced_at` stays as it was, so it counts as not yet finished.
+- The flag refresh goes from the newest message down in pieces of `sync.flag_chunk_size` (default 100). When it is
+  stopped, the cache remembers where, and the next run continues there before it starts at the newest message again.
+  New messages are fetched completely before the refresh starts, so the folder's `synced_at` is set even when the
+  refresh is deferred.
+- The first step of a run always runs, so a run makes progress even with a tiny budget.
+- A folder whose last chunk was smaller than `sync.chunk_size` counts as fetched completely, also when the budget is
+  used up after it.
+- A run that stops on a broken IMAP connection (a read timeout or a response it cannot parse, see
+  [Configuration](configuration.md#connection)) skips the remaining folders instead of trying them on the same
+  connection.
 - Nothing is dispatched when a run stops early; the next `mailbox:sync` simply continues.
+- Each job that deferred something logs one `info` line, `Mailbox sync deferred work to the next run`, with the mailbox
+  (and folder) id and per folder the step that was deferred (`status`, `fetch`, `refresh` or `not reached`). It holds no
+  message data.
 
 The folders are synced in this order, so one big backfill cannot keep new mail waiting:
 
@@ -58,7 +78,7 @@ The folders are synced in this order, so one big backfill cannot keep new mail w
 
 To use another budget, set `MAILBOX_SYNC_TIME_BUDGET` and, when needed, `MAILBOX_SYNC_JOB_TIMEOUT`. Keep
 budget < job timeout < the `retry_after` of the queue connection (default 90), with room between budget and timeout for
-one chunk and the flag refresh. The job's `$timeout` overrides the worker's `--timeout`. The per-folder cache lock of a
+a step that takes longer than before; `connection.read_timeout` (default 15) bounds a step that hangs. The job's `$timeout` overrides the worker's `--timeout`. The per-folder cache lock of a
 budgeted sync expires after `job_timeout_seconds` + 60 seconds (600 without a budget), so a killed job does not keep a
 folder locked for long.
 
@@ -70,6 +90,24 @@ use J87NL\Mailbox\Sync\SyncBudget;
 app(SyncMailbox::class)->handle($mailbox, SyncBudget::seconds(40));
 app(SyncFolderMessages::class)->handle($folder, SyncBudget::fromConfig());
 ```
+
+## Skipped folders
+
+Gmail shows every label as a folder and adds virtual folders that only repeat mail found elsewhere: All Mail
+("[Gmail]/Alle e-mail"), Important and Starred. All Mail holds the whole archive, so its first sync alone searches
+years of mail. The sync therefore skips folders with one of the special-use attributes in `sync.skip_special_use`
+(default `\All`, `\Important` and `\Flagged`). The attributes are the same in every language, so the folder names do not
+matter. The inbox is never skipped.
+
+A skipped folder stays in the folder list with its role (All Mail keeps the archive role, so archiving in Gmail still
+moves mail there) and stays selectable, but its messages are not fetched or refreshed, its `synced_at` is not updated
+and its unseen count is set to 0. So a folder view of All Mail shows only what was cached before, and the
+`SyncFolderJob` that a move into it queues does nothing; archived mail simply leaves the inbox. A skipped folder is not
+part of the run's rotation and never shows up in the deferred-work log line. `MailboxFolder::skipsSync()` tells whether a folder is skipped, and `needsSync()` returns `false`
+for it, so opening it does not queue a sync. Messages cached before 0.5.3 are left as they are; they are no longer
+refreshed or removed. Sent, Drafts, Junk and Trash sync as before.
+
+Set `sync.skip_special_use` to `[]` to sync these folders again. There is no setting per mailbox.
 
 ## What a mailbox sync does
 
@@ -86,7 +124,7 @@ fetched, the error is stored in `last_error` and the exception is thrown again. 
 
 ## What a folder sync does
 
-`SyncFolderMessages::handle()` skips folders that are not selectable and runs under a cache lock per folder, so a
+`SyncFolderMessages::handle()` skips folders that are not selectable or [skipped](#skipped-folders) and runs under a cache lock per folder, so a
 scheduled sync and a folder job never sync the same folder at once.
 
 1. **UIDVALIDITY** - when the server reports another `UIDVALIDITY` than the stored one, the cached messages of the folder

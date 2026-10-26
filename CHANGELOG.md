@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.3 - 2026-10-26
+
+- Every step of a folder sync is now under the time budget: the folder status, the search for new messages with its first chunk, each further chunk and the flag refresh. Before a step the sync checks whether it still fits, judged by how long that step took the last time in that folder (kept in the cache for a day), with at least `sync.step_reserve_seconds` (new config key, `MAILBOX_SYNC_STEP_RESERVE`, default `5`). A measured duration counts for at most half the budget, so one outlier does not block a step for good. A step that does not fit is deferred to the next run, so a run only goes over its budget when a step takes longer than its estimate. See `docs/sync.md#time-budget`.
+- The flag refresh works in pieces of `sync.flag_chunk_size` messages (new config key, default `100`) from the newest message down, and resumes where the budget stopped it. New messages are fetched completely before the refresh starts, and the folder's `synced_at` is set even when the refresh is deferred.
+- IMAP reads give up after `connection.read_timeout` seconds without data (new config key, `MAILBOX_CONNECTION_READ_TIMEOUT`, default `15`), so a hanging server fails the command instead of running into the job timeout. A mailbox sync that loses its connection this way, or gets a response it cannot parse, skips the remaining folders and lists the error in `last_error`.
+- A sync job that deferred something logs one `info` line, `Mailbox sync deferred work to the next run`, with the mailbox (and folder) id and per folder the deferred step (`status`, `fetch`, `refresh` or `not reached`), without message data.
+- **Behaviour change:** folders with a special-use attribute in `sync.skip_special_use` (new config key, default `\All`, `\Important` and `\Flagged`: Gmail's All Mail, Important and Starred) are no longer synced. They only repeat mail from the inbox and labels, and the first sync of All Mail searched the whole archive. They stay in the folder list with their role and stay selectable; messages cached before are kept but no longer refreshed, and their unseen count is set to 0. New `MailboxFolder::skipsSync()`; `needsSync()` returns `false` for such a folder. Set the key to `[]` to sync them again. There is no per-mailbox setting. See `docs/sync.md#skipped-folders` and `docs/upgrading.md`.
+- Testing: `RecordingFolder` has `$secondsPerStatus`, `$secondsPerSearch`, `$secondsPerFetch` and `$fetches`.
+- No migration and no config publish needed. A published config without the new keys uses the defaults.
+
 ## 0.5.2 - 2026-10-26
 
 - The sync time budget works in hosts that use immutable dates (`Date::use(CarbonImmutable::class)`). 0.5.1 threw a `TypeError` in `SyncBudget` there, so every budgeted sync failed.

@@ -26,6 +26,16 @@ class SyncFolderMessages
 
     private const TEXT_BYTES = 65535;
 
+    public const DEFAULT_FLAG_CHUNK_SIZE = 100;
+
+    public const STEP_STATUS = 'status';
+
+    public const STEP_FETCH = 'fetch';
+
+    public const STEP_CHUNK = 'chunk';
+
+    public const STEP_REFRESH = 'refresh';
+
     private const UPDATED_COLUMNS = [
         'cc',
         'from_email',
@@ -56,12 +66,28 @@ class SyncFolderMessages
             return;
         }
 
+        if ($folder->skipsSync()) {
+            $this->clearUnseenCount($folder);
+
+            return;
+        }
+
         $budget ??= SyncBudget::unlimited();
 
         Cache::lock(sprintf('mailbox-folder-sync:%d', $folder->id), $this->lockSeconds($budget))
             ->get(function () use ($budget, $folder): void {
                 $this->sync($folder, $budget);
             });
+    }
+
+    private function clearUnseenCount(MailboxFolder $folder): void
+    {
+        if ((int) $folder->unseen_count === 0) {
+            return;
+        }
+
+        $folder->unseen_count = 0;
+        $folder->save();
     }
 
     private function lockSeconds(SyncBudget $budget): int
@@ -75,8 +101,20 @@ class SyncFolderMessages
 
     private function sync(MailboxFolder $folder, SyncBudget $budget): void
     {
-        $remote = $this->connector->folder($folder);
-        $status = $remote->status();
+        if (! $budget->allows($folder, self::STEP_STATUS)) {
+            $budget->defer($folder, self::STEP_STATUS);
+
+            return;
+        }
+
+        [$remote, $status] = $budget->measure($folder, self::STEP_STATUS, function () use ($folder): array {
+            $remote = $this->connector->folder($folder);
+
+            return [
+                $remote,
+                $remote->status(),
+            ];
+        });
 
         $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
 
@@ -86,7 +124,7 @@ class SyncFolderMessages
             return;
         }
 
-        $this->refreshKnown($folder, $remote);
+        $this->refreshKnown($folder, $remote, $budget);
 
         $folder->unseen_count = isset($status['UNSEEN'])
             ? (int) $status['UNSEEN']
@@ -109,10 +147,17 @@ class SyncFolderMessages
         $folder->messages()->delete();
         $folder->last_uid = 0;
         $folder->synced_at = null;
+        Cache::forget(sprintf('mailbox-sync-refresh:%d', $folder->id));
     }
 
     private function fetchNew(MailboxFolder $folder, FolderInterface $remote, bool $established, SyncBudget $budget): bool
     {
+        if (! $budget->allows($folder, self::STEP_FETCH)) {
+            $budget->defer($folder, self::STEP_FETCH);
+
+            return false;
+        }
+
         $after = (int) $folder->last_uid;
 
         $query = $remote->messages()
@@ -127,8 +172,14 @@ class SyncFolderMessages
 
         $watched = $this->announcer->watches($folder);
         $complete = true;
+        $started = now();
+        $previousChunk = null;
+        $chunkSize = max(1, (int) config('mailbox.sync.chunk_size'));
 
-        $query->chunk(function (MessageCollection $messages) use ($after, $budget, &$complete, $established, $folder, $watched): ?bool {
+        $query->chunk(function (MessageCollection $messages) use ($after, $budget, $chunkSize, &$complete, $established, $folder, &$previousChunk, $started, $watched): ?bool {
+            $budget->record($folder, is_null($previousChunk) ? self::STEP_FETCH : self::STEP_CHUNK, $previousChunk ?? $started);
+            $previousChunk = now();
+
             $fresh = collect($messages->all())
                 ->filter(fn (MessageInterface $message): bool => $message->uid() > $after)
                 ->values();
@@ -147,14 +198,19 @@ class SyncFolderMessages
                 $this->announcer->handle($folder, $stored, announce: $established);
             }
 
-            if (! $budget->exhausted()) {
+            if ($messages->count() < $chunkSize || $budget->allows($folder, self::STEP_CHUNK)) {
                 return null;
             }
 
+            $budget->defer($folder, self::STEP_FETCH);
             $complete = false;
 
             return false;
-        }, (int) config('mailbox.sync.chunk_size'));
+        }, $chunkSize);
+
+        if (is_null($previousChunk)) {
+            $budget->record($folder, self::STEP_FETCH, $started);
+        }
 
         return $complete;
     }
@@ -207,17 +263,38 @@ class SyncFolderMessages
         return array_values(array_diff($uids, $existing));
     }
 
-    private function refreshKnown(MailboxFolder $folder, FolderInterface $remote): void
+    private function refreshKnown(MailboxFolder $folder, FolderInterface $remote, SyncBudget $budget): void
     {
-        $known = $folder->messages()
+        $resumeKey = sprintf('mailbox-sync-refresh:%d', $folder->id);
+        $resumeAt = Cache::get($resumeKey);
+
+        $window = $folder->messages()
             ->orderByDesc('uid')
             ->limit((int) config('mailbox.sync.flag_window'))
-            ->pluck('uid');
+            ->pluck('uid')
+            ->when(! is_null($resumeAt), fn (Collection $uids): Collection => $uids->filter(fn (int|string $uid): bool => (int) $uid <= (int) $resumeAt)->values());
 
-        if ($known->isEmpty()) {
-            return;
+        foreach ($window->chunk(max(1, (int) config('mailbox.sync.flag_chunk_size', self::DEFAULT_FLAG_CHUNK_SIZE))) as $known) {
+            if (! $budget->allows($folder, self::STEP_REFRESH)) {
+                Cache::put($resumeKey, (int) $known->first(), now()->addDay());
+                $budget->defer($folder, self::STEP_REFRESH);
+
+                return;
+            }
+
+            $budget->measure($folder, self::STEP_REFRESH, function () use ($folder, $known, $remote): void {
+                $this->refreshFlags($folder, $remote, $known->values());
+            });
         }
 
+        Cache::forget($resumeKey);
+    }
+
+    /**
+     * @param  Collection<int, int>  $known
+     */
+    private function refreshFlags(MailboxFolder $folder, FolderInterface $remote, Collection $known): void
+    {
         $query = $remote->messages()
             ->leaveUnread()
             ->withFlags()

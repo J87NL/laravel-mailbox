@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageReceived;
 use J87NL\Mailbox\Jobs\SyncFolderJob;
@@ -18,6 +21,7 @@ use J87NL\Mailbox\Testing\RecordingFolder;
 
 beforeEach(function (): void {
     config()->set('mailbox.sync.chunk_size', 2);
+    config()->set('mailbox.sync.step_reserve_seconds', 1);
 });
 
 function syncWithinBudget(Mailbox $mailbox, int $seconds): void
@@ -54,7 +58,7 @@ it('stops when the budget is used, keeps its progress and finishes on the next r
     $mailbox = mailbox();
     $remote = budgetRemote($mailbox, 'INBOX', range(1, 7), secondsPerChunk: 15);
 
-    syncWithinBudget($mailbox, 40);
+    syncWithinBudget($mailbox, 60);
 
     $inbox = MailboxFolder::query()
         ->where('path', 'INBOX')
@@ -66,7 +70,7 @@ it('stops when the budget is used, keeps its progress and finishes on the next r
         ->and($remote->chunkFetches)->toBe(3)
         ->and($mailbox->refresh()->last_error)->toBeNull();
 
-    syncWithinBudget($mailbox, 40);
+    syncWithinBudget($mailbox, 60);
 
     expect(budgetStoredUids('INBOX'))->toBe(range(1, 7))
         ->and($inbox->refresh()->synced_at)->not->toBeNull()
@@ -95,7 +99,7 @@ it('syncs new mail in the inbox and other synced folders before a folder that is
     syncWithinBudget($mailbox, 40);
 
     expect(budgetStoredUids('INBOX'))->toBe([11, 12])
-        ->and(budgetStoredUids('All mail'))->toBe(range(1, 8))
+        ->and(budgetStoredUids('All mail'))->toBe(range(1, 6))
         ->and(MailboxFolder::query()
             ->where('path', 'All mail')
             ->sole()->synced_at)->toBeNull();
@@ -141,12 +145,163 @@ it('does not announce mail of a UIDVALIDITY reset that takes more than one run',
     expect(budgetStoredUids('INBOX'))->toBe([1, 2, 3, 4])
         ->and($folder->refresh()->synced_at)->toBeNull();
 
-    app(SyncFolderMessages::class)->handle($folder, SyncBudget::seconds(40));
+    app(SyncFolderMessages::class)->handle($folder, SyncBudget::seconds(100));
 
     expect(budgetStoredUids('INBOX'))->toBe(range(1, 5))
         ->and($folder->refresh()->synced_at)->not->toBeNull();
 
     Event::assertNotDispatched(MessageReceived::class);
+});
+
+it('defers a folder whose status or search took longer than the budget has left, without holding up the others', function (): void {
+    $mailbox = mailbox();
+    $remotes = [];
+
+    foreach (['Busy', 'Slow status', 'Slow search', 'Fast'] as $offset => $path) {
+        folder($mailbox, $path, FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10 - $offset), 'uid_validity' => 1]);
+        $remotes[$path] = budgetRemote($mailbox, $path, [2]);
+    }
+
+    $remotes['Busy']->secondsPerChunk = 25;
+    $remotes['Slow status']->secondsPerStatus = 18;
+    $remotes['Slow search']->secondsPerSearch = 18;
+
+    app(SyncMailbox::class)->handle($mailbox);
+
+    foreach ($remotes as $remote) {
+        $remote->addMessage(remoteMessage(3));
+    }
+
+    Log::spy();
+
+    syncWithinBudget($mailbox, 40);
+
+    expect(budgetStoredUids('Busy'))->toBe([2, 3])
+        ->and(budgetStoredUids('Slow status'))->toBe([2])
+        ->and(budgetStoredUids('Slow search'))->toBe([2])
+        ->and(budgetStoredUids('Fast'))->toBe([2, 3]);
+
+    Log::shouldHaveReceived('info')
+        ->once()
+        ->with('Mailbox sync deferred work to the next run', [
+            'mailbox_id' => $mailbox->id,
+            'deferred' => [
+                'Slow status' => 'status',
+                'Slow search' => 'fetch',
+            ],
+        ]);
+});
+
+it('lets a step that once took longer than half the budget run when half the budget is left', function (): void {
+    $mailbox = mailbox();
+    folder($mailbox, 'Archive', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10), 'uid_validity' => 1]);
+    $remote = budgetRemote($mailbox, 'Archive', [2], secondsPerChunk: 60);
+
+    app(SyncMailbox::class)->handle($mailbox);
+
+    $remote->secondsPerChunk = 5;
+    $remote->addMessage(remoteMessage(3));
+
+    syncWithinBudget($mailbox, 40);
+
+    expect(budgetStoredUids('Archive'))->toBe([2, 3]);
+});
+
+it('finishes a folder whose last chunk used up the budget in the same run', function (): void {
+    $mailbox = mailbox();
+    budgetRemote($mailbox, 'INBOX', range(1, 3), secondsPerChunk: 30);
+
+    syncWithinBudget($mailbox, 40);
+
+    expect(budgetStoredUids('INBOX'))->toBe([1, 2, 3])
+        ->and(MailboxFolder::query()
+            ->where('path', 'INBOX')
+            ->sole()->synced_at)->not->toBeNull();
+});
+
+it('refreshes the flag window in chunks and resumes where the budget stopped it', function (): void {
+    config()->set('mailbox.sync.flag_chunk_size', 2);
+    $mailbox = mailbox();
+    $folder = folder($mailbox, attributes: ['last_uid' => 5, 'synced_at' => now()->subMinutes(2), 'uid_validity' => 1]);
+
+    foreach (range(1, 5) as $uid) {
+        storedMessage($folder, $uid);
+    }
+
+    $remote = remoteFolder($mailbox, 'INBOX');
+    $remote->status = ['UIDVALIDITY' => 1];
+    $remote->secondsPerFetch = 15;
+    $remote->setMessages(array_map(fn (int $uid) => remoteMessage($uid, [ImapFlag::Seen->value]), range(1, 5)));
+
+    $seen = fn (): array => $folder->messages()
+        ->where('is_seen', true)
+        ->orderBy('uid')
+        ->pluck('uid')
+        ->all();
+
+    app(SyncFolderMessages::class)->handle($folder, SyncBudget::seconds(40));
+
+    expect($seen())->toBe([2, 3, 4, 5])
+        ->and($remote->fetches)->toBe(2)
+        ->and($folder->refresh()->synced_at->isToday())->toBeTrue();
+
+    app(SyncFolderMessages::class)->handle($folder, SyncBudget::seconds(40));
+
+    expect($seen())->toBe([1, 2, 3, 4, 5])
+        ->and($remote->fetches)->toBe(3);
+
+    app(SyncFolderMessages::class)->handle($folder, SyncBudget::seconds(100));
+
+    expect($remote->fetches)->toBe(6);
+});
+
+it('never runs longer than the budget plus the measured duration of one step', function (): void {
+    $mailbox = mailbox();
+    $remotes = [];
+
+    foreach (['Alpha', 'Beta', 'Gamma', 'Delta'] as $offset => $path) {
+        folder($mailbox, $path, FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10 - $offset), 'uid_validity' => 1]);
+        $remotes[$path] = budgetRemote($mailbox, $path, [2], secondsPerChunk: 4);
+    }
+
+    $remotes['Alpha']->secondsPerStatus = 7;
+    $remotes['Beta']->secondsPerSearch = 9;
+    $remotes['Gamma']->secondsPerFetch = 10;
+    $remotes['Delta']->secondsPerChunk = 6;
+
+    app(SyncMailbox::class)->handle($mailbox);
+
+    foreach ($remotes as $remote) {
+        $remote->setMessages(array_map(fn (int $uid) => remoteMessage($uid), range(1, 9)));
+    }
+
+    foreach ([12, 25, 33] as $budget) {
+        $started = now();
+
+        syncWithinBudget($mailbox, $budget);
+
+        expect(abs($started->diffInSeconds(now())))->toBeLessThanOrEqual($budget + 13);
+    }
+});
+
+it('stops the run when the IMAP connection times out', function (): void {
+    $mailbox = mailbox();
+    folder($mailbox, 'Alpha', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10), 'uid_validity' => 1]);
+    folder($mailbox, 'Beta', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(5), 'uid_validity' => 1]);
+    $remote = test()->connector->remote($mailbox);
+    $remote->addFolder(new class('Alpha') extends RecordingFolder
+    {
+        public function status(): array
+        {
+            throw new ImapConnectionTimedOutException('Stream timed out, no response');
+        }
+    });
+    budgetRemote($mailbox, 'Beta', [2]);
+
+    syncWithinBudget($mailbox, 40);
+
+    expect($mailbox->refresh()->last_error)->toBe('Alpha: Stream timed out, no response')
+        ->and(budgetStoredUids('Beta'))->toBe([]);
 });
 
 it('gives the sync jobs a timeout between the time budget and the queue retry_after', function (string $job): void {

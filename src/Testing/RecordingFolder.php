@@ -7,6 +7,7 @@ namespace J87NL\Mailbox\Testing;
 use DirectoryTree\ImapEngine\MessageQueryInterface;
 use DirectoryTree\ImapEngine\Testing\FakeFolder;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
+use Illuminate\Support\Carbon;
 
 class RecordingFolder extends FakeFolder
 {
@@ -26,6 +27,23 @@ class RecordingFolder extends FakeFolder
 
     public int $secondsPerChunk = 0;
 
+    public int $fetches = 0;
+
+    public int $secondsPerFetch = 0;
+
+    public int $secondsPerSearch = 0;
+
+    public int $secondsPerStatus = 0;
+
+    public function advanceClock(int $seconds): void
+    {
+        if ($seconds <= 0) {
+            return;
+        }
+
+        Carbon::setTestNow(now()->addSeconds($seconds));
+    }
+
     public function messages(): MessageQueryInterface
     {
         $this->select(true);
@@ -35,6 +53,8 @@ class RecordingFolder extends FakeFolder
 
     public function status(): array
     {
+        $this->advanceClock($this->secondsPerStatus);
+
         return $this->status;
     }
 

@@ -10,7 +10,6 @@ use DirectoryTree\ImapEngine\Enums\ImapFetchIdentifier;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\MessageInterface;
 use DirectoryTree\ImapEngine\Testing\FakeMessageQuery;
-use Illuminate\Support\Carbon;
 
 class RecordingMessageQuery extends FakeMessageQuery
 {
@@ -23,6 +22,8 @@ class RecordingMessageQuery extends FakeMessageQuery
      * @var array{0: int, 1: int|float}|null
      */
     private ?array $uidRange = null;
+
+    private bool $chunking = false;
 
     public function __construct(
         private readonly RecordingFolder $recordingFolder,
@@ -50,6 +51,11 @@ class RecordingMessageQuery extends FakeMessageQuery
 
     public function get(): MessageCollection
     {
+        if (! $this->chunking) {
+            $this->recordingFolder->fetches++;
+            $this->recordingFolder->advanceClock($this->recordingFolder->secondsPerFetch);
+        }
+
         $messages = $this->withinUidRange(parent::get());
 
         if (is_null($this->uids)) {
@@ -64,15 +70,19 @@ class RecordingMessageQuery extends FakeMessageQuery
 
     public function chunk(callable $callback, int $chunkSize = 10, int $startChunk = 1): void
     {
-        parent::chunk(function (MessageCollection $messages, int $page) use ($callback): mixed {
-            $this->recordingFolder->chunkFetches++;
+        $this->recordingFolder->advanceClock($this->recordingFolder->secondsPerSearch);
+        $this->chunking = true;
 
-            if ($this->recordingFolder->secondsPerChunk > 0) {
-                Carbon::setTestNow(now()->addSeconds($this->recordingFolder->secondsPerChunk));
-            }
+        try {
+            parent::chunk(function (MessageCollection $messages, int $page) use ($callback): mixed {
+                $this->recordingFolder->chunkFetches++;
+                $this->recordingFolder->advanceClock($this->recordingFolder->secondsPerChunk);
 
-            return $callback($messages, $page);
-        }, $chunkSize, $startChunk);
+                return $callback($messages, $page);
+            }, $chunkSize, $startChunk);
+        } finally {
+            $this->chunking = false;
+        }
     }
 
     public function find(int $id, ImapFetchIdentifier $identifier = ImapFetchIdentifier::Uid): ?MessageInterface

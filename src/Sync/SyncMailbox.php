@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Sync;
 
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionException;
+use DirectoryTree\ImapEngine\Exceptions\ImapParserException;
+use DirectoryTree\ImapEngine\Exceptions\ImapStreamException;
 use DirectoryTree\ImapEngine\Support\Str;
 use Illuminate\Support\Collection;
 use J87NL\Mailbox\Connection\MailboxConnector;
@@ -31,6 +34,10 @@ class SyncMailbox
                 'last_error' => $this->describeFailures($failures),
                 'synced_at' => now(),
             ]);
+
+            $budget->reportDeferred([
+                'mailbox_id' => $mailbox->id,
+            ]);
         } catch (Throwable $exception) {
             $mailbox->update(['last_error' => $exception->getMessage()]);
 
@@ -48,15 +55,29 @@ class SyncMailbox
     {
         $failures = [];
 
+        $stopped = false;
+
+        $folders
+            ->filter(fn (MailboxFolder $folder): bool => $folder->selectable && $folder->skipsSync())
+            ->each(fn (MailboxFolder $folder) => rescue(fn () => $this->syncFolderMessages->handle($folder)));
+
         foreach ($this->inRotation($folders) as $position => $folder) {
-            if ($position > 0 && $budget->exhausted()) {
-                break;
+            if ($stopped || ($position > 0 && $budget->exhausted())) {
+                $stopped = true;
+                $budget->defer($folder, SyncBudget::NOT_REACHED);
+
+                continue;
             }
 
-            $failure = $this->syncFolder($folder, $budget);
-
-            if (! is_null($failure)) {
-                $failures[$folder->path] = $failure;
+            try {
+                $this->syncFolderMessages->handle($folder, $budget);
+            } catch (ImapConnectionException|ImapParserException|ImapStreamException $exception) {
+                report($exception);
+                $failures[$folder->path] = $exception->getMessage();
+                $stopped = true;
+            } catch (Throwable $exception) {
+                report($exception);
+                $failures[$folder->path] = $exception->getMessage();
             }
         }
 
@@ -70,6 +91,7 @@ class SyncMailbox
     private function inRotation(Collection $folders): Collection
     {
         return $folders
+            ->filter(fn (MailboxFolder $folder): bool => $folder->selectable && ! $folder->skipsSync())
             ->sortBy(fn (MailboxFolder $folder): array => [
                 $this->rotationGroup($folder),
                 $folder->synced_at?->getTimestamp() ?? 0,
@@ -89,19 +111,6 @@ class SyncMailbox
         }
 
         return 2;
-    }
-
-    private function syncFolder(MailboxFolder $folder, SyncBudget $budget): ?string
-    {
-        try {
-            $this->syncFolderMessages->handle($folder, $budget);
-
-            return null;
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return $exception->getMessage();
-        }
     }
 
     /**

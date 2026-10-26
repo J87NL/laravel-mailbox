@@ -1,6 +1,7 @@
 - [Introduction](index.md)
 - [Installation](installation.md)
 - [Configuration](configuration.md)
+- [Upgrading](upgrading.md)
 - Core concepts
     - [Data model](data-model.md)
     - [Synchronization](sync.md)

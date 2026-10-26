@@ -127,11 +127,17 @@ See [Address book & suggestions](contacts.md).
 
 ```php
 'connection' => [
+    'read_timeout' => (int) env('MAILBOX_CONNECTION_READ_TIMEOUT', 15),
     'timeout' => (int) env('MAILBOX_CONNECTION_TIMEOUT', 10),
 ],
 ```
 
-Seconds before an IMAP or SMTP connection attempt gives up. Values below 1 are raised to 1.
+`timeout` is the number of seconds before an IMAP or SMTP connection attempt gives up. `read_timeout` is the number of
+seconds an IMAP read waits for the server to send anything; after that the command fails with a timeout instead of
+waiting until the queue worker kills the job. It applies to every IMAP command, also when a message is opened, and
+counts silence, not the total time of a command: a large fetch that keeps sending data is not cut off. Keep it well
+below `sync.job_timeout_seconds` minus `sync.time_budget_seconds`. Values below 1 are raised to 1. A published config
+without `read_timeout` uses 15.
 
 ## Display timezone
 
@@ -158,10 +164,17 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
 ```php
 'sync' => [
     'chunk_size' => 50,
+    'flag_chunk_size' => 100,
     'flag_window' => 500,
     'initial_days' => 90,
     'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
     'queue' => env('MAILBOX_SYNC_QUEUE'),
+    'skip_special_use' => [
+        '\\All',
+        '\\Important',
+        '\\Flagged',
+    ],
+    'step_reserve_seconds' => (int) env('MAILBOX_SYNC_STEP_RESERVE', 5),
     'time_budget_seconds' => (int) env('MAILBOX_SYNC_TIME_BUDGET', 40),
 ],
 ```
@@ -169,15 +182,19 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
 | Key                   | Env                        | Default       | Description                                                                 |
 |-----------------------|----------------------------|---------------|-----------------------------------------------------------------------------|
 | `chunk_size`          |                            | `50`          | Messages fetched and stored per chunk                                       |
+| `flag_chunk_size`     |                            | `100`         | Messages of the flag window refreshed per step; a deferred refresh resumes there |
 | `flag_window`         |                            | `500`         | The newest known messages per folder whose flags are refreshed              |
 | `initial_days`        |                            | `90`          | How far back the first sync of a folder goes                                |
 | `job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55`          | `$timeout` of `SyncMailboxJob` and `SyncFolderJob`                          |
 | `queue`               | `MAILBOX_SYNC_QUEUE`       | default queue | Queue for `SyncMailboxJob` and `SyncFolderJob`                              |
+| `skip_special_use`    |                            | `\All`, `\Important`, `\Flagged` | Folders with one of these special-use attributes are not synced, see [Skipped folders](sync.md#skipped-folders); `[]` syncs them |
+| `step_reserve_seconds` | `MAILBOX_SYNC_STEP_RESERVE` | `5`          | Seconds a sync step needs at least before it starts, when it took less the last time |
 | `time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40`          | Seconds a sync job spends on folders before it stops and leaves the rest to the next run |
 
-A published config without `job_timeout_seconds` or `time_budget_seconds` uses the defaults. Keep
+A published config without `flag_chunk_size`, `job_timeout_seconds`, `skip_special_use`, `step_reserve_seconds` or
+`time_budget_seconds` uses the defaults. Keep
 `time_budget_seconds` < `job_timeout_seconds` < the `retry_after` of the queue connection (Laravel's default is `90`),
-with room for one chunk and the flag refresh between the first two: a job that runs longer than its timeout is killed and
+with room for a step that takes longer than before between the first two: a job that runs longer than its timeout is killed and
 marked failed, and a job that is still running at `retry_after` is handed to a second worker. See
 [Time budget](sync.md#time-budget).
 
@@ -239,8 +256,10 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_RAW_CACHE_DISK`     | `cache.raw_disk`        | `local`             |
 | `MAILBOX_RAW_CACHE_HOURS`    | `cache.raw_hours`       | `24`                |
 | `MAILBOX_COMPOSE_EDITOR`     | `compose.editor`        | `hugerte`           |
+| `MAILBOX_CONNECTION_READ_TIMEOUT` | `connection.read_timeout` | `15`        |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |
 | `MAILBOX_SYNC_JOB_TIMEOUT`   | `sync.job_timeout_seconds` | `55`             |
 | `MAILBOX_SYNC_QUEUE`         | `sync.queue`            | default queue       |
+| `MAILBOX_SYNC_STEP_RESERVE`  | `sync.step_reserve_seconds` | `5`             |
 | `MAILBOX_SYNC_TIME_BUDGET`   | `sync.time_budget_seconds` | `40`             |
