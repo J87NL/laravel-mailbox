@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Sync;
 
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 
 final class SyncBudget
 {
@@ -13,7 +13,7 @@ final class SyncBudget
     private bool $exhausted = false;
 
     private function __construct(
-        private readonly ?Carbon $deadline,
+        private readonly ?CarbonInterface $deadline,
     ) {}
 
     public static function seconds(int $seconds): self

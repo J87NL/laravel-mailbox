@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageReceived;
@@ -157,3 +159,16 @@ it('gives the sync jobs a timeout between the time budget and the queue retry_af
     SyncMailboxJob::class,
     SyncFolderJob::class,
 ]);
+
+test('a time budget works in a host that uses immutable dates', function (): void {
+    Date::use(CarbonImmutable::class);
+
+    try {
+        $budget = SyncBudget::seconds(40);
+
+        expect($budget->isLimited())->toBeTrue()
+            ->and($budget->exhausted())->toBeFalse();
+    } finally {
+        Date::useDefault();
+    }
+});

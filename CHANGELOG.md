@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 - 2026-10-26
+
+- The sync time budget works in hosts that use immutable dates (`Date::use(CarbonImmutable::class)`). 0.5.1 threw a `TypeError` in `SyncBudget` there, so every budgeted sync failed.
+
 ## 0.5.1 - 2026-10-26
 
 - The sync jobs work within a time budget: `SyncMailboxJob` and `SyncFolderJob` stop after `sync.time_budget_seconds` seconds (new config key, `MAILBOX_SYNC_TIME_BUDGET`, default `40`) and leave the rest to the next scheduled run, instead of being killed by the worker timeout on a large mailbox. The budget is checked before every folder and after every stored chunk; a stopped folder keeps its progress (`last_uid` is saved per chunk) and continues there next run. No extra jobs are dispatched. See `docs/sync.md#time-budget`.
