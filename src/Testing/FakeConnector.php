@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Testing;
 
+use Carbon\CarbonInterface;
 use DirectoryTree\ImapEngine\MailboxInterface;
 use DirectoryTree\ImapEngine\Support\Str;
 use J87NL\Mailbox\Connection\MailboxConnector;
@@ -29,6 +30,11 @@ class FakeConnector extends MailboxConnector
      * @var array<int, array{folder: string, uids: array<int, int>}>
      */
     public array $expunged = [];
+
+    /**
+     * @var array<string, CarbonInterface|null>
+     */
+    public array $readDeadlines = [];
 
     public bool $supportsUidPlus = true;
 
@@ -59,6 +65,11 @@ class FakeConnector extends MailboxConnector
         return $this->mailboxes[$key] ??= new RecordingMailbox(folders: [
             new RecordingFolder('INBOX'),
         ]);
+    }
+
+    public function readUntil(Mailbox $mailbox, ?CarbonInterface $deadline): void
+    {
+        $this->readDeadlines[$mailbox->exists ? (string) $mailbox->getKey() : 'unsaved'] = $deadline;
     }
 
     public function imap(Mailbox $mailbox): MailboxInterface

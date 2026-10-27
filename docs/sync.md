@@ -49,8 +49,8 @@ stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to
   the first fetch of a folder) does not block that step for good. When the step no longer fits, it is deferred to the next run. So a run ends within the
   budget, and only runs over when a step takes longer than its estimate, by at most that one step. Because the estimate
   is capped at half the budget, a step that really takes longer than that can start with just over half the budget
-  left; `connection.read_timeout` and the job timeout still bound it, so keep the job timeout above one and a half
-  times the budget (40 and 55 by default).
+  left; IMAP reads stop 5 seconds before the job timeout, so such a step fails with a read timeout rather than being
+  killed. Keep the job timeout above one and a half times the budget (40 and 55 by default).
 - A folder that is stopped keeps what it stored: `last_uid` is saved after each chunk, so the next run fetches from
   there instead of starting over. Its `synced_at` stays as it was, so it counts as not yet finished.
 - The flag refresh goes from the newest message down in pieces of `sync.flag_chunk_size` (default 100). When it is
@@ -78,7 +78,9 @@ The folders are synced in this order, so one big backfill cannot keep new mail w
 
 To use another budget, set `MAILBOX_SYNC_TIME_BUDGET` and, when needed, `MAILBOX_SYNC_JOB_TIMEOUT`. Keep
 budget < job timeout < the `retry_after` of the queue connection (default 90), with room between budget and timeout for
-a step that takes longer than before; `connection.read_timeout` (default 15) bounds a step that hangs. The job's `$timeout` overrides the worker's `--timeout`. The per-folder cache lock of a
+a step that takes longer than before; `connection.read_timeout` (default 15) bounds a step that hangs. A budgeted job
+also stops reading from IMAP 5 seconds before `job_timeout_seconds`, so a step that is still waiting then fails with a
+read timeout (listed in `last_error`) instead of the worker killing the job. The job's `$timeout` overrides the worker's `--timeout`. The per-folder cache lock of a
 budgeted sync expires after `job_timeout_seconds` + 60 seconds (600 without a budget), so a killed job does not keep a
 folder locked for long.
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Connection;
 
+use Carbon\CarbonInterface;
 use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\MailboxInterface;
 use DirectoryTree\ImapEngine\Support\Str;
@@ -41,6 +42,17 @@ class MailboxConnector
             'timeout' => $this->timeout(),
             'username' => $mailbox->imap_username,
         ]);
+    }
+
+    public function readUntil(Mailbox $mailbox, ?CarbonInterface $deadline): void
+    {
+        $imap = $this->imap($mailbox);
+
+        if (! $imap instanceof ImapMailbox) {
+            return;
+        }
+
+        $imap->readUntil(is_null($deadline) ? null : $deadline->getTimestampMs() / 1000);
     }
 
     public function folder(MailboxFolder $folder): FolderInterface

@@ -2,6 +2,11 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.5.4
+
+Nothing to run: no migration and no config publish. A budgeted sync job now stops reading from IMAP 5 seconds before
+`sync.job_timeout_seconds`.
+
 ## 0.5.3
 
 Nothing to run: no migration and no config publish. A published config without the new keys uses the defaults.

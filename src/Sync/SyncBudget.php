@@ -9,6 +9,7 @@ use Closure;
 use DirectoryTree\ImapEngine\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use J87NL\Mailbox\Jobs\SyncMailboxJob;
 use J87NL\Mailbox\Models\MailboxFolder;
 
 final class SyncBudget
@@ -16,6 +17,8 @@ final class SyncBudget
     public const DEFAULT_SECONDS = 40;
 
     public const DEFAULT_STEP_RESERVE_SECONDS = 5;
+
+    public const JOB_TIMEOUT_MARGIN_SECONDS = 5;
 
     public const NOT_REACHED = 'not reached';
 
@@ -31,18 +34,31 @@ final class SyncBudget
     private function __construct(
         private readonly ?CarbonInterface $deadline,
         private readonly int $seconds = 0,
+        private readonly ?CarbonInterface $readDeadline = null,
     ) {}
 
-    public static function seconds(int $seconds): self
+    public static function seconds(int $seconds, ?int $jobTimeoutSeconds = null): self
     {
         $seconds = max($seconds, 1);
 
-        return new self(now()->addSeconds($seconds), $seconds);
+        $readDeadline = is_null($jobTimeoutSeconds)
+            ? null
+            : now()->addSeconds(max($jobTimeoutSeconds - self::JOB_TIMEOUT_MARGIN_SECONDS, 1));
+
+        return new self(now()->addSeconds($seconds), $seconds, $readDeadline);
     }
 
     public static function fromConfig(): self
     {
-        return self::seconds((int) config('mailbox.sync.time_budget_seconds', self::DEFAULT_SECONDS));
+        return self::seconds(
+            (int) config('mailbox.sync.time_budget_seconds', self::DEFAULT_SECONDS),
+            (int) config('mailbox.sync.job_timeout_seconds', SyncMailboxJob::DEFAULT_TIMEOUT),
+        );
+    }
+
+    public function readDeadline(): ?CarbonInterface
+    {
+        return $this->readDeadline;
     }
 
     public static function unlimited(): self

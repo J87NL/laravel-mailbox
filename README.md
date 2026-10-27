@@ -52,7 +52,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `access.admins` | `MAILBOX_ADMINS` | empty | Comma-separated admin emails |
 | `access.mode` | `MAILBOX_ACCESS_MODE` | `restricted` | `open` gives every user write access |
 | `connection.timeout` | `MAILBOX_CONNECTION_TIMEOUT` | `10` | Seconds before an IMAP or SMTP connection attempt gives up |
-| `connection.read_timeout` | `MAILBOX_CONNECTION_READ_TIMEOUT` | `15` | Seconds an IMAP read waits for the server before the command fails |
+| `connection.read_timeout` | `MAILBOX_CONNECTION_READ_TIMEOUT` | `15` | Seconds an IMAP read waits for the server before the command fails (in a sync job never past 5 seconds before the job timeout) |
 | `display_timezone` | `MAILBOX_DISPLAY_TIMEZONE` | `app.timezone` | Timezone for dates the server formats for display (list, reply quote); dates are stored in `app.timezone`, like Laravel's own timestamps |
 | `cache.body_days` | `MAILBOX_BODY_CACHE_DAYS` | `30` | Days a fetched body stays cached; `null` never prunes |
 | `cache.raw_disk` | `MAILBOX_RAW_CACHE_DISK` | `local` | Private disk for the cached raw messages that serve inline images and attachments |

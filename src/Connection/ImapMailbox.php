@@ -9,9 +9,24 @@ use DirectoryTree\ImapEngine\Mailbox;
 
 class ImapMailbox extends Mailbox
 {
+    private ?float $readDeadline = null;
+
+    private ?TimeoutImapStream $stream = null;
+
     public function connect(?ConnectionInterface $connection = null): void
     {
-        parent::connect($connection ?? new UidPlusConnection(new TimeoutImapStream(max(1, (int) $this->config('read_timeout', MailboxConnector::DEFAULT_READ_TIMEOUT)))));
+        if (is_null($connection)) {
+            $this->stream = new TimeoutImapStream(max(1, (int) $this->config('read_timeout', MailboxConnector::DEFAULT_READ_TIMEOUT)));
+            $this->stream->readUntil($this->readDeadline);
+        }
+
+        parent::connect($connection ?? new UidPlusConnection($this->stream));
+    }
+
+    public function readUntil(?float $deadline): void
+    {
+        $this->readDeadline = $deadline;
+        $this->stream?->readUntil($deadline);
     }
 
     public function supportsUidPlus(): bool

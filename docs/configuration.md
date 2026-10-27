@@ -136,7 +136,8 @@ See [Address book & suggestions](contacts.md).
 seconds an IMAP read waits for the server to send anything; after that the command fails with a timeout instead of
 waiting until the queue worker kills the job. It applies to every IMAP command, also when a message is opened, and
 counts silence, not the total time of a command: a large fetch that keeps sending data is not cut off. Keep it well
-below `sync.job_timeout_seconds` minus `sync.time_budget_seconds`. Values below 1 are raised to 1. A published config
+below `sync.job_timeout_seconds` minus `sync.time_budget_seconds`. In a budgeted sync job a read also never waits past
+5 seconds before `sync.job_timeout_seconds`. Values below 1 are raised to 1. A published config
 without `read_timeout` uses 15.
 
 ## Display timezone

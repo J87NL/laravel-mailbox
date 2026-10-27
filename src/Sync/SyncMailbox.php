@@ -28,6 +28,8 @@ class SyncMailbox
         $budget ??= SyncBudget::unlimited();
 
         try {
+            $this->connector->readUntil($mailbox, $budget->readDeadline());
+
             $failures = $this->syncInRotation($this->syncFolders->handle($mailbox), $budget);
 
             $mailbox->update([

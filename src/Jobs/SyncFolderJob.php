@@ -55,6 +55,7 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
         $budget = SyncBudget::fromConfig();
 
         try {
+            $connector->readUntil($folder->mailbox, $budget->readDeadline());
             $sync->handle($folder, $budget);
             $budget->reportDeferred([
                 'mailbox_folder_id' => $folder->id,

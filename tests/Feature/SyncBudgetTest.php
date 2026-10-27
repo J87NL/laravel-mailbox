@@ -315,6 +315,27 @@ it('gives the sync jobs a timeout between the time budget and the queue retry_af
     SyncFolderJob::class,
 ]);
 
+it('stops reading from IMAP a few seconds before the job timeout', function (Closure $job): void {
+    config()->set('mailbox.sync.job_timeout_seconds', 50);
+    $this->freezeTime();
+    $mailbox = mailbox();
+
+    app()->call([$job($mailbox), 'handle']);
+
+    expect(test()->connector->readDeadlines[(string) $mailbox->id]?->equalTo(now()->addSeconds(45)))->toBeTrue();
+})->with([
+    'mailbox job' => fn (Mailbox $mailbox): SyncMailboxJob => new SyncMailboxJob($mailbox->id),
+    'folder job' => fn (Mailbox $mailbox): SyncFolderJob => new SyncFolderJob(folder($mailbox)->id),
+]);
+
+it('does not limit IMAP reads of a sync without a budget', function (): void {
+    $mailbox = mailbox();
+
+    app(SyncMailbox::class)->handle($mailbox);
+
+    expect(test()->connector->readDeadlines)->toBe([(string) $mailbox->id => null]);
+});
+
 test('a time budget works in a host that uses immutable dates', function (): void {
     Date::use(CarbonImmutable::class);
 

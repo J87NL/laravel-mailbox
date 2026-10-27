@@ -71,11 +71,12 @@ message query honours UID ranges like a server does.
 
 The connector records more:
 
-| Property                | Holds                                                       |
-|-------------------------|-------------------------------------------------------------|
-| `$connector->appended`  | Messages appended to a folder: `folder`, `message`, `flags` |
-| `$connector->expunged`  | `UID EXPUNGE` calls: `folder`, `uids`                       |
-| `$connector->transport->sent` | Sent messages (Symfony `Email` objects)               |
+| Property                      | Holds                                                                |
+|-------------------------------|----------------------------------------------------------------------|
+| `$connector->appended`        | Messages appended to a folder: `folder`, `message`, `flags`          |
+| `$connector->expunged`        | `UID EXPUNGE` calls: `folder`, `uids`                                |
+| `$connector->readDeadlines`   | Read deadline per mailbox id set by a sync (`null` without a budget) |
+| `$connector->transport->sent` | Sent messages (Symfony `Email` objects)                              |
 
 ## Sent mail
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.4 - 2026-10-27
+
+- A budgeted sync job stops reading from IMAP `SyncBudget::JOB_TIMEOUT_MARGIN_SECONDS` (5) seconds before `sync.job_timeout_seconds`. Each read waits at most `connection.read_timeout` or the time left until that moment, whichever is shorter. A server that stalls late in a run now fails the command with `ImapConnectionTimedOutException`, which the sync handles and lists in `last_error`, instead of the worker killing the job with `TimeoutExceededException`. Before, a slow step that started with just over its estimate left could run past the job timeout, because `read_timeout` only bounds each single read. See `docs/sync.md#time-budget`.
+- New `SyncBudget::seconds($seconds, $jobTimeoutSeconds)` and `SyncBudget::readDeadline()`; `SyncBudget::fromConfig()` passes the job timeout. New `MailboxConnector::readUntil($mailbox, $deadline)`, `ImapMailbox::readUntil()` and `TimeoutImapStream::readUntil()`.
+- Testing: `FakeConnector::$readDeadlines` holds the read deadline per mailbox id.
+- No migration and no config publish needed.
+
 ## 0.5.3 - 2026-10-26
 
 - Every step of a folder sync is now under the time budget: the folder status, the search for new messages with its first chunk, each further chunk and the flag refresh. Before a step the sync checks whether it still fits, judged by how long that step took the last time in that folder (kept in the cache for a day), with at least `sync.step_reserve_seconds` (new config key, `MAILBOX_SYNC_STEP_RESERVE`, default `5`). A measured duration counts for at most half the budget, so one outlier does not block a step for good. A step that does not fit is deferred to the next run, so a run only goes over its budget when a step takes longer than its estimate. See `docs/sync.md#time-budget`.
