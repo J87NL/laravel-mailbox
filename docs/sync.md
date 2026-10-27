@@ -121,7 +121,8 @@ Set `sync.skip_special_use` to `[]` to sync these folders again. There is no set
    budget is used up.
 3. `synced_at` is set on the mailbox. `last_error` is cleared, or lists the folders that failed with their error.
 
-A folder that fails is reported and skipped; the other folders still sync. When the folder list itself cannot be
+A folder that fails is reported and skipped; the other folders still sync. An IMAP read timeout is not reported: it is
+only listed in `last_error` and stops the run, and the next run tries again. When the folder list itself cannot be
 fetched, the error is stored in `last_error` and the exception is thrown again. The IMAP connection is closed at the end.
 
 ## What a folder sync does

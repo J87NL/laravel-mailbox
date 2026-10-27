@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionClosedException;
 use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Log;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageReceived;
@@ -284,7 +286,8 @@ it('never runs longer than the budget plus the measured duration of one step', f
     }
 });
 
-it('stops the run when the IMAP connection times out', function (): void {
+it('stops the run when the IMAP connection times out, without reporting it', function (): void {
+    Exceptions::fake();
     $mailbox = mailbox();
     folder($mailbox, 'Alpha', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10), 'uid_validity' => 1]);
     folder($mailbox, 'Beta', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(5), 'uid_validity' => 1]);
@@ -302,6 +305,29 @@ it('stops the run when the IMAP connection times out', function (): void {
 
     expect($mailbox->refresh()->last_error)->toBe('Alpha: Stream timed out, no response')
         ->and(budgetStoredUids('Beta'))->toBe([]);
+    Exceptions::assertNothingReported();
+});
+
+it('reports a closed IMAP connection and stops the run', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    folder($mailbox, 'Alpha', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10), 'uid_validity' => 1]);
+    folder($mailbox, 'Beta', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(5), 'uid_validity' => 1]);
+    $remote = test()->connector->remote($mailbox);
+    $remote->addFolder(new class('Alpha') extends RecordingFolder
+    {
+        public function status(): array
+        {
+            throw new ImapConnectionClosedException('Server closed the connection (EOF)');
+        }
+    });
+    budgetRemote($mailbox, 'Beta', [2]);
+
+    syncWithinBudget($mailbox, 40);
+
+    expect($mailbox->refresh()->last_error)->toBe('Alpha: Server closed the connection (EOF)')
+        ->and(budgetStoredUids('Beta'))->toBe([]);
+    Exceptions::assertReported(ImapConnectionClosedException::class);
 });
 
 it('gives the sync jobs a timeout between the time budget and the queue retry_after', function (string $job): void {

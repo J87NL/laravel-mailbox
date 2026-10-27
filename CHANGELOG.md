@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5 - 2026-10-27
+
+- A folder sync that fails on an IMAP read timeout (`ImapConnectionTimedOutException`) is no longer passed to `report()`. It is still listed in `last_error` and stops the run, and the next scheduled run tries again. A server that is briefly slow no longer fills the error tracker. Other connection, parser and stream errors are still reported. A timeout while the folder list is fetched (for example on `LOGIN`) is still thrown and fails the job. See `docs/sync.md#what-a-mailbox-sync-does`.
+- No migration and no config publish needed.
+
 ## 0.5.4 - 2026-10-27
 
 - A budgeted sync job stops reading from IMAP `SyncBudget::JOB_TIMEOUT_MARGIN_SECONDS` (5) seconds before `sync.job_timeout_seconds`. Each read waits at most `connection.read_timeout` or the time left until that moment, whichever is shorter. A server that stalls late in a run now fails the command with `ImapConnectionTimedOutException`, which the sync handles and lists in `last_error`, instead of the worker killing the job with `TimeoutExceededException`. Before, a slow step that started with just over its estimate left could run past the job timeout, because `read_timeout` only bounds each single read. See `docs/sync.md#time-budget`.

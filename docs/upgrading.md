@@ -2,6 +2,10 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.5.5
+
+Nothing to run. An IMAP read timeout during a folder sync is no longer reported, only listed in `last_error`.
+
 ## 0.5.4
 
 Nothing to run: no migration and no config publish. A budgeted sync job now stops reading from IMAP 5 seconds before

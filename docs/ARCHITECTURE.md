@@ -43,7 +43,7 @@ IMAP is the source of truth; the database is a cache that makes lists, sorting a
    - runs under a cache lock per folder, so a scheduled sync and a folder job never sync the same folder at once;
    - works within the job's time budget (`sync.time_budget_seconds`, default 40): before each step (status, search and first chunk, further chunks, each piece of the flag refresh) it checks whether the step still fits, judged by its duration last time in that folder, and defers it to the next run otherwise; `last_uid` and the refresh position are kept, so the next run continues there. An IMAP read timeout (`connection.read_timeout`, default 15) makes a hanging command fail before the worker kills the job, and in a budgeted job no read waits past 5 seconds before the job timeout.
    Folders run inbox first, then folders that finished a sync before (longest ago first), then backfills, so a big first sync cannot keep new mail waiting.
-   A folder that fails is reported and skipped; the other folders still sync, and `mailboxes.last_error` lists the failed folders.
+   A folder that fails is reported and skipped; the other folders still sync, and `mailboxes.last_error` lists the failed folders. An IMAP read timeout is only listed there, not reported.
 4. `MessageReceived` is the hook for app automation, so it fires only for genuinely new mail:
    - never on the first sync of a folder or after a `UIDVALIDITY` reset (those rebuild the cache, they do not receive mail); the messages found then do get a `received` audit entry, so they are known and never announced later;
    - never in folders with role sent, drafts, junk or trash;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Sync;
 
 use DirectoryTree\ImapEngine\Exceptions\ImapConnectionException;
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use DirectoryTree\ImapEngine\Exceptions\ImapParserException;
 use DirectoryTree\ImapEngine\Exceptions\ImapStreamException;
 use DirectoryTree\ImapEngine\Support\Str;
@@ -73,6 +74,9 @@ class SyncMailbox
 
             try {
                 $this->syncFolderMessages->handle($folder, $budget);
+            } catch (ImapConnectionTimedOutException $exception) {
+                $failures[$folder->path] = $exception->getMessage();
+                $stopped = true;
             } catch (ImapConnectionException|ImapParserException|ImapStreamException $exception) {
                 report($exception);
                 $failures[$folder->path] = $exception->getMessage();
