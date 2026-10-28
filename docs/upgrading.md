@@ -2,6 +2,20 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.7.0
+
+Nothing to run: no migration and no config publish.
+
+- **Behaviour change:** `access.user_query` now also applies to emails in `MAILBOX_ADMINS` and to open mode. A user it
+  filters out is no admin, gets nothing in open mode and fails `accessAnyMailbox`, `manageMailboxes` and every mailbox
+  ability. An app that added a `Gate::before` to deny these abilities to such users can remove it, as long as it
+  does not define one of these abilities itself: an app-defined `manageMailboxes` must apply the filter itself, for
+  example with `AccessQuery::admitsUser($user)`. Check that your admins pass the query, or they lose access.
+- A group's `prefix` may now be a translation key, for example `'prefix' => 'mailbox.role'`. A plain string still works
+  and is shown as it is when no translation exists, see [Users and groups](access.md#users-and-groups).
+- With the UI package, gate the menu on `@canany(['accessAnyMailbox', 'manageAnyMailbox'])`, see
+  [Abilities](access.md#abilities).
+
 ## 0.6.0
 
 Nothing to run: no migration and no config publish. To keep users or groups out of the access candidates, add

@@ -51,7 +51,8 @@ interface ResolvesAccessors
 The default `RelationAccessorResolver` reads the groups from `mailbox.access.groups`, see
 [Access control](access.md#users-and-groups). To only keep certain users or groups out, configure `access.user_query`
 or a group's `query` instead of writing your own resolver, see
-[Keeping users and groups out](access.md#keeping-users-and-groups-out). Set your own class in the config:
+[Keeping users and groups out](access.md#keeping-users-and-groups-out). `MailboxAccessResolver` applies
+`access.user_query` itself before it asks your resolver, so a filtered user gets no access whichever resolver you bind. Set your own class in the config:
 
 ```php
 'access' => [

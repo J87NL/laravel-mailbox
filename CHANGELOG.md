@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 - 2026-10-28
+
+- **Behaviour change:** `access.user_query` now applies to everyone. A user it filters out is no admin even with their email in `MAILBOX_ADMINS`, gets no level in open mode, and fails `accessAnyMailbox`, `manageMailboxes`, `accessMailbox`, `workInMailbox` and `manageMailbox`, also on an inactive mailbox. This also holds with a custom `ResolvesAccessors`. A host app no longer needs its own `Gate::before` for this, unless it defines one of these abilities itself (for example its own `manageMailboxes`), which then has to apply the filter itself. `MailboxAccessResolver` runs the query at most once per user per request (new `MailboxAccessResolver::admits()`, cleared by `flush()`) and `RelationAccessorResolver::accessorsFor()` reuses that answer, so checking several mailboxes without a `preload()` no longer runs the query once per mailbox. A user that is not a `mailbox.user_model` is not filtered. See `docs/access.md#keeping-users-and-groups-out` and `docs/upgrading.md`.
+- A group's `prefix` in `access.groups` may be a translation key: it is translated when a translation exists for the current locale (as with `__()`, a JSON translation counts too) and shown as it is otherwise, so the config stays cacheable and plain strings keep working. See `docs/access.md#users-and-groups`.
+- New `J87NL\Mailbox\Access\AccessQuery` with `for($model, $query)` and `admitsUser($user)`, shared by `RelationAccessorResolver` and `MailboxAccessResolver`.
+- Docs: the menu gate is now the same on every page: `@canany(['accessAnyMailbox', 'manageAnyMailbox'])` with the UI package, which defines `manageAnyMailbox`, and `accessAnyMailbox` or `manageMailboxes` without it (`README.md`, `docs/access.md`, `docs/installation.md`). `docs/mcp.md` has a section for apps that read `$tools` by reflection, wrap the tools for an in-app assistant or resolve the user inside the tool: subclass the package tools, keep the names and override `mailboxUser()`.
+- No migration and no config publish needed.
+
 ## 0.6.0 - 2026-10-28
 
 - New `access.user_query` and a `query` per entry of `access.groups`: an invokable class name or a callable that receives the Eloquent `Builder` of the user or group model and narrows it, for example to keep a `client` role out. `RelationAccessorResolver` applies it in `search()`, `assignable()`, `labels()` (so `ExistingAccessor` rejects a filtered accessor) and `accessorsFor()`: a filtered user gets no level at all, and a filtered group grants nothing. Admins and open mode are not affected. See `docs/access.md#keeping-users-and-groups-out`.

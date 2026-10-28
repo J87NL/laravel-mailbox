@@ -66,7 +66,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 
 ## Access
 
-`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself; an app that defines `manageMailboxes` itself gates the menu on `accessAnyMailbox` or `manageMailboxes`. Groups (for example Spatie roles) are configured in `mailbox.access.groups`. `access.user_query` and a group's `query` keep users or groups (for example customers) out of the access candidates.
+`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself. An app that defines `manageMailboxes` itself gates the menu on `@canany(['accessAnyMailbox', 'manageAnyMailbox'])` with the UI package (which defines `manageAnyMailbox`), or on `accessAnyMailbox` or `manageMailboxes` without it. Groups (for example Spatie roles) are configured in `mailbox.access.groups`; a group's `prefix` may be a translation key. `access.user_query` and a group's `query` keep users or groups (for example customers) out of the access candidates. A user filtered out by `access.user_query` passes no mailbox ability at all, also as admin or in open mode.
 
 ## Address book and suggestions
 

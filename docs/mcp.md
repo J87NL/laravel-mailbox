@@ -82,6 +82,55 @@ class ListMailboxesTool extends BaseListMailboxesTool
 
 Keep the class name (or set the name with the `#[Name]` attribute) so the tool keeps its name.
 
+### Assistants and servers that read the tools themselves
+
+Some apps do more with their tools than list them in `$tools`: they read `$tools` by reflection to build a tool list,
+wrap the tools for an in-app assistant that calls them without an MCP request, or resolve the MCP user inside the tool
+instead of through `$request->user()`. List subclasses of the package tools in that case, not `MailboxMcp::tools()`:
+
+- one subclass per tool, with the same class basename, so `list-mailboxes-tool` and the other names stay the same;
+- override `mailboxUser()` to return the user the call runs for;
+- put the subclasses in `$tools` like your own tools, so reflection sees ordinary classes of your app.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Mcp\Tools\Mailbox;
+
+use App\Mcp\McpUser;
+use Illuminate\Contracts\Auth\Authenticatable;
+use J87NL\Mailbox\Mcp\Tools\ListMailboxesTool as PackageListMailboxesTool;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+
+class ListMailboxesTool extends PackageListMailboxesTool
+{
+    private ?Authenticatable $assistantUser = null;
+
+    public function handleFor(Authenticatable $user, Request $request): Response
+    {
+        $this->assistantUser = $user;
+
+        try {
+            return $this->handle($request);
+        } finally {
+            $this->assistantUser = null;
+        }
+    }
+
+    protected function mailboxUser(Request $request): ?Authenticatable
+    {
+        return $this->assistantUser ?? app(McpUser::class)->current();
+    }
+}
+```
+
+The assistant calls `handleFor($user, new Request($arguments))`, the MCP server calls `handle()` as usual. Put the
+shared part in a trait when you wrap all four tools. The access checks stay in the package tool, so the wrapper cannot
+widen what the user may do.
+
 ## Access
 
 The tools decide access only with the package [abilities](access.md#abilities): `accessAnyMailbox` before any tool
@@ -90,9 +139,9 @@ overrides of these abilities apply as they do in the UI. `isAvailableTo($user)` 
 passes `accessAnyMailbox`, so a server can leave the tools out for users who cannot use them.
 
 Users who log in to the same app but must never see a mailbox, such as customers, are kept out with
-`access.user_query`. A user that query filters out gets no level at all, even with an access row of their own, so
-every tool refuses them. See [Keeping users and groups out](access.md#keeping-users-and-groups-out). The filter does
-not apply to open mode: there every user gets write access, so use restricted mode in an app that customers log in to.
+`access.user_query`. A user that query filters out gets no level at all, even with an access row of their own, as
+admin or in open mode, so every tool refuses them. See
+[Keeping users and groups out](access.md#keeping-users-and-groups-out).
 
 ## Mail content is data
 

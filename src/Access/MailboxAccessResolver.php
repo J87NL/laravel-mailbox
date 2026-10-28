@@ -20,6 +20,11 @@ class MailboxAccessResolver
      */
     private array $levels = [];
 
+    /**
+     * @var array<string, bool>
+     */
+    private array $admitted = [];
+
     public function __construct(
         private readonly ResolvesAccessors $accessors,
     ) {}
@@ -45,6 +50,10 @@ class MailboxAccessResolver
 
         if ($this->isAdmin($user)) {
             return true;
+        }
+
+        if (! $this->admits($user)) {
+            return false;
         }
 
         $activeIds = Mailbox::query()
@@ -77,7 +86,12 @@ class MailboxAccessResolver
 
         $admins = array_map(fn (string $admin): string => mb_strtolower(trim($admin)), config('mailbox.access.admins', []));
 
-        return in_array(mb_strtolower($email), $admins, true);
+        return in_array(mb_strtolower($email), $admins, true) && $this->admits($user);
+    }
+
+    public function admits(Authenticatable $user): bool
+    {
+        return $this->admitted[sprintf('%s:%s', $user::class, $user->getAuthIdentifier())] ??= AccessQuery::admitsUser($user);
     }
 
     public function levelFor(Authenticatable $user, Mailbox $mailbox): ?AccessLevel
@@ -109,6 +123,7 @@ class MailboxAccessResolver
     public function flush(): void
     {
         $this->levels = [];
+        $this->admitted = [];
     }
 
     private function key(Authenticatable $user, int $mailboxId): string
@@ -126,11 +141,16 @@ class MailboxAccessResolver
             return array_fill_keys($mailboxIds, AccessLevel::Manage);
         }
 
+        $levels = array_fill_keys($mailboxIds, null);
+
+        if (! $this->admits($user)) {
+            return $levels;
+        }
+
         if (config('mailbox.access.mode') === 'open') {
             return array_fill_keys($mailboxIds, AccessLevel::Write);
         }
 
-        $levels = array_fill_keys($mailboxIds, null);
         $accessors = $this->accessors->accessorsFor($user);
 
         if ($accessors === []) {

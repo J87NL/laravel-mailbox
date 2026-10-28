@@ -36,7 +36,7 @@ other steps on this page still apply, because the UI only calls this package:
 | Step on this page                                               | Needed with the UI                                                                                                                                                          |
 |-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Publish config and migrations](#publish-config-and-migrations) | Done by `mailbox:install`; you still run `php artisan migrate`                                                                                                              |
-| [Bootstrap an admin](#bootstrap-an-admin)                       | Only to create mailboxes on the settings page. That needs `manageMailboxes`, which only admins pass unless your app defines that ability itself (then gate the menu on `accessAnyMailbox` or `manageMailboxes`, see [Abilities](access.md#abilities)). `mailbox:add` always works |
+| [Bootstrap an admin](#bootstrap-an-admin)                       | Only to create mailboxes on the settings page. That needs `manageMailboxes`, which only admins pass unless your app defines that ability itself (then gate the menu on `@canany(['accessAnyMailbox', 'manageAnyMailbox'])`, see [Abilities](access.md#abilities)). `mailbox:add` always works |
 | [Add a mailbox](#add-a-mailbox)                                 | Optional. Admins can add mailboxes and grant access on the settings page                                                                                                    |
 | [Schedule the sync](#schedule-the-sync)                         | Yes. The UI shows what the sync stored and queues sync jobs itself                                                                                                          |
 | [OAuth mailboxes](#oauth-mailboxes)                             | Only for mailboxes with OAuth authentication                                                                                                                                |
@@ -79,6 +79,9 @@ mode:
 MAILBOX_ADMINS=you@example.com
 MAILBOX_ACCESS_MODE=restricted
 ```
+
+An email that `access.user_query` filters out is no admin, see
+[Keeping users and groups out](access.md#keeping-users-and-groups-out).
 
 If your user model is not `App\Models\User`, set `MAILBOX_USER_MODEL`. See [Access control](access.md).
 

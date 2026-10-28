@@ -85,4 +85,5 @@ another client flagged `\Deleted` is never removed by accident. See [Message act
   console only.
 - The last manage row of a mailbox cannot be removed or lowered.
 - Grants and revocations are written to the [audit trail](audit-trail.md).
-- Admins via `MAILBOX_ADMINS` need a verified email when the user model implements `MustVerifyEmail`.
+- Admins via `MAILBOX_ADMINS` need a verified email when the user model implements `MustVerifyEmail`, and must pass
+  `access.user_query`. A user it filters out passes no mailbox ability, also as admin or in open mode.

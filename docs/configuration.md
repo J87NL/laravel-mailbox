@@ -37,11 +37,11 @@ source in the access form and `mailbox:grant`.
 | Key          | Env                   | Default                    | Description                                                                 |
 |--------------|-----------------------|----------------------------|-----------------------------------------------------------------------------|
 | `mode`       | `MAILBOX_ACCESS_MODE` | `restricted`               | `open` gives every logged-in user write access to every active mailbox      |
-| `admins`     | `MAILBOX_ADMINS`      | empty                      | Comma-separated emails that get manage access everywhere                     |
+| `admins`     | `MAILBOX_ADMINS`      | empty                      | Comma-separated emails that get manage access everywhere, unless `user_query` filters them out |
 | `resolver`   |                       | `RelationAccessorResolver` | Class implementing `ResolvesAccessors`                                      |
 | `user_label` |                       | `name`                     | User attribute shown in the access form                                     |
 | `user_search`|                       | `user_label`, `email`      | User columns the access form searches (optional key)                        |
-| `user_query` |                       | `null`                     | Narrows which users can be granted access, see below (optional key)         |
+| `user_query` |                       | `null`                     | Narrows which users can be granted access and which users get any access, see below (optional key) |
 | `groups`     |                       | `[]`                       | Group models (for example roles) that can be granted access                 |
 
 A group entry looks like this:
@@ -57,7 +57,10 @@ A group entry looks like this:
 ],
 ```
 
-`model` and `relation` are required. `label` defaults to `name` and `prefix` to the class basename of the model. An
+`model` and `relation` are required. `label` defaults to `name` and `prefix` to the class basename of the model.
+`prefix` is a plain string or a translation key such as `mailbox.role`: it is translated when a translation exists for
+the current locale (also through a JSON translation, as with `__()`) and shown as it is otherwise, so the config stays
+cacheable. An
 optional `search` lists the columns the access form searches, by default only `label`. An empty `user_search` or
 `search` falls back to the default. Matching ignores case; on SQLite only for ASCII letters. The published config
 lists `name` and `email` for `user_search`: change it along with `user_label`.
@@ -65,7 +68,8 @@ lists `name` and `email` for `user_search`: change it along with `user_label`.
 `user_query` and an optional `query` per group narrow the users and groups that can be granted access, for example to
 keep a `client` role out of the access form. Each takes an invokable class name or a callable that receives the Eloquent
 `Builder` of the model and adds constraints to it. Use a class name or an `[Class::class, 'method']` array, not a
-closure, so `config:cache` keeps working. See [Access control](access.md#keeping-users-and-groups-out).
+closure, so `config:cache` keeps working. A user that `user_query` filters out gets no access at all, also when their
+email is in `admins` and in open mode. See [Access control](access.md#keeping-users-and-groups-out).
 
 ## Body cache
 

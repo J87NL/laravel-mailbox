@@ -13,6 +13,9 @@ your app has not defined an ability with the same name.
 | `accessAnyMailbox` | none               | True for admins and for users with at least read on an active mailbox                                                            |
 | `manageMailboxes`  | none               | Global: create and delete mailboxes. True for admins only                                                                        |
 
+A user that [`access.user_query`](#keeping-users-and-groups-out) filters out passes none of these abilities, also when
+their email is in `MAILBOX_ADMINS` and in open mode.
+
 ```php
 use Illuminate\Support\Facades\Gate;
 
@@ -25,8 +28,15 @@ if ($request->user()->can('workInMailbox', $mailbox)) {
 
 Use `accessAnyMailbox` to decide whether to show a mailbox menu link. Guests are always denied. When your app defines
 `manageMailboxes` itself, a user can pass it without having access to any mailbox, and then fails `accessAnyMailbox`.
-Gate the menu link on `accessAnyMailbox` or `manageMailboxes` in that case, so such a user can still reach the
-settings to create the first mailbox.
+Such a user must still see the menu link to create the first mailbox:
+
+- With the UI package, gate the menu link on `@canany(['accessAnyMailbox', 'manageAnyMailbox'])`. `manageAnyMailbox`
+  is defined by the UI package, not by this one: it passes with `manageMailboxes` or with `manageMailbox` on at least
+  one mailbox. See its [menu gate](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/navigation.md#menu-gate).
+- Without the UI package, gate the link to your own mailbox pages on `@canany(['accessAnyMailbox', 'manageMailboxes'])`.
+  This package does not define `manageAnyMailbox`.
+
+When only `MAILBOX_ADMINS` create mailboxes, `accessAnyMailbox` alone is enough, because admins pass it.
 
 The package checks no abilities itself, except `SaveMailbox` for OAuth server changes (see
 [Security](security.md#saving-a-mailbox)). Call `Gate::authorize()` in your controllers before calling an action.
@@ -51,18 +61,23 @@ AccessLevel::Manage->label();                              // 'Manage'
 
 `J87NL\Mailbox\Access\MailboxAccessResolver` decides the level of a user for a mailbox:
 
-1. An **inactive** mailbox is only accessible to admins.
-2. **Admins** get `Manage` on every mailbox.
-3. In **open mode** every logged-in user gets `Write` on every active mailbox.
-4. Otherwise the **access rows** decide. The highest level over the user's own row and the rows of all their groups
+1. A user that **`access.user_query`** filters out gets no level on any mailbox, whatever comes below.
+2. An **inactive** mailbox is only accessible to admins.
+3. **Admins** get `Manage` on every mailbox.
+4. In **open mode** every logged-in user gets `Write` on every active mailbox.
+5. Otherwise the **access rows** decide. The highest level over the user's own row and the rows of all their groups
    wins. No row means no access.
 
-The resolver caches levels per request. It is bound as a scoped singleton.
+The resolver caches levels per request. It is bound as a scoped singleton. It runs `access.user_query` at most once per
+user per request (`MailboxAccessResolver::admits()`), whichever [accessor resolver](#users-and-groups) is bound, and
+`RelationAccessorResolver` reuses that answer. The query only applies to users of `mailbox.user_model`: another
+authenticatable, for example of a second guard, is not filtered.
 
 ### Admins
 
 Admins are the emails in `mailbox.access.admins` (`MAILBOX_ADMINS`), compared case-insensitively with the `email`
-attribute of the user. When the user model implements `MustVerifyEmail`, the email must be verified.
+attribute of the user. When the user model implements `MustVerifyEmail`, the email must be verified. A user that
+`access.user_query` filters out is no admin, even with their email in `MAILBOX_ADMINS`.
 
 Admins are the bootstrap: without one, nobody can create a mailbox through a UI. The `mailbox:add` command always works.
 
@@ -72,8 +87,9 @@ Admins are the bootstrap: without one, nobody can create a mailbox through a UI.
 MAILBOX_ACCESS_MODE=open
 ```
 
-Every logged-in user gets `Write` on every active mailbox, without access rows. Only admins get `Manage`. Useful for
-small apps where everybody shares one mailbox. The default is `restricted`.
+Every logged-in user gets `Write` on every active mailbox, without access rows. Only admins get `Manage`. A user that
+`access.user_query` filters out gets nothing. Useful for small apps where everybody shares one mailbox. The default is
+`restricted`.
 
 ## Users and groups
 
@@ -94,7 +110,12 @@ The default resolver, `J87NL\Mailbox\Access\RelationAccessorResolver`, reads the
 `relation` of the user. A group whose relation method does not exist on the user is skipped.
 
 For `mailbox:grant` it lists every user (labelled with `access.user_label`) and every model of each group (labelled
-with the group's `label`), as `prefix: label`. Each option has the key `morph-class:id`.
+with the group's `label`), as `prefix: label`. Each option has the key `morph-class:id`. Users get the prefix
+`mailbox::mailbox.accessor_user` ("User", "Gebruiker"). A group's `prefix` is a plain string or a translation key: when
+a translation exists for the current locale, for example `'prefix' => 'mailbox.role'` with `'role' => 'Rol'` in
+`lang/nl/mailbox.php`, the label shows it. Like `__()`, a plain string such as `Role` is also translated when the app
+has a JSON translation for it. Otherwise the string is shown as it is. Without `prefix` the class basename of
+the model is used. A key keeps `config:cache` working, unlike a closure or a `__()` call in the config file.
 
 For the access form it searches the same models instead, case-insensitively: users on `access.user_search` (default
 `user_label` and `email`), groups on their `search` columns (default their `label`). A search returns at most the
@@ -144,7 +165,11 @@ the user model or the group model and adds constraints. A closure works too, but
 `assignable()` for `mailbox:grant`, `labels()` and therefore `ExistingAccessor`, and `accessorsFor()`. So a filtered
 user or group cannot be found or granted, and an access row it already has is shown without a label. A filtered user
 gets no level at all, not even through an allowed group, and an allowed user gets no level from a filtered group. The
-filter does not apply to admins or to open mode.
+user filter also applies to admins and to open mode: a filtered user is no admin, gets nothing in open mode and fails
+`accessAnyMailbox`, `manageMailboxes` and every mailbox ability. The app needs no `Gate::before` of its own for this.
+An ability your app defines itself, such as its own `manageMailboxes`, replaces the package one and must apply the
+filter itself, for example with `J87NL\Mailbox\Access\AccessQuery::admitsUser($user)`. The UI's `manageAnyMailbox`
+passes with `manageMailboxes`, so it follows your definition.
 
 The [MCP tools](mcp.md) check the same abilities, so a filtered user cannot use them either.
 

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
+use Illuminate\Support\Facades\Lang;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
 
 class RelationAccessorResolver implements ResolvesAccessors
@@ -24,7 +24,7 @@ class RelationAccessorResolver implements ResolvesAccessors
         $accessors = [];
 
         if ($user instanceof Model) {
-            if (! $this->passesUserQuery($user)) {
+            if (! app(MailboxAccessResolver::class)->admits($user)) {
                 return [];
             }
 
@@ -129,19 +129,6 @@ class RelationAccessorResolver implements ResolvesAccessors
         return sprintf('%s: %s', $source['prefix'], $model->getAttribute($source['label']));
     }
 
-    private function passesUserQuery(Model $user): bool
-    {
-        $source = $this->sources()[0];
-
-        if (is_null($source['query']) || ! is_a($user, $source['model'])) {
-            return true;
-        }
-
-        return $this->query($source)
-            ->whereKey($user->getKey())
-            ->exists();
-    }
-
     /**
      * @param  array{label: string, model: string, prefix: string, query: mixed, relation: string|null, search: array<int, string>}  $source
      * @return Collection<int, Model>
@@ -168,21 +155,7 @@ class RelationAccessorResolver implements ResolvesAccessors
      */
     private function query(array $source): Builder
     {
-        $query = $source['model']::query();
-
-        if (is_null($source['query'])) {
-            return $query;
-        }
-
-        $narrow = is_string($source['query']) && class_exists($source['query'])
-            ? app($source['query'])
-            : $source['query'];
-
-        if (! is_callable($narrow)) {
-            throw new InvalidArgumentException(sprintf('The access query of %s must be callable or an invokable class.', $source['model']));
-        }
-
-        return $query->where(fn (Builder $constrained) => $narrow($constrained));
+        return AccessQuery::for($source['model'], $source['query']);
     }
 
     /**
@@ -191,6 +164,17 @@ class RelationAccessorResolver implements ResolvesAccessors
     private function groups(): array
     {
         return config('mailbox.access.groups', []);
+    }
+
+    private function prefix(string $prefix): string
+    {
+        if (! Lang::has($prefix)) {
+            return $prefix;
+        }
+
+        $translated = __($prefix);
+
+        return is_string($translated) ? $translated : $prefix;
     }
 
     /**
@@ -215,7 +199,7 @@ class RelationAccessorResolver implements ResolvesAccessors
             ...array_map(fn (array $group): array => [
                 'label' => $group['label'] ?? 'name',
                 'model' => $group['model'],
-                'prefix' => $group['prefix'] ?? class_basename($group['model']),
+                'prefix' => isset($group['prefix']) ? $this->prefix($group['prefix']) : class_basename($group['model']),
                 'query' => $group['query'] ?? null,
                 'relation' => $group['relation'],
                 'search' => array_values(array_filter($group['search'] ?? [])) ?: [$group['label'] ?? 'name'],
