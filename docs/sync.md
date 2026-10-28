@@ -50,7 +50,7 @@ stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to
   budget, and only runs over when a step takes longer than its estimate, by at most that one step. Because the estimate
   is capped at half the budget, a step that really takes longer than that can start with just over half the budget
   left; IMAP reads stop 5 seconds before the job timeout, so such a step fails with a read timeout rather than being
-  killed. Keep the job timeout above one and a half times the budget (40 and 55 by default).
+  killed. With the defaults (40 and 55) that moment is 50 seconds into the job, 10 seconds past the budget.
 - A folder that is stopped keeps what it stored: `last_uid` is saved after each chunk, so the next run fetches from
   there instead of starting over. Its `synced_at` stays as it was, so it counts as not yet finished.
 - The flag refresh goes from the newest message down in pieces of `sync.flag_chunk_size` (default 100). When it is

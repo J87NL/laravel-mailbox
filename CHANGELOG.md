@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.7 - 2026-10-28
+
+- `docs/sync.md#time-budget` no longer asks for a job timeout above one and a half times the budget. That rule predates the read deadline of 0.5.4 and the defaults (40 and 55) did not meet it. The page now says how far past the budget a slow step can run before its reads stop.
+- No migration and no config publish needed.
+
 ## 0.5.6 - 2026-10-28
 
 - The historical v0.1 design notes (`docs/ARCHITECTURE.md`) and the TranquilTools handoff list (`docs/HANDOFF-tranquil-tools.md`) are removed from the docs. The current behaviour is described in the other docs pages. The README and the docs sidebar no longer link to them.
