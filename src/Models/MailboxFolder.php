@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Database\Factories\MailboxFolderFactory;
 use J87NL\Mailbox\Enums\FolderRole;
 
 /**
@@ -27,6 +29,9 @@ use J87NL\Mailbox\Enums\FolderRole;
  */
 class MailboxFolder extends Model
 {
+    /** @use HasFactory<MailboxFolderFactory> */
+    use HasFactory;
+
     public const DEFAULT_SKIPPED_SPECIAL_USE = [
         '\\All',
         '\\Important',
@@ -34,6 +39,11 @@ class MailboxFolder extends Model
     ];
 
     protected $guarded = ['id'];
+
+    protected static function newFactory(): MailboxFolderFactory
+    {
+        return MailboxFolderFactory::new();
+    }
 
     protected function casts(): array
     {

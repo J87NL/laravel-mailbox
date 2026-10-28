@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Database\Factories\MailboxFactory;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Support\RawMessageCache;
 
@@ -35,6 +37,9 @@ use J87NL\Mailbox\Support\RawMessageCache;
  */
 class Mailbox extends Model
 {
+    /** @use HasFactory<MailboxFactory> */
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $hidden = [
@@ -47,6 +52,11 @@ class Mailbox extends Model
         static::deleted(function (Mailbox $mailbox): void {
             app(RawMessageCache::class)->forgetMailbox($mailbox);
         });
+    }
+
+    protected static function newFactory(): MailboxFactory
+    {
+        return MailboxFactory::new();
     }
 
     protected function casts(): array

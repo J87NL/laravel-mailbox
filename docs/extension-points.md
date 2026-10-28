@@ -49,7 +49,9 @@ interface ResolvesAccessors
   without a label is not a valid accessor.
 
 The default `RelationAccessorResolver` reads the groups from `mailbox.access.groups`, see
-[Access control](access.md#users-and-groups). Set your own class in the config:
+[Access control](access.md#users-and-groups). To only keep certain users or groups out, configure `access.user_query`
+or a group's `query` instead of writing your own resolver, see
+[Keeping users and groups out](access.md#keeping-users-and-groups-out). Set your own class in the config:
 
 ```php
 'access' => [

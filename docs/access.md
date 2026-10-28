@@ -23,7 +23,10 @@ if ($request->user()->can('workInMailbox', $mailbox)) {
 }
 ```
 
-Use `accessAnyMailbox` to decide whether to show a mailbox menu link. Guests are always denied.
+Use `accessAnyMailbox` to decide whether to show a mailbox menu link. Guests are always denied. When your app defines
+`manageMailboxes` itself, a user can pass it without having access to any mailbox, and then fails `accessAnyMailbox`.
+Gate the menu link on `accessAnyMailbox` or `manageMailboxes` in that case, so such a user can still reach the
+settings to create the first mailbox.
 
 The package checks no abilities itself, except `SaveMailbox` for OAuth server changes (see
 [Security](security.md#saving-a-mailbox)). Call `Gate::authorize()` in your controllers before calling an action.
@@ -96,6 +99,52 @@ with the group's `label`), as `prefix: label`. Each option has the key `morph-cl
 For the access form it searches the same models instead, case-insensitively: users on `access.user_search` (default
 `user_label` and `email`), groups on their `search` columns (default their `label`). A search returns at most the
 requested number of matches, sorted by label. See [AccessForm](forms.md#accessform).
+
+### Keeping users and groups out
+
+Not every user or group should be offered in the access form, for example customers who log in to the same app. Narrow
+the candidates with `access.user_query` and a `query` per group:
+
+```php
+'access' => [
+    'user_query' => App\Mailbox\StaffOnly::class,
+    'groups' => [
+        [
+            'model' => Spatie\Permission\Models\Role::class,
+            'relation' => 'roles',
+            'query' => [App\Mailbox\StaffOnly::class, 'roles'],
+        ],
+    ],
+],
+```
+
+```php
+namespace App\Mailbox;
+
+use Illuminate\Database\Eloquent\Builder;
+
+class StaffOnly
+{
+    public function __invoke(Builder $query): void
+    {
+        $query->whereDoesntHave('roles', fn (Builder $roles): Builder => $roles->where('name', 'client'));
+    }
+
+    public static function roles(Builder $query): void
+    {
+        $query->where('name', '!=', 'client');
+    }
+}
+```
+
+The value is an invokable class name (resolved from the container) or a callable. It receives the Eloquent `Builder` of
+the user model or the group model and adds constraints. A closure works too, but breaks `config:cache`.
+
+`RelationAccessorResolver` applies it everywhere it reads candidates: the search of the access form,
+`assignable()` for `mailbox:grant`, `labels()` and therefore `ExistingAccessor`, and `accessorsFor()`. So a filtered
+user or group cannot be found or granted, and an access row it already has is shown without a label. A filtered user
+gets no level at all, not even through an allowed group, and an allowed user gets no level from a filtered group. The
+filter does not apply to admins or to open mode.
 
 Another group concept? Bind your own `ResolvesAccessors`, see
 [Extension points](extension-points.md#resolvesaccessors).

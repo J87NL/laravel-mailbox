@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 - 2026-10-28
+
+- New `access.user_query` and a `query` per entry of `access.groups`: an invokable class name or a callable that receives the Eloquent `Builder` of the user or group model and narrows it, for example to keep a `client` role out. `RelationAccessorResolver` applies it in `search()`, `assignable()`, `labels()` (so `ExistingAccessor` rejects a filtered accessor) and `accessorsFor()`: a filtered user gets no level at all, and a filtered group grants nothing. Admins and open mode are not affected. See `docs/access.md#keeping-users-and-groups-out`.
+- Model factories for `Mailbox` (`inactive()`, `withInbox()`), `MailboxFolder` (`role()`) and `MailboxMessage` (`seen()`) in `J87NL\Mailbox\Database\Factories`, for tests in the host app. See `docs/testing.md#factories`.
+- The published `config/mailbox.php` lists `access.user_search` (`name` and `email`) and `access.user_query` (`null`), and has a blank line after `declare(strict_types=1);`.
+- Docs: the schedule example in `docs/installation.md` also shows `app/Console/Kernel.php`, and `docs/access.md` says to gate the menu on `accessAnyMailbox` or `manageMailboxes` when the app defines `manageMailboxes` itself.
+- No migration and no config publish needed. A published config without the new keys uses the defaults.
+
 ## 0.5.7 - 2026-10-28
 
 - `docs/sync.md#time-budget` no longer asks for a job timeout above one and a half times the budget. That rule predates the read deadline of 0.5.4 and the defaults (40 and 55) did not meet it. The page now says how far past the budget a slow step can run before its reads stop.

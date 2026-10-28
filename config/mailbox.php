@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 use J87NL\Mailbox\Access\RelationAccessorResolver;
 
 return [
@@ -12,6 +13,11 @@ return [
         'admins' => array_filter(explode(',', (string) env('MAILBOX_ADMINS', ''))),
         'resolver' => RelationAccessorResolver::class,
         'user_label' => 'name',
+        'user_search' => [
+            'name',
+            'email',
+        ],
+        'user_query' => null,
         'groups' => [],
     ],
 

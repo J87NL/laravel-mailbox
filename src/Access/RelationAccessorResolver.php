@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
 
 class RelationAccessorResolver implements ResolvesAccessors
@@ -23,18 +24,22 @@ class RelationAccessorResolver implements ResolvesAccessors
         $accessors = [];
 
         if ($user instanceof Model) {
+            if (! $this->passesUserQuery($user)) {
+                return [];
+            }
+
             $accessors[] = [
                 'id' => $user->getKey(),
                 'type' => $user->getMorphClass(),
             ];
         }
 
-        foreach ($this->groups() as $group) {
-            if (! method_exists($user, $group['relation'])) {
+        foreach ($this->sources() as $source) {
+            if (is_null($source['relation']) || ! method_exists($user, $source['relation'])) {
                 continue;
             }
 
-            foreach ($user->{$group['relation']} as $model) {
+            foreach ($this->groupsOf($user, $source) as $model) {
                 $accessors[] = [
                     'id' => $model->getKey(),
                     'type' => $model->getMorphClass(),
@@ -48,7 +53,7 @@ class RelationAccessorResolver implements ResolvesAccessors
     public function assignable(): array
     {
         return $this->assignable ??= collect($this->sources())
-            ->flatMap(fn (array $source): array => $source['model']::query()
+            ->flatMap(fn (array $source): array => $this->query($source)
                 ->orderBy($source['label'])
                 ->get()
                 ->map(fn (Model $model): array => [
@@ -65,7 +70,7 @@ class RelationAccessorResolver implements ResolvesAccessors
         $pattern = sprintf('%%%s%%', str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term));
 
         return collect($this->sources())
-            ->flatMap(fn (array $source): array => $source['model']::query()
+            ->flatMap(fn (array $source): array => $this->query($source)
                 ->where(function (Builder $query) use ($source, $pattern): void {
                     foreach ($source['search'] as $column) {
                         $query->orWhereRaw(
@@ -109,7 +114,7 @@ class RelationAccessorResolver implements ResolvesAccessors
             return [];
         }
 
-        return $class::query()
+        return $this->query($source)
             ->whereKey($ids)
             ->get()
             ->mapWithKeys(fn (Model $model): array => [sprintf('%s:%s', $type, $model->getKey()) => $this->describe($source, $model)])
@@ -117,15 +122,71 @@ class RelationAccessorResolver implements ResolvesAccessors
     }
 
     /**
-     * @param  array{label: string, model: string, prefix: string, search: array<int, string>}  $source
+     * @param  array{label: string, model: string, prefix: string, query: mixed, relation: string|null, search: array<int, string>}  $source
      */
     private function describe(array $source, Model $model): string
     {
         return sprintf('%s: %s', $source['prefix'], $model->getAttribute($source['label']));
     }
 
+    private function passesUserQuery(Model $user): bool
+    {
+        $source = $this->sources()[0];
+
+        if (is_null($source['query']) || ! is_a($user, $source['model'])) {
+            return true;
+        }
+
+        return $this->query($source)
+            ->whereKey($user->getKey())
+            ->exists();
+    }
+
     /**
-     * @return array<int, array{label?: string, model: string, prefix?: string, relation: string, search?: array<int, string>}>
+     * @param  array{label: string, model: string, prefix: string, query: mixed, relation: string|null, search: array<int, string>}  $source
+     * @return Collection<int, Model>
+     */
+    private function groupsOf(Authenticatable $user, array $source): Collection
+    {
+        $groups = collect($user->{$source['relation']});
+
+        if (is_null($source['query']) || $groups->isEmpty()) {
+            return $groups;
+        }
+
+        $allowed = $this->query($source)
+            ->whereKey($groups->map(fn (Model $model): mixed => $model->getKey())->all())
+            ->pluck((new $source['model'])->getKeyName())
+            ->all();
+
+        return $groups->filter(fn (Model $model): bool => in_array($model->getKey(), $allowed))->values();
+    }
+
+    /**
+     * @param  array{label: string, model: string, prefix: string, query: mixed, relation: string|null, search: array<int, string>}  $source
+     * @return Builder<Model>
+     */
+    private function query(array $source): Builder
+    {
+        $query = $source['model']::query();
+
+        if (is_null($source['query'])) {
+            return $query;
+        }
+
+        $narrow = is_string($source['query']) && class_exists($source['query'])
+            ? app($source['query'])
+            : $source['query'];
+
+        if (! is_callable($narrow)) {
+            throw new InvalidArgumentException(sprintf('The access query of %s must be callable or an invokable class.', $source['model']));
+        }
+
+        return $query->where(fn (Builder $constrained) => $narrow($constrained));
+    }
+
+    /**
+     * @return array<int, array{label?: string, model: string, prefix?: string, query?: mixed, relation: string, search?: array<int, string>}>
      */
     private function groups(): array
     {
@@ -133,7 +194,7 @@ class RelationAccessorResolver implements ResolvesAccessors
     }
 
     /**
-     * @return array<int, array{label: string, model: string, prefix: string, search: array<int, string>}>
+     * @return array<int, array{label: string, model: string, prefix: string, query: mixed, relation: string|null, search: array<int, string>}>
      */
     private function sources(): array
     {
@@ -144,6 +205,8 @@ class RelationAccessorResolver implements ResolvesAccessors
                 'label' => $userLabel,
                 'model' => config('mailbox.user_model'),
                 'prefix' => __('mailbox::mailbox.accessor_user'),
+                'query' => config('mailbox.access.user_query'),
+                'relation' => null,
                 'search' => array_values(array_filter(config('mailbox.access.user_search') ?? [])) ?: [
                     $userLabel,
                     'email',
@@ -153,6 +216,8 @@ class RelationAccessorResolver implements ResolvesAccessors
                 'label' => $group['label'] ?? 'name',
                 'model' => $group['model'],
                 'prefix' => $group['prefix'] ?? class_basename($group['model']),
+                'query' => $group['query'] ?? null,
+                'relation' => $group['relation'],
                 'search' => array_values(array_filter($group['search'] ?? [])) ?: [$group['label'] ?? 'name'],
             ], $this->groups()),
         ];

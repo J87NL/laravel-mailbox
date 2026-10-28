@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Database\Factories\MailboxMessageFactory;
 use J87NL\Mailbox\Relations\MessageLinks;
 
 /**
@@ -40,12 +42,20 @@ use J87NL\Mailbox\Relations\MessageLinks;
  */
 class MailboxMessage extends Model
 {
+    /** @use HasFactory<MailboxMessageFactory> */
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $hidden = [
         'body_html',
         'body_text',
     ];
+
+    protected static function newFactory(): MailboxMessageFactory
+    {
+        return MailboxMessageFactory::new();
+    }
 
     protected function casts(): array
     {

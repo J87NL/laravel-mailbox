@@ -5,6 +5,7 @@ parameters:
     level: 5
     paths:
         - src
+        - database/factories
     tmpDir: build/phpstan
     ignoreErrors:
         # HasMailboxMessages is public API for host app models; the package itself never uses it

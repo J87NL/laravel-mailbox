@@ -2,6 +2,13 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.6.0
+
+Nothing to run: no migration and no config publish. To keep users or groups out of the access candidates, add
+`access.user_query` or a group's `query` to your published config, see
+[Keeping users and groups out](access.md#keeping-users-and-groups-out). A custom `ResolvesAccessors` that only did that
+can be replaced by the default resolver with these keys.
+
 ## 0.5.5
 
 Nothing to run. An IMAP read timeout during a folder sync is no longer reported, only listed in `last_error`.

@@ -36,7 +36,7 @@ other steps on this page still apply, because the UI only calls this package:
 | Step on this page                                               | Needed with the UI                                                                                                                                                          |
 |-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Publish config and migrations](#publish-config-and-migrations) | Done by `mailbox:install`; you still run `php artisan migrate`                                                                                                              |
-| [Bootstrap an admin](#bootstrap-an-admin)                       | Only to create mailboxes on the settings page. That needs `manageMailboxes`, which only admins pass unless your app defines that ability itself. `mailbox:add` always works |
+| [Bootstrap an admin](#bootstrap-an-admin)                       | Only to create mailboxes on the settings page. That needs `manageMailboxes`, which only admins pass unless your app defines that ability itself (then gate the menu on `accessAnyMailbox` or `manageMailboxes`, see [Abilities](access.md#abilities)). `mailbox:add` always works |
 | [Add a mailbox](#add-a-mailbox)                                 | Optional. Admins can add mailboxes and grant access on the settings page                                                                                                    |
 | [Schedule the sync](#schedule-the-sync)                         | Yes. The UI shows what the sync stored and queues sync jobs itself                                                                                                          |
 | [OAuth mailboxes](#oauth-mailboxes)                             | Only for mailboxes with OAuth authentication                                                                                                                                |
@@ -104,6 +104,18 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
 Schedule::command('mailbox:prune-bodies')->daily();
+```
+
+An app with the Laravel 10 structure schedules in `app/Console/Kernel.php` instead:
+
+```php
+use Illuminate\Console\Scheduling\Schedule;
+
+protected function schedule(Schedule $schedule): void
+{
+    $schedule->command('mailbox:sync')->everyTwoMinutes()->withoutOverlapping();
+    $schedule->command('mailbox:prune-bodies')->daily();
+}
 ```
 
 `mailbox:sync` queues a `SyncMailboxJob` per active mailbox, so run a queue worker. Set `MAILBOX_SYNC_QUEUE` to put the

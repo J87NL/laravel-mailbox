@@ -66,7 +66,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 
 ## Access
 
-`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself. Groups (for example Spatie roles) are configured in `mailbox.access.groups`.
+`accessMailbox` (read), `workInMailbox` (write) and `manageMailbox` (manage) are Gate abilities per mailbox; `manageMailboxes` is the global ability to create and delete mailboxes, and `accessAnyMailbox` tells whether a user may see the mailbox at all (use it for menu links). They are only defined when the host app has not defined them itself; an app that defines `manageMailboxes` itself gates the menu on `accessAnyMailbox` or `manageMailboxes`. Groups (for example Spatie roles) are configured in `mailbox.access.groups`. `access.user_query` and a group's `query` keep users or groups (for example customers) out of the access candidates.
 
 ## Address book and suggestions
 
@@ -105,7 +105,7 @@ $connector = FakeConnector::install();
 $connector->remote($mailbox)->folder('INBOX')->setMessages([...]);
 ```
 
-The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server.
+The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
 
 ## Development
 

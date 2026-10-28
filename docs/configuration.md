@@ -25,6 +25,11 @@ source in the access form and `mailbox:grant`.
     'admins' => array_filter(explode(',', (string) env('MAILBOX_ADMINS', ''))),
     'resolver' => RelationAccessorResolver::class,
     'user_label' => 'name',
+    'user_search' => [
+        'name',
+        'email',
+    ],
+    'user_query' => null,
     'groups' => [],
 ],
 ```
@@ -36,6 +41,7 @@ source in the access form and `mailbox:grant`.
 | `resolver`   |                       | `RelationAccessorResolver` | Class implementing `ResolvesAccessors`                                      |
 | `user_label` |                       | `name`                     | User attribute shown in the access form                                     |
 | `user_search`|                       | `user_label`, `email`      | User columns the access form searches (optional key)                        |
+| `user_query` |                       | `null`                     | Narrows which users can be granted access, see below (optional key)         |
 | `groups`     |                       | `[]`                       | Group models (for example roles) that can be granted access                 |
 
 A group entry looks like this:
@@ -53,8 +59,13 @@ A group entry looks like this:
 
 `model` and `relation` are required. `label` defaults to `name` and `prefix` to the class basename of the model. An
 optional `search` lists the columns the access form searches, by default only `label`. An empty `user_search` or
-`search` falls back to the default. Matching ignores case; on SQLite only for ASCII letters. See
-[Access control](access.md).
+`search` falls back to the default. Matching ignores case; on SQLite only for ASCII letters. The published config
+lists `name` and `email` for `user_search`: change it along with `user_label`.
+
+`user_query` and an optional `query` per group narrow the users and groups that can be granted access, for example to
+keep a `client` role out of the access form. Each takes an invokable class name or a callable that receives the Eloquent
+`Builder` of the model and adds constraints to it. Use a class name or an `[Class::class, 'method']` array, not a
+closure, so `config:cache` keeps working. See [Access control](access.md#keeping-users-and-groups-out).
 
 ## Body cache
 

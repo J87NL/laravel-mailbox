@@ -13,6 +13,32 @@ $connector = FakeConnector::install();
 `install()` binds a `FakeConnector` as the `MailboxConnector` in the container and returns it. Every action, sync class
 and job then uses the fake. Call it before resolving any action, for example in `setUp()` or a `beforeEach()`.
 
+## Factories
+
+`Mailbox`, `MailboxFolder` and `MailboxMessage` have model factories, so your tests can create rows without listing
+every column:
+
+```php
+use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Models\Mailbox;
+use J87NL\Mailbox\Models\MailboxFolder;
+use J87NL\Mailbox\Models\MailboxMessage;
+
+$mailbox = Mailbox::factory()->withInbox()->create();
+$archive = MailboxFolder::factory()->for($mailbox)->role(FolderRole::Archive)->create();
+$messages = MailboxMessage::factory()->count(3)->for($archive, 'folder')->seen()->create();
+```
+
+| Factory                 | Defaults                                                                    | States                                    |
+|-------------------------|-----------------------------------------------------------------------------|-------------------------------------------|
+| `MailboxFactory`        | Active mailbox `team@example.com` on `imap.example.com` / `smtp.example.com` | `inactive()`, `withInbox()`               |
+| `MailboxFolderFactory`  | `INBOX` with role `Inbox`, in a new mailbox                                  | `role(FolderRole $role, ?string $path)`   |
+| `MailboxMessageFactory` | Unseen message with a unique `uid` and `message_id`, in a new inbox          | `seen()`                                  |
+
+A message takes the `mailbox_id` of its folder. `role()` names the folder after the role (`Archive`) unless you pass a
+path. The factories live in `J87NL\Mailbox\Database\Factories` and need no Faker. Give users access with
+[`GrantAccess`](access.md#granting-and-revoking) or by setting `MAILBOX_ADMINS` in the test config.
+
 ## Remote folders and messages
 
 Each mailbox gets a fake remote mailbox with an `INBOX` folder. Fill it with imapengine's `FakeMessage`:
