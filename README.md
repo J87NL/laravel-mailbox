@@ -2,8 +2,6 @@
 
 Shared IMAP/SMTP mailboxes for Laravel: folder and message sync, move/archive/delete/flag, sending with correct threading headers, and an audit trail per app user. Frontend-agnostic; install `j87nl/laravel-vue-mailbox` for the Vue/Inertia UI. Built on the TranquilTools FormBuilder.
 
-Design, security model and open work: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
 ## Requirements
 
 - PHP 8.4+, Laravel 11, 12 or 13

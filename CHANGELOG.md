@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6 - 2026-10-28
+
+- The historical v0.1 design notes (`docs/ARCHITECTURE.md`) and the TranquilTools handoff list (`docs/HANDOFF-tranquil-tools.md`) are removed from the docs. The current behaviour is described in the other docs pages. The README and the docs sidebar no longer link to them.
+- No migration and no config publish needed.
+
 ## 0.5.5 - 2026-10-27
 
 - A folder sync that fails on an IMAP read timeout (`ImapConnectionTimedOutException`) is no longer passed to `report()`. It is still listed in `last_error` and stops the run, and the next scheduled run tries again. A server that is briefly slow no longer fills the error tracker. Other connection, parser and stream errors are still reported. A timeout while the folder list is fetched (for example on `LOGIN`) is still thrown and fails the job. See `docs/sync.md#what-a-mailbox-sync-does`.
