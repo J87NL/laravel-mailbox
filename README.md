@@ -96,6 +96,10 @@ SMTP always requires TLS: implicit TLS on port 465, mandatory STARTTLS otherwise
 
 Purging from Trash uses `UID EXPUNGE`, which removes only the selected messages. Servers without UIDPLUS get the messages flagged `\Deleted` but not expunged, because a plain `EXPUNGE` would also remove mail other clients flagged in the shared mailbox.
 
+## MCP tools
+
+With `laravel/mcp` installed, add `J87NL\Mailbox\Mcp\MailboxMcp::tools()` to the `$tools` of your MCP server. The four tools list mailboxes and messages, read a message as plain text and mark, flag or archive it for the authenticated user, checked with the package abilities. They never send, reply, forward or delete mail. See `docs/mcp.md`.
+
 ## Testing your app
 
 ```php

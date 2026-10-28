@@ -47,6 +47,7 @@ package does not implement that contract, so there is no built-in bridge between
 - **Safe HTML** - mail is sanitized, remote images and tracking styles are blocked by default
 - **Address book** - contacts per mailbox and recipient suggestions from several sources
 - **Links** - tie messages to any model of your app
+- **MCP tools** - optional tools for a Laravel MCP server that read and tidy up mail, never send it
 - **Fakes** - an IMAP and SMTP fake for your own tests
 
 ## How it works
@@ -110,3 +111,4 @@ Gate::authorize('workInMailbox', $mailbox);
 - [Access control](access.md)
 - [Message actions](message-actions.md)
 - [Sending mail](sending.md)
+- [MCP tools](mcp.md)

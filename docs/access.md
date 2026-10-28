@@ -146,6 +146,8 @@ user or group cannot be found or granted, and an access row it already has is sh
 gets no level at all, not even through an allowed group, and an allowed user gets no level from a filtered group. The
 filter does not apply to admins or to open mode.
 
+The [MCP tools](mcp.md) check the same abilities, so a filtered user cannot use them either.
+
 Another group concept? Bind your own `ResolvesAccessors`, see
 [Extension points](extension-points.md#resolvesaccessors).
 

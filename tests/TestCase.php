@@ -13,6 +13,7 @@ use J87NL\Mailbox\MailboxServiceProvider;
 use J87NL\Mailbox\Testing\FakeConnector;
 use J87NL\Mailbox\Tests\Support\Group;
 use J87NL\Mailbox\Tests\Support\User;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use TranquilTools\FormBuilder\FormBuilderServiceProvider;
 
@@ -40,6 +41,7 @@ abstract class TestCase extends Orchestra
         return [
             FormBuilderServiceProvider::class,
             MailboxServiceProvider::class,
+            McpServiceProvider::class,
         ];
     }
 

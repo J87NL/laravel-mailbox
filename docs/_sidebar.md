@@ -14,6 +14,7 @@
     - [Audit trail](audit-trail.md)
     - [Linking messages to models](message-links.md)
     - [Forms](forms.md)
+    - [MCP tools](mcp.md)
 - Reference
     - [Events](events.md)
     - [Extension points](extension-points.md)

@@ -9,6 +9,10 @@ Nothing to run: no migration and no config publish. To keep users or groups out 
 [Keeping users and groups out](access.md#keeping-users-and-groups-out). A custom `ResolvesAccessors` that only did that
 can be replaced by the default resolver with these keys.
 
+To offer the new MCP tools, install `laravel/mcp` and add `MailboxMcp::tools()` to your MCP server, see
+[MCP tools](mcp.md). An app that had its own copies of these tools can drop them; keep a filter in `access.user_query`
+for users who must never reach a mailbox.
+
 ## 0.5.5
 
 Nothing to run. An IMAP read timeout during a folder sync is no longer reported, only listed in `last_error`.
