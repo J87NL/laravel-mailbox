@@ -2,6 +2,12 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.7.1
+
+Nothing to run. An IMAP read timeout while the folder list is fetched (for example on `LOGIN`) and in a `SyncFolderJob`
+no longer fails the job or reaches the error tracker. A mailbox sync lists it in `last_error`. The MCP tools now carry
+read-only annotations; a test in your app that compares the tool list with its annotations needs the new values.
+
 ## 0.7.0
 
 Nothing to run: no migration and no config publish.

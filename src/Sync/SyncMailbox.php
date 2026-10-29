@@ -41,6 +41,8 @@ class SyncMailbox
             $budget->reportDeferred([
                 'mailbox_id' => $mailbox->id,
             ]);
+        } catch (ImapConnectionTimedOutException $exception) {
+            $mailbox->update(['last_error' => $exception->getMessage()]);
         } catch (Throwable $exception) {
             $mailbox->update(['last_error' => $exception->getMessage()]);
 

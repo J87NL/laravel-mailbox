@@ -308,6 +308,31 @@ it('stops the run when the IMAP connection times out, without reporting it', fun
     Exceptions::assertNothingReported();
 });
 
+it('records a timeout while the folder list is fetched without reporting or failing the job', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    test()->connector->imapFailure = new ImapConnectionTimedOutException('Stream timed out, no response');
+
+    app()->call([new SyncMailboxJob($mailbox->id), 'handle']);
+
+    expect($mailbox->refresh()->last_error)->toBe('Stream timed out, no response')
+        ->and($mailbox->synced_at)->toBeNull();
+    Exceptions::assertNothingReported();
+});
+
+it('lets a folder job end without failing on an IMAP timeout and lists it in last_error', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    test()->connector->imapFailure = new ImapConnectionTimedOutException('Stream timed out, no response');
+
+    app()->call([new SyncFolderJob($folder->id), 'handle']);
+
+    expect($folder->refresh()->synced_at)->toBeNull()
+        ->and($mailbox->refresh()->last_error)->toBe('INBOX: Stream timed out, no response');
+    Exceptions::assertNothingReported();
+});
+
 it('reports a closed IMAP connection and stops the run', function (): void {
     Exceptions::fake();
     $mailbox = mailbox();

@@ -34,7 +34,7 @@
         "pestphp/pest-plugin-laravel": "^4.0"
     },
     "suggest": {
-        "laravel/mcp": "Required to expose the mailbox tools in an MCP server (^0.5), see docs/mcp.md"
+        "laravel/mcp": "Required to expose the mailbox tools in an MCP server (^0.5 or newer), see docs/mcp.md"
     },
     "autoload": {
         "psr-4": {

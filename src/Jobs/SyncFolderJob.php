@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Jobs;
 
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -61,6 +62,8 @@ class SyncFolderJob implements ShouldBeUnique, ShouldQueue
                 'mailbox_folder_id' => $folder->id,
                 'mailbox_id' => $folder->mailbox_id,
             ]);
+        } catch (ImapConnectionTimedOutException $exception) {
+            $folder->mailbox->update(['last_error' => sprintf('%s: %s', $folder->path, $exception->getMessage())]);
         } finally {
             $connector->disconnect($folder->mailbox);
         }

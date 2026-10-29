@@ -1,8 +1,8 @@
 # MCP tools
 
 The package ships four tools for a [Laravel MCP](https://github.com/laravel/mcp) server, so an AI assistant can read
-and tidy up the mailboxes a user may open. They are optional: install `laravel/mcp` (`^0.5`, which needs Laravel
-11.45.3, 12.41.1 or 13) in your app to use them. Without it the package works as before. The service provider never
+and tidy up the mailboxes a user may open. They are optional: install `laravel/mcp` (`^0.5` or newer, which needs
+Laravel 11.45.3, 12.41.1 or 13; host apps run the tools on 0.9 and 1.x as well) in your app to use them. Without it the package works as before. The service provider never
 registers the tools; your own MCP server does.
 
 ## The tools
@@ -13,6 +13,10 @@ registers the tools; your own MCP server does.
 | `list-mailbox-messages-tool`  | The cached message headers of one folder (default the inbox), newest first. Optional `unread_only`, `search` on subject and sender, and `limit` (default 25, at most 100) | `accessMailbox` |
 | `get-mailbox-message-tool`    | One message: headers, recipients, attachment names and the body as plain text, capped at 20000 characters (`body_truncated` says when it was cut). Does not mark it read | `accessMailbox` |
 | `update-mailbox-message-tool` | Marks one message `read` or `unread`, `flag` or `unflag`, or `archive`s it                                                                                   | `workInMailbox` |
+
+The three reading tools carry the `readOnlyHint` annotation (`#[IsReadOnly]`), `update-mailbox-message-tool` is marked
+as not read-only, and none is marked destructive. A hub or client that only offers read-only tools to some users can
+offer the reading tools to them and keep the update tool for users who may make changes.
 
 What they never do: send, reply, forward or delete mail. `update-mailbox-message-tool` only accepts the five actions
 above. Changes go through `MarkMessages` and `ArchiveMessages`, so the IMAP command runs first and the

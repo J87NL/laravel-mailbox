@@ -414,3 +414,15 @@ it('keeps the tool names and offers no action that sends, replies, forwards or d
             'archive',
         ]);
 });
+
+it('marks only the update tool as one that changes mail, and none as destructive', function (): void {
+    $annotations = collect(MailboxMcp::tools())
+        ->mapWithKeys(fn (string $class): array => [app($class)->name() => app($class)->toArray()['annotations']]);
+
+    expect($annotations->all())->toBe([
+        'list-mailboxes-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
+        'list-mailbox-messages-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
+        'get-mailbox-message-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
+        'update-mailbox-message-tool' => ['readOnlyHint' => false, 'destructiveHint' => false],
+    ]);
+});

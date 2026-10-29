@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 - 2026-10-29
+
+- An IMAP read timeout (`ImapConnectionTimedOutException`) while a mailbox sync fetches the folder list, for example on `LOGIN`, no longer fails `SyncMailboxJob` or reaches `report()`. It is listed in `last_error`, `synced_at` stays as it was, and the next scheduled run tries again. Other errors at that point are still stored and thrown. A `SyncFolderJob` that runs into a read timeout also ends without failing and lists the folder with the error in the mailbox's `last_error`. Before, a briefly slow IMAP server still filled the error tracker through this path, which 0.5.5 left open. See `docs/sync.md#what-a-mailbox-sync-does`.
+- The MCP tools carry annotations: `list-mailboxes-tool`, `list-mailbox-messages-tool` and `get-mailbox-message-tool` are read-only (`#[IsReadOnly]`), `update-mailbox-message-tool` is not, and none is destructive. A hub or client that offers read-only tools to some users can now offer the reading tools to them. See `docs/mcp.md#the-tools`.
+- Docs: `docs/mcp.md` and the `suggest` entry say `laravel/mcp` `^0.5` or newer; host apps run the tools on 0.9 and 1.x.
+- No migration and no config publish needed.
+
 ## 0.7.0 - 2026-10-28
 
 - **Behaviour change:** `access.user_query` now applies to everyone. A user it filters out is no admin even with their email in `MAILBOX_ADMINS`, gets no level in open mode, and fails `accessAnyMailbox`, `manageMailboxes`, `accessMailbox`, `workInMailbox` and `manageMailbox`, also on an inactive mailbox. This also holds with a custom `ResolvesAccessors`. A host app no longer needs its own `Gate::before` for this, unless it defines one of these abilities itself (for example its own `manageMailboxes`), which then has to apply the filter itself. `MailboxAccessResolver` runs the query at most once per user per request (new `MailboxAccessResolver::admits()`, cleared by `flush()`) and `RelationAccessorResolver::accessorsFor()` reuses that answer, so checking several mailboxes without a `preload()` no longer runs the query once per mailbox. A user that is not a `mailbox.user_model` is not filtered. See `docs/access.md#keeping-users-and-groups-out` and `docs/upgrading.md`.
