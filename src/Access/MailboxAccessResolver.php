@@ -35,7 +35,7 @@ class MailboxAccessResolver
             return false;
         }
 
-        if (! $mailbox->active) {
+        if (! $mailbox->active && $required !== AccessLevel::Manage) {
             return $this->isAdmin($user);
         }
 

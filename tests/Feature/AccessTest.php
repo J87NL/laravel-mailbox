@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use J87NL\Mailbox\Access\MailboxAccessResolver;
 use J87NL\Mailbox\Enums\AccessLevel;
 use J87NL\Mailbox\MailboxServiceProvider;
 use J87NL\Mailbox\Models\Mailbox;
@@ -116,16 +118,83 @@ it('gives every user write but not manage in open mode', function (): void {
         ->and(Gate::forUser(user())->allows('manageMailboxes'))->toBeFalse();
 });
 
-it('hides an inactive mailbox from everyone except admins', function (): void {
-    config()->set('mailbox.access.admins', ['admin@example.com']);
-    config()->set('mailbox.access.mode', 'open');
+it('lets a manager of an inactive mailbox manage it but not read or work in it', function (): void {
     $mailbox = mailbox(['active' => false]);
     $manager = user();
     grant($mailbox, $manager, AccessLevel::Manage);
 
-    expect(abilities($manager, $mailbox)['read'])->toBeFalse()
-        ->and(abilities(user(), $mailbox)['read'])->toBeFalse()
-        ->and(abilities(user(['email' => 'admin@example.com']), $mailbox)['manage'])->toBeTrue();
+    expect(abilities($manager, $mailbox))->toBe(['read' => false, 'write' => false, 'manage' => true]);
+});
+
+it('lets a manager through a group manage an inactive mailbox', function (): void {
+    $mailbox = mailbox(['active' => false]);
+    $manager = user();
+    $group = Group::query()
+        ->create(['name' => 'Board']);
+    $manager->groups()->attach($group);
+
+    grant($mailbox, $group, AccessLevel::Manage);
+
+    expect(abilities($manager, $mailbox))->toBe(['read' => false, 'write' => false, 'manage' => true]);
+});
+
+it('gives readers and writers nothing on an inactive mailbox', function (AccessLevel $level): void {
+    $mailbox = mailbox(['active' => false]);
+    $user = user();
+    grant($mailbox, $user, $level);
+
+    expect(abilities($user, $mailbox))->toBe(['read' => false, 'write' => false, 'manage' => false]);
+})->with([
+    'read' => [AccessLevel::Read],
+    'write' => [AccessLevel::Write],
+]);
+
+it('gives nobody but admins anything on an inactive mailbox in open mode', function (): void {
+    config()->set('mailbox.access.admins', ['admin@example.com']);
+    config()->set('mailbox.access.mode', 'open');
+    $mailbox = mailbox(['active' => false]);
+
+    expect(abilities(user(), $mailbox))->toBe(['read' => false, 'write' => false, 'manage' => false])
+        ->and(abilities(user(['email' => 'admin@example.com']), $mailbox))->toBe(['read' => true, 'write' => true, 'manage' => true]);
+});
+
+it('keeps admins at full access on an inactive mailbox', function (): void {
+    config()->set('mailbox.access.admins', ['admin@example.com']);
+
+    expect(abilities(user(['email' => 'admin@example.com']), mailbox(['active' => false])))->toBe(['read' => true, 'write' => true, 'manage' => true]);
+});
+
+it('does not let a manager of an inactive mailbox create or delete mailboxes', function (): void {
+    $mailbox = mailbox(['active' => false]);
+    $manager = user();
+    grant($mailbox, $manager, AccessLevel::Manage);
+
+    expect(Gate::forUser($manager)->allows('manageMailboxes'))->toBeFalse();
+});
+
+it('gives a manager read again once the mailbox is reactivated', function (): void {
+    $mailbox = mailbox(['active' => false]);
+    $manager = user();
+    grant($mailbox, $manager, AccessLevel::Manage);
+
+    $mailbox->update(['active' => true]);
+
+    expect(abilities($manager, $mailbox))->toBe(['read' => true, 'write' => true, 'manage' => true]);
+});
+
+it('checks several inactive mailboxes with the queries of one preload', function (): void {
+    $manager = user();
+    $mailboxes = collect(range(1, 3))->map(fn (int $i): Mailbox => mailbox(['active' => false, 'email' => sprintf('box%d@example.com', $i)]));
+    $mailboxes->each(fn (Mailbox $mailbox) => grant($mailbox, $manager, AccessLevel::Manage));
+
+    DB::enableQueryLog();
+
+    app(MailboxAccessResolver::class)->preload($manager, $mailboxes->pluck('id')->all());
+    $preloadQueries = count(DB::getQueryLog());
+    $mailboxes->each(fn (Mailbox $mailbox): array => abilities($manager, $mailbox));
+
+    expect(DB::getQueryLog())->toHaveCount($preloadQueries)
+        ->and($preloadQueries)->toBe(2);
 });
 
 it('leaves abilities the host app defined itself alone', function (): void {

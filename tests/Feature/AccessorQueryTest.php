@@ -143,6 +143,30 @@ it('keeps a filtered admin out of every mailbox ability', function (): void {
         ->and(Gate::forUser($this->staff)->allows('manageMailboxes'))->toBeTrue();
 });
 
+it('keeps a filtered manager and a filtered group out of an inactive mailbox', function (): void {
+    $mailbox = mailbox(['active' => false]);
+    $groupMember = user(['email' => 'joe@example.com', 'name' => 'Joe Staff']);
+    $groupMember->groups()->attach($this->clients);
+
+    MailboxAccess::query()
+        ->create([
+            'accessor_id' => $this->client->id,
+            'accessor_type' => $this->client->getMorphClass(),
+            'level' => AccessLevel::Manage,
+            'mailbox_id' => $mailbox->id,
+        ]);
+    MailboxAccess::query()
+        ->create([
+            'accessor_id' => $this->clients->id,
+            'accessor_type' => $this->clients->getMorphClass(),
+            'level' => AccessLevel::Manage,
+            'mailbox_id' => $mailbox->id,
+        ]);
+
+    expect(Gate::forUser($this->client)->allows('manageMailbox', $mailbox))->toBeFalse()
+        ->and(Gate::forUser($groupMember)->allows('manageMailbox', $mailbox))->toBeFalse();
+});
+
 it('keeps a filtered user out in open mode', function (): void {
     config()->set('mailbox.access.mode', 'open');
     $mailbox = mailbox();
