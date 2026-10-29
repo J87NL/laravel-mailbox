@@ -2,6 +2,12 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.9.0
+
+Nothing to run: no migration and no config publish. The MCP tools now also carry `openWorldHint`; a test in your app
+that compares the tool list with its annotations needs the new value. Check where your app serves the mailbox tools:
+not next to tools that change things, see [Keep mail away from write tools](mcp.md#keep-mail-away-from-write-tools).
+
 ## 0.8.0
 
 Nothing to run: no migration and no config publish.

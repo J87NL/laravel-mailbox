@@ -98,7 +98,7 @@ Purging from Trash uses `UID EXPUNGE`, which removes only the selected messages.
 
 ## MCP tools
 
-With `laravel/mcp` installed, add `J87NL\Mailbox\Mcp\MailboxMcp::tools()` to the `$tools` of your MCP server. The four tools list mailboxes and messages, read a message as plain text and mark, flag or archive it for the authenticated user, checked with the package abilities. They never send, reply, forward or delete mail. See `docs/mcp.md`.
+With `laravel/mcp` installed, add `J87NL\Mailbox\Mcp\MailboxMcp::tools()` to the `$tools` of your MCP server. The four tools list mailboxes and messages, read a message as plain text and mark, flag or archive it for the authenticated user, checked with the package abilities. They never send, reply, forward or delete mail. `MailboxMcp::readTools()` leaves the update tool out. Serve them on an MCP server without tools that change things, because mail text can steer an assistant towards any tool in the same session. See `docs/mcp.md`.
 
 ## Testing your app
 

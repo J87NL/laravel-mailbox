@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 - 2026-10-29
+
+- The four MCP tools carry `openWorldHint` (`#[IsOpenWorld]`): they bring in text written by outsiders. A hub or client can use it to keep them away from tools that change things.
+- New `MailboxMcp::readTools()`: the three reading tools without `update-mailbox-message-tool`.
+- Docs: `docs/mcp.md#keep-mail-away-from-write-tools` explains why the mailbox tools belong on a server or connector without write tools, and what to do when they cannot be separated. `docs/upgrading.md` and the README point there.
+- No migration and no config publish needed.
+
 ## 0.8.0 - 2026-10-29
 
 - **Behaviour change:** a user with `Manage` on an inactive mailbox, through their own access row or a group, passes `manageMailbox` on it, so they can open its settings and set it active again. Before, only `MAILBOX_ADMINS` reached an inactive mailbox, so in an app without admins a manager who deactivated a mailbox locked everybody out of it. `accessMailbox` and `workInMailbox` on an inactive mailbox still pass for admins only, `Read` and `Write` rows and open mode give nothing there, and `access.user_query` and a group's `query` still apply. An app-defined `manageMailboxes` gives no level on any mailbox. `MailboxAccessResolver::allows()` only answers with `isAdmin()` for `Read` and `Write` on an inactive mailbox. See `docs/access.md#inactive-mailboxes` and `docs/upgrading.md`.

@@ -24,4 +24,16 @@ class MailboxMcp
             UpdateMailboxMessageTool::class,
         ];
     }
+
+    /**
+     * @return array<int, class-string<MailboxTool>>
+     */
+    public static function readTools(): array
+    {
+        return [
+            ListMailboxesTool::class,
+            ListMailboxMessagesTool::class,
+            GetMailboxMessageTool::class,
+        ];
+    }
 }

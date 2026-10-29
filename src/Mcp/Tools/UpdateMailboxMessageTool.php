@@ -17,11 +17,13 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
+use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Description('Tidy up one message of a mailbox you may work in (write access): mark it read or unread, flag or unflag it, or archive it (move it to the archive folder). Pass the mailbox id, the message id from list-mailbox-messages-tool and the action. The change is made on the mail server and recorded in the mailbox audit trail under your name. It never sends, replies, forwards or deletes mail.')]
 #[IsReadOnly(false)]
 #[IsDestructive(false)]
+#[IsOpenWorld]
 class UpdateMailboxMessageTool extends MailboxTool
 {
     public const array ACTIONS = [

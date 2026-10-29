@@ -415,14 +415,22 @@ it('keeps the tool names and offers no action that sends, replies, forwards or d
         ]);
 });
 
-it('marks only the update tool as one that changes mail, and none as destructive', function (): void {
+it('marks every tool as open world, only the update tool as one that changes mail, and none as destructive', function (): void {
     $annotations = collect(MailboxMcp::tools())
         ->mapWithKeys(fn (string $class): array => [app($class)->name() => app($class)->toArray()['annotations']]);
 
     expect($annotations->all())->toBe([
-        'list-mailboxes-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
-        'list-mailbox-messages-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
-        'get-mailbox-message-tool' => ['readOnlyHint' => true, 'destructiveHint' => false],
-        'update-mailbox-message-tool' => ['readOnlyHint' => false, 'destructiveHint' => false],
+        'list-mailboxes-tool' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true],
+        'list-mailbox-messages-tool' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true],
+        'get-mailbox-message-tool' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true],
+        'update-mailbox-message-tool' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => true],
+    ]);
+});
+
+it('offers the reading tools without the update tool', function (): void {
+    expect(MailboxMcp::readTools())->toBe([
+        ListMailboxesTool::class,
+        ListMailboxMessagesTool::class,
+        GetMailboxMessageTool::class,
     ]);
 });

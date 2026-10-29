@@ -16,7 +16,9 @@ registers the tools; your own MCP server does.
 
 The three reading tools carry the `readOnlyHint` annotation (`#[IsReadOnly]`), `update-mailbox-message-tool` is marked
 as not read-only, and none is marked destructive. A hub or client that only offers read-only tools to some users can
-offer the reading tools to them and keep the update tool for users who may make changes.
+offer the reading tools to them and keep the update tool for users who may make changes. All four carry
+`openWorldHint` (`#[IsOpenWorld]`): they bring in text written by outsiders, see
+[Keep mail away from write tools](#keep-mail-away-from-write-tools).
 
 What they never do: send, reply, forward or delete mail. `update-mailbox-message-tool` only accepts the five actions
 above. Changes go through `MarkMessages` and `ArchiveMessages`, so the IMAP command runs first and the
@@ -60,8 +62,11 @@ class AppServer extends Server
 ```
 
 `MailboxMcp::tools()` returns `ListMailboxesTool`, `ListMailboxMessagesTool`, `GetMailboxMessageTool` and
-`UpdateMailboxMessageTool` from `J87NL\Mailbox\Mcp\Tools`. List the classes yourself to pick only some of them, for
-example only the reading tools.
+`UpdateMailboxMessageTool` from `J87NL\Mailbox\Mcp\Tools`. `MailboxMcp::readTools()` returns the three reading tools
+without `UpdateMailboxMessageTool`. List the classes yourself to pick any other set.
+
+Register them on a server of their own rather than next to tools that change things, see
+[Keep mail away from write tools](#keep-mail-away-from-write-tools).
 
 ## Who the tools run for
 
@@ -153,6 +158,18 @@ Subjects, sender names, folder names and bodies are written by outsiders. The to
 treat them as data and never as instructions, but a description is not an access control. The tools can only do what
 the user may do in the mailbox and never send mail, so an instruction hidden in a message cannot make an assistant
 mail anything out through these tools. Keep that in mind before you add tools of your own that act on mail content.
+
+### Keep mail away from write tools
+
+An instruction hidden in a mail can still steer the assistant towards any other tool it has in the same session:
+publishing a page, deleting a redirect, changing a setting. The package cannot guard tools it does not own, and
+`laravel/mcp` has no confirmation step on the server side. So:
+
+- Serve the mailbox tools from an MCP server (or a hub connector) that holds no tools that change things, and add that
+  server to the client as a separate connector. `MailboxMcp::readTools()` keeps even the update tool out.
+- If they must share a server with write tools, make the client ask before every write tool. That is a client setting
+  per user, so treat it as an extra layer, not as the only one.
+- A hub in front of several apps can recognise these tools by `openWorldHint` and route them to their own endpoint.
 
 ## Testing
 
