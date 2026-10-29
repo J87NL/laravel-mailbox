@@ -28,7 +28,7 @@ Table `mailboxes`. One row per shared mailbox.
 | `smtp_password`   | text, nullable   | `encrypted` cast, hidden from arrays                                     |
 | `append_sent`     | bool             | Store a copy of sent mail in Sent. Default `true`                        |
 | `conversation_view` | bool           | Show the message list as conversations, see [Conversations](sync.md#conversations). Default `false` |
-| `active`          | bool             | Inactive mailboxes are not synced and only visible to admins             |
+| `active`          | bool             | Not synced when false, see [Inactive mailboxes](access.md#inactive-mailboxes) |
 | `synced_at`       | timestamp, nullable | Last completed sync                                                     |
 | `last_error`      | text, nullable   | The last sync error, or the folders that failed                          |
 

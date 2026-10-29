@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0 - 2026-10-29
+
+- **Behaviour change:** a user with `Manage` on an inactive mailbox, through their own access row or a group, passes `manageMailbox` on it, so they can open its settings and set it active again. Before, only `MAILBOX_ADMINS` reached an inactive mailbox, so in an app without admins a manager who deactivated a mailbox locked everybody out of it. `accessMailbox` and `workInMailbox` on an inactive mailbox still pass for admins only, `Read` and `Write` rows and open mode give nothing there, and `access.user_query` and a group's `query` still apply. An app-defined `manageMailboxes` gives no level on any mailbox. `MailboxAccessResolver::allows()` only answers with `isAdmin()` for `Read` and `Write` on an inactive mailbox. See `docs/access.md#inactive-mailboxes` and `docs/upgrading.md`.
+- No migration and no config publish needed.
+
 ## 0.7.1 - 2026-10-29
 
 - An IMAP read timeout (`ImapConnectionTimedOutException`) while a mailbox sync fetches the folder list, for example on `LOGIN`, no longer fails `SyncMailboxJob` or reaches `report()`. It is listed in `last_error`, `synced_at` stays as it was, and the next scheduled run tries again. Other errors at that point are still stored and thrown. A `SyncFolderJob` that runs into a read timeout also ends without failing and lists the folder with the error in the mailbox's `last_error`. Before, a briefly slow IMAP server still filled the error tracker through this path, which 0.5.5 left open. See `docs/sync.md#what-a-mailbox-sync-does`.

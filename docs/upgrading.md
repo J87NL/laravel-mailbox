@@ -2,6 +2,17 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.8.0
+
+Nothing to run: no migration and no config publish.
+
+- **Behaviour change:** a user with `Manage` on an inactive mailbox, from their own access row or one of their groups,
+  now passes `manageMailbox` on it. They reach its settings and can set it active again, without an email in
+  `MAILBOX_ADMINS`. `accessMailbox` and `workInMailbox` on an inactive mailbox still pass for admins only, so
+  `manageMailbox` there no longer implies reading it. Code that shows folders or messages after checking only
+  `manageMailbox` must check `accessMailbox` as well. See [Inactive mailboxes](access.md#inactive-mailboxes).
+- An app that defines `manageMailbox` itself only to let managers into inactive mailboxes can drop that definition.
+
 ## 0.7.1
 
 Nothing to run. An IMAP read timeout while the folder list is fetched (for example on `LOGIN`) and in a `SyncFolderJob`

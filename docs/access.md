@@ -9,7 +9,7 @@ your app has not defined an ability with the same name.
 |--------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | `accessMailbox`    | `Mailbox $mailbox` | Read: view folders, messages and attachments                                                                                     |
 | `workInMailbox`    | `Mailbox $mailbox` | Write: also send, reply, forward, move, archive, delete, flag, mark read or unread, create folders, manage address book contacts |
-| `manageMailbox`    | `Mailbox $mailbox` | Manage: also edit the mailbox settings and its access list                                                                       |
+| `manageMailbox`    | `Mailbox $mailbox` | Manage: also edit the mailbox settings and its access list. The only one non-admins pass on an inactive mailbox  |
 | `accessAnyMailbox` | none               | True for admins and for users with at least read on an active mailbox                                                            |
 | `manageMailboxes`  | none               | Global: create and delete mailboxes. True for admins only                                                                        |
 
@@ -62,8 +62,9 @@ AccessLevel::Manage->label();                              // 'Manage'
 `J87NL\Mailbox\Access\MailboxAccessResolver` decides the level of a user for a mailbox:
 
 1. A user that **`access.user_query`** filters out gets no level on any mailbox, whatever comes below.
-2. An **inactive** mailbox is only accessible to admins.
-3. **Admins** get `Manage` on every mailbox.
+2. **Admins** get `Manage` on every mailbox, active or not.
+3. On an **inactive** mailbox everybody else passes only `manageMailbox`, and only with `Manage` from their own row or
+   one of their groups (see [Inactive mailboxes](#inactive-mailboxes)).
 4. In **open mode** every logged-in user gets `Write` on every active mailbox.
 5. Otherwise the **access rows** decide. The highest level over the user's own row and the rows of all their groups
    wins. No row means no access.
@@ -80,6 +81,19 @@ attribute of the user. When the user model implements `MustVerifyEmail`, the ema
 `access.user_query` filters out is no admin, even with their email in `MAILBOX_ADMINS`.
 
 Admins are the bootstrap: without one, nobody can create a mailbox through a UI. The `mailbox:add` command always works.
+
+### Inactive mailboxes
+
+An inactive mailbox is not synced, and nobody reads or works in it except admins: `accessMailbox` and `workInMailbox`
+fail for every other user, whatever their level. A user with `Manage` on it, from their own access row or one of their
+groups, keeps `manageMailbox`. They can open its settings (connection settings included), change its access list and
+set it active again, also in an app that leaves `MAILBOX_ADMINS` empty. `access.user_query` and a group's `query` still
+apply, so a filtered user or group gets nothing. `Read` and `Write` rows and open mode give nothing on an inactive mailbox.
+
+`manageMailbox` on an inactive mailbox does not include reading it, unlike on an active one. Check `accessMailbox`
+before you show its folders or messages. `accessAnyMailbox` only counts active mailboxes, so a user who only manages
+inactive ones fails it. Passing an app-defined `manageMailboxes` gives no level on any mailbox: that ability only covers
+creating and deleting mailboxes.
 
 ### Open mode
 
