@@ -58,14 +58,14 @@ class RecordingMessageQuery extends FakeMessageQuery
 
         $messages = $this->withinUidRange(parent::get());
 
-        if (is_null($this->uids)) {
-            return $messages;
+        if (! is_null($this->uids)) {
+            $messages = new MessageCollection($messages
+                ->filter(fn (MessageInterface $message): bool => in_array($message->uid(), $this->uids, true))
+                ->values()
+                ->all());
         }
 
-        return new MessageCollection($messages
-            ->filter(fn (MessageInterface $message): bool => in_array($message->uid(), $this->uids, true))
-            ->values()
-            ->all());
+        return $this->withinLimit($messages);
     }
 
     public function chunk(callable $callback, int $chunkSize = 10, int $startChunk = 1): void
@@ -150,6 +150,20 @@ class RecordingMessageQuery extends FakeMessageQuery
                 $message->flag(ImapFlag::Deleted, '+');
             }
         }
+    }
+
+    private function withinLimit(MessageCollection $messages): MessageCollection
+    {
+        if ($this->chunking || is_null($this->getLimit())) {
+            return $messages;
+        }
+
+        $sorted = $messages->sortBy(fn (MessageInterface $message): int => $message->uid(), descending: $this->getFetchOrder() === 'desc');
+
+        return new MessageCollection($sorted
+            ->forPage($this->page, $this->getLimit())
+            ->values()
+            ->all());
     }
 
     private function withinUidRange(MessageCollection $messages): MessageCollection

@@ -133,7 +133,7 @@ failing as well and lists the folder with the error in `last_error`; the next sc
 scheduled sync and a folder job never sync the same folder at once.
 
 1. **UIDVALIDITY** - when the server reports another `UIDVALIDITY` than the stored one, the cached messages of the folder
-   are deleted, `last_uid` starts again at 0 and `synced_at` is cleared until the folder is fetched again completely.
+   are deleted, `last_uid` starts again at 0, `oldest_uid` and `older_exhausted` are cleared, and `synced_at` is cleared until the folder is fetched again completely.
 2. **New messages** - fetches messages with a UID above `last_uid`. On the first sync of a folder (`last_uid` is 0) it
    fetches the messages of the last `sync.initial_days` days instead. It fetches headers, flags, size and body
    structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. Each chunk is stored with
@@ -141,13 +141,55 @@ scheduled sync and a folder job never sync the same folder at once.
    stops here and steps 3 and 4 wait for the next run.
 3. **Known messages** - refreshes the flags of the newest `sync.flag_window` cached messages and deletes cached rows
    that are gone from the server, for example because they were moved in another mail client.
-4. **Unseen count** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
-   report it. `synced_at` is set on the folder.
+4. **Counts** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
+   report it, and stores `MESSAGES` in `message_count` (the cached row count when the server does not report it).
+   `synced_at` is set on the folder.
 
 New messages get their conversation key right after they are stored, see below.
 
 Messages flagged `\Deleted` on the server are treated as gone. A purge on a server without UIDPLUS therefore does not
 bring them back, see [Message actions](message-actions.md#deleting).
+
+## Older messages
+
+The sync never goes back further than `sync.initial_days` on its own: after the first sync it only fetches UIDs above
+`last_uid`. Mail that was already in a folder before that window stays on the server only, while `unseen_count` and
+`message_count` come from the folder status and do count it. A folder whose `message_count` is higher than its number
+of cached rows and that is not `older_exhausted` has older mail on the server.
+
+`FetchOlderMessages` fetches the next batch of it:
+
+```php
+use J87NL\Mailbox\Actions\FetchOlderMessages;
+use J87NL\Mailbox\Jobs\FetchOlderMessagesJob;
+
+app(FetchOlderMessages::class)->handle($folder); // number of messages stored, null when the folder is busy
+FetchOlderMessagesJob::dispatch($folder->id);   // the same, on the sync queue
+```
+
+- It fetches the `sync.older_batch_size` newest messages with a UID below both the lowest cached UID and `oldest_uid`,
+  so every call goes one batch further back. A folder without either gets its newest batch, below `last_uid` when the
+  folder was synced before. After each batch it stores the lowest UID it saw in `oldest_uid`, messages flagged
+  `\Deleted` included, so a batch of only deleted messages does not come back on the next call.
+- When a batch comes back empty or reaches UID 1, it sets `older_exhausted`. A short batch alone does not, so the
+  next call checks once more.
+  An exhausted folder returns `0` without asking the server. `MESSAGES` also counts messages flagged `\Deleted`, which
+  are never cached, so check `older_exhausted` too before offering older mail.
+- It stores headers, flags, size and body structure like the sync, gives the messages their conversation key and skips
+  messages flagged `\Deleted`. `last_uid` does not move.
+- It never fires `MessageReceived`. Messages in a watched folder whose `Message-ID` is not yet known get a `received`
+  audit entry, as on a first sync.
+- It does nothing for folders that are not selectable or [skipped](#skipped-folders), and returns `0` when nothing is
+  older than the cached messages.
+- It takes the same cache lock per folder as the sync (held for `sync.job_timeout_seconds` + 60 seconds at most) and
+  returns `null` without fetching while the folder is being synced. Inside the lock it reloads the folder first, so it
+  works with the cursor and `older_exhausted` the sync just stored.
+- It reads the folder status first. When the server reports another `UIDVALIDITY` than the stored one, it stores
+  nothing, queues a `SyncFolderJob` to reset the folder and returns `0`.
+- `FetchOlderMessagesJob` releases itself when the folder is busy and tries again 30 seconds later, at most three
+  times. It is unique per folder for 300 seconds, uses `sync.queue` and `sync.job_timeout_seconds`, lists a read
+  timeout in the mailbox's `last_error` like `SyncFolderJob`, and when it fails for another reason, `failed()` lists
+  that error there as well.
 
 ## Conversations
 

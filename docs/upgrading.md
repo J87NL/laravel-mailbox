@@ -2,6 +2,21 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.10.0
+
+Publish the migrations again and migrate: `add_message_count_to_mailbox_folders_table` adds
+`mailbox_folders.message_count`, `oldest_uid` and `older_exhausted`.
+
+```bash
+php artisan vendor:publish --tag=mailbox-migrations
+php artisan migrate
+```
+
+The column is filled on the next completed sync of each folder. Until then it is `0`, so nothing looks older. To fetch
+mail from before `sync.initial_days`, call `FetchOlderMessages` or queue `FetchOlderMessagesJob`, see
+[Older messages](sync.md#older-messages). `sync.older_batch_size` is optional in a published config. A test that
+builds `SyncFolderMessages` by hand needs `StoreRemoteMessages` instead of `ConversationKeys`.
+
 ## 0.9.0
 
 Nothing to run: no migration and no config publish. The MCP tools now also carry `openWorldHint`; a test in your app

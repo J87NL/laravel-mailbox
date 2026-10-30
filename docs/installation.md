@@ -49,7 +49,7 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-This publishes `config/mailbox.php` and five migrations:
+This publishes `config/mailbox.php` and six migrations:
 
 | Migration                                    | Creates                                                                                                   |
 |----------------------------------------------|-----------------------------------------------------------------------------------------------------------|
@@ -58,6 +58,9 @@ This publishes `config/mailbox.php` and five migrations:
 | `create_mailbox_contacts_table`              | `mailbox_contacts`                                                                                        |
 | `add_sent_at_index_to_mailbox_messages_table`| an index on `mailbox_messages (mailbox_id, sent_at)`                                                      |
 | `add_conversations_to_mailbox_tables`        | `mailboxes.conversation_view`, `mailbox_messages.thread_key` and its indexes                              |
+| `add_message_count_to_mailbox_folders_table` | `mailbox_folders.message_count`, `oldest_uid` and `older_exhausted`                                       |
+
+Upgrading to 0.10: publish the migrations again and migrate (adds `add_message_count_to_mailbox_folders_table`).
 
 Upgrading to 0.4: publish the migrations again, migrate, and run `php artisan mailbox:threads` once to give the stored
 messages their conversation key.

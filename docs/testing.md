@@ -58,6 +58,9 @@ $remote->folder('INBOX')->status = ['UIDVALIDITY' => 1, 'UNSEEN' => 0];
 $remote->addFolder(new RecordingFolder('Archive', ['\\Archive']));
 ```
 
+`status` is what the folder reports to the sync: `UIDVALIDITY`, `UNSEEN` and `MESSAGES`. A query with `limit()` returns
+that many messages in its fetch order (`newest()` or `oldest()`), as on a real server.
+
 The third argument of `FakeMessage` is the raw message; a Symfony `Email` with `toString()` is an easy way to build one.
 
 Then run the code under test, for example the sync:

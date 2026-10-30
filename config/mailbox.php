@@ -60,6 +60,7 @@ return [
         'flag_window' => 500,
         'initial_days' => 90,
         'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
+        'older_batch_size' => 100,
         'queue' => env('MAILBOX_SYNC_QUEUE'),
         'skip_special_use' => [
             '\\All',

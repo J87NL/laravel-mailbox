@@ -56,7 +56,10 @@ Table `mailbox_folders`. A mirror of the IMAP folder list.
 | `flags`        | The IMAP folder flags, as an array                                          |
 | `uid_validity` | Sync cursor                                                                 |
 | `last_uid`     | Sync cursor: the highest UID fetched                                        |
+| `oldest_uid`   | Lowest UID `FetchOlderMessages` saw, messages flagged `\Deleted` included; `null` until it ran |
+| `older_exhausted` | `true` once `FetchOlderMessages` found nothing older on the server     |
 | `unseen_count` | Number of unread messages                                                   |
+| `message_count`| Number of messages on the server (`MESSAGES` of the folder status), also those older than the cached rows |
 | `selectable`   | `false` for `\Noselect` and `\NonExistent` folders                          |
 | `synced_at`    | Last completed message sync of this folder                                  |
 

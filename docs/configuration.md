@@ -184,6 +184,7 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
     'flag_window' => 500,
     'initial_days' => 90,
     'job_timeout_seconds' => (int) env('MAILBOX_SYNC_JOB_TIMEOUT', 55),
+    'older_batch_size' => 100,
     'queue' => env('MAILBOX_SYNC_QUEUE'),
     'skip_special_use' => [
         '\\All',
@@ -200,15 +201,16 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
 | `chunk_size`          |                            | `50`          | Messages fetched and stored per chunk                                       |
 | `flag_chunk_size`     |                            | `100`         | Messages of the flag window refreshed per step; a deferred refresh resumes there |
 | `flag_window`         |                            | `500`         | The newest known messages per folder whose flags are refreshed              |
-| `initial_days`        |                            | `90`          | How far back the first sync of a folder goes                                |
-| `job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55`          | `$timeout` of `SyncMailboxJob` and `SyncFolderJob`                          |
-| `queue`               | `MAILBOX_SYNC_QUEUE`       | default queue | Queue for `SyncMailboxJob` and `SyncFolderJob`                              |
+| `initial_days`        |                            | `90`          | How far back the first sync of a folder goes; older mail is fetched on request, see [Older messages](sync.md#older-messages) |
+| `job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55`          | `$timeout` of `SyncMailboxJob`, `SyncFolderJob` and `FetchOlderMessagesJob` |
+| `older_batch_size`    |                            | `100`         | Messages `FetchOlderMessages` fetches per call                              |
+| `queue`               | `MAILBOX_SYNC_QUEUE`       | default queue | Queue for `SyncMailboxJob`, `SyncFolderJob` and `FetchOlderMessagesJob`     |
 | `skip_special_use`    |                            | `\All`, `\Important`, `\Flagged` | Folders with one of these special-use attributes are not synced, see [Skipped folders](sync.md#skipped-folders); `[]` syncs them |
 | `step_reserve_seconds` | `MAILBOX_SYNC_STEP_RESERVE` | `5`          | Seconds a sync step needs at least before it starts, when it took less the last time |
 | `time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40`          | Seconds a sync job spends on folders before it stops and leaves the rest to the next run |
 
-A published config without `flag_chunk_size`, `job_timeout_seconds`, `skip_special_use`, `step_reserve_seconds` or
-`time_budget_seconds` uses the defaults. Keep
+A published config without `flag_chunk_size`, `job_timeout_seconds`, `older_batch_size`, `skip_special_use`,
+`step_reserve_seconds` or `time_budget_seconds` uses the defaults. Keep
 `time_budget_seconds` < `job_timeout_seconds` < the `retry_after` of the queue connection (Laravel's default is `90`),
 with room for a step that takes longer than before between the first two: a job that runs longer than its timeout is killed and
 marked failed, and a job that is still running at `retry_after` is handed to a second worker. See

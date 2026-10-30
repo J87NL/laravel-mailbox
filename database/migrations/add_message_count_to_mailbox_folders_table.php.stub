@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('mailbox_folders', function (Blueprint $table): void {
+            $table->unsignedInteger('message_count')->default(0)->after('unseen_count');
+            $table->unsignedBigInteger('oldest_uid')->nullable()->after('last_uid');
+            $table->boolean('older_exhausted')->default(false)->after('oldest_uid');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('mailbox_folders', function (Blueprint $table): void {
+            $table->dropColumn([
+                'message_count',
+                'oldest_uid',
+                'older_exhausted',
+            ]);
+        });
+    }
+};

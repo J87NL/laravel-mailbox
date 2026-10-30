@@ -16,7 +16,7 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table`, `add_sent_at_index_to_mailbox_messages_table` and `add_conversations_to_mailbox_tables`. Upgrading to 0.4: publish the migrations again, migrate and run `php artisan mailbox:threads` once. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
+The migrations are `create_mailbox_tables`, `add_signature_to_mailboxes_table`, `create_mailbox_contacts_table`, `add_sent_at_index_to_mailbox_messages_table`, `add_conversations_to_mailbox_tables` and `add_message_count_to_mailbox_folders_table`. Upgrading to 0.10: publish the migrations again and migrate. Upgrading to 0.4: publish the migrations again, migrate and run `php artisan mailbox:threads` once. Upgrading from 0.1: publish the migrations again (only the new ones are added) and migrate. With the Vue package, `php artisan mailbox:install` does the publishing for you.
 
 Bootstrap at least one admin and pick the access mode in `.env`:
 
@@ -63,6 +63,10 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `sync.skip_special_use` | | `\All`, `\Important`, `\Flagged` | Folders with these special-use attributes (Gmail All Mail, Important, Starred) are not synced |
 | `sync.time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40` | Seconds a sync job works before it stops and leaves the rest to the next run |
 | `sync.job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55` | Timeout of the sync jobs; keep it above the budget and below the queue's `retry_after` |
+
+## Older messages
+
+The first sync of a folder only fetches the last `sync.initial_days` (90) days, later syncs only new UIDs. `mailbox_folders.message_count` holds the number of messages on the server, so a folder with more than its cached rows has older mail there until `older_exhausted` says the server has nothing older. `FetchOlderMessages` (or `FetchOlderMessagesJob`) fetches the next `sync.older_batch_size` (100) older messages, newest first, without announcing them and under the same per-folder lock as the sync. See `docs/sync.md#older-messages`.
 
 ## Access
 

@@ -22,7 +22,10 @@ use J87NL\Mailbox\Enums\FolderRole;
  * @property array<int, string>|null $flags
  * @property int|null $uid_validity
  * @property int $last_uid
+ * @property int|null $oldest_uid
+ * @property bool $older_exhausted
  * @property int $unseen_count
+ * @property int $message_count
  * @property bool $selectable
  * @property Carbon|null $synced_at
  * @property-read Mailbox $mailbox
@@ -49,6 +52,9 @@ class MailboxFolder extends Model
     {
         return [
             'flags' => 'array',
+            'message_count' => 'integer',
+            'older_exhausted' => 'boolean',
+            'oldest_uid' => 'integer',
             'role' => FolderRole::class,
             'selectable' => 'boolean',
             'synced_at' => 'datetime',

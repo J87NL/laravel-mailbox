@@ -36,6 +36,7 @@ class MailboxServiceProvider extends PackageServiceProvider
                 'create_mailbox_contacts_table',
                 'add_sent_at_index_to_mailbox_messages_table',
                 'add_conversations_to_mailbox_tables',
+                'add_message_count_to_mailbox_folders_table',
             ])
             ->hasCommands([
                 AddMailboxCommand::class,
