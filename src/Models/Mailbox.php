@@ -31,6 +31,7 @@ use J87NL\Mailbox\Support\RawMessageCache;
  * @property string|null $smtp_password
  * @property bool $append_sent
  * @property bool $conversation_view
+ * @property bool $confirm_delete
  * @property bool $active
  * @property Carbon|null $synced_at
  * @property string|null $last_error
@@ -64,6 +65,7 @@ class Mailbox extends Model
         return [
             'active' => 'boolean',
             'append_sent' => 'boolean',
+            'confirm_delete' => 'boolean',
             'conversation_view' => 'boolean',
             'imap_password' => 'encrypted',
             'smtp_password' => 'encrypted',

@@ -24,7 +24,8 @@ new MailboxForm(route('mailboxes.update', $mailbox), $mailbox); // PUT, filled w
 Sections and fields:
 
 - **General**: `name`, `email`, `from_name`, `authentication` (`plain` or `oauth`), `active`, `append_sent`,
-  `conversation_view` (off by default, see [Conversations](sync.md#conversations)), `signature` (the compose editor).
+  `conversation_view` (off by default, see [Conversations](sync.md#conversations)), `confirm_delete` (off by default:
+  "Confirm before deleting", for a UI that asks before deleting messages), `signature` (the compose editor).
 - **IMAP**: `imap_host`, `imap_port` (993), `imap_encryption` (`ssl` or `starttls`), `imap_username`, `imap_password`.
 - **SMTP**: `smtp_host`, `smtp_port` (587), `smtp_username`, `smtp_password`.
 

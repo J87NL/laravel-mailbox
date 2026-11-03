@@ -43,6 +43,8 @@ return [
     'cancel' => 'Annuleren',
     'cc' => 'Cc',
     'compose' => 'Nieuw bericht',
+    'confirm_delete' => 'Bevestigen bij verwijderen',
+    'confirm_delete_help' => 'Vraagt om bevestiging voordat berichten naar de prullenbak gaan of definitief worden verwijderd.',
     'contact_added' => 'Toegevoegd aan het adresboek',
     'contact_delete_confirm' => 'Dit contact verwijderen?',
     'contact_deleted' => 'Contact verwijderd',

@@ -85,5 +85,6 @@ abstract class TestCase extends Orchestra
         (include __DIR__.'/../database/migrations/add_sent_at_index_to_mailbox_messages_table.php.stub')->up();
         (include __DIR__.'/../database/migrations/add_conversations_to_mailbox_tables.php.stub')->up();
         (include __DIR__.'/../database/migrations/add_message_count_to_mailbox_folders_table.php.stub')->up();
+        (include __DIR__.'/../database/migrations/add_confirm_delete_to_mailboxes_table.php.stub')->up();
     }
 }

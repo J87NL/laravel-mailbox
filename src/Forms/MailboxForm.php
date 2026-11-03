@@ -104,6 +104,11 @@ class MailboxForm extends AbstractForm
                 ->help(__('mailbox::mailbox.conversation_view_help'))
                 ->default(false)
                 ->rules('boolean'),
+            Toggle::make('confirm_delete')
+                ->label(__('mailbox::mailbox.confirm_delete'))
+                ->help(__('mailbox::mailbox.confirm_delete_help'))
+                ->default(false)
+                ->rules('boolean'),
             EmailEditor::make('signature')
                 ->label(__('mailbox::mailbox.signature'))
                 ->help(__('mailbox::mailbox.signature_help'))

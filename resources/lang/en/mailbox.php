@@ -43,6 +43,8 @@ return [
     'cancel' => 'Cancel',
     'cc' => 'Cc',
     'compose' => 'New message',
+    'confirm_delete' => 'Confirm before deleting',
+    'confirm_delete_help' => 'Asks for confirmation before messages go to the trash or are deleted for good.',
     'contact_added' => 'Added to the address book',
     'contact_delete_confirm' => 'Delete this contact?',
     'contact_deleted' => 'Contact deleted',

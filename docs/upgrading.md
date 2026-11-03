@@ -2,6 +2,20 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.11.0
+
+Publish the migrations again and migrate: `add_confirm_delete_to_mailboxes_table` adds `mailboxes.confirm_delete`
+(default `false`, also for existing mailboxes).
+
+```bash
+php artisan vendor:publish --tag=mailbox-migrations
+php artisan migrate
+```
+
+`folders.junk_fallback` is optional in a published config. `ArchiveMessages` takes two more constructor arguments; resolve
+it from the container. A test that archives Gmail inbox mail with the fake now sees a label removal in
+`$connector->gmailLabelsRemoved` instead of a move, but only when the fake announces `X-GM-EXT-1`.
+
 ## 0.10.0
 
 Publish the migrations again and migrate: `add_message_count_to_mailbox_folders_table` adds

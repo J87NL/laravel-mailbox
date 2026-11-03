@@ -257,3 +257,13 @@ it('turns on the conversation view through the mailbox form', function (): void 
             'name' => 'New',
         ])->conversation_view)->toBeFalse();
 });
+
+it('does not ask for a delete confirmation unless the mailbox is set to', function (): void {
+    $mailbox = app(SaveMailbox::class)->handle(null, mailboxData(), null);
+
+    expect($mailbox->refresh()->confirm_delete)->toBeFalse();
+
+    app(SaveMailbox::class)->handle($mailbox, mailboxData(['confirm_delete' => true]), null);
+
+    expect($mailbox->refresh()->confirm_delete)->toBeTrue();
+});
