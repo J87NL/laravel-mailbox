@@ -11,6 +11,7 @@
     - [Sending mail](sending.md)
     - [HTML rendering](html.md)
     - [Address book & suggestions](contacts.md)
+    - [Message templates](templates.md)
     - [Audit trail](audit-trail.md)
     - [Linking messages to models](message-links.md)
     - [Forms](forms.md)

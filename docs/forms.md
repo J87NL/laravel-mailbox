@@ -133,6 +133,20 @@ new ContactForm($mailbox, route('mail.contacts.update', [$mailbox, $contact]), $
 Fields: `name`, `email` (required, RFC address, unique within the mailbox), `organisation` and `notes` (at most 5000
 characters).
 
+## TemplateForm
+
+Create or edit a [message template](templates.md).
+
+```php
+use J87NL\Mailbox\Forms\TemplateForm;
+
+new TemplateForm(route('mail.templates.store', $mailbox));                       // POST
+new TemplateForm(route('mail.templates.update', [$mailbox, $template]), $template); // PUT
+```
+
+Fields: `name` (required, at most 100 characters), `subject` (optional, at most 250) and `body` (required, the compose
+editor, with the placeholders in its help text). Save the validated data with `SaveTemplate`.
+
 ## EmailEditor
 
 `EmailEditor::make(string $name)` returns a FormBuilder `Wysiwyg` field with the editor from `mailbox.compose.editor`,

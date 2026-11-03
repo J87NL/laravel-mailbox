@@ -33,7 +33,7 @@ Table `mailboxes`. One row per shared mailbox.
 | `synced_at`       | timestamp, nullable | Last completed sync                                                     |
 | `last_error`      | text, nullable   | The last sync error, or the folders that failed                          |
 
-Relations: `folders()`, `messages()`, `accesses()`, `contacts()`, `auditEntries()`.
+Relations: `folders()`, `messages()`, `accesses()`, `contacts()`, `templates()`, `auditEntries()`.
 
 Helpers:
 
@@ -137,6 +137,11 @@ Table `mailbox_audit_entries`. Who did what, see [Audit trail](audit-trail.md).
 ## MailboxContact
 
 Table `mailbox_contacts`. The address book of a mailbox, see [Address book & suggestions](contacts.md).
+
+## MailboxTemplate
+
+Table `mailbox_templates`: `mailbox_id`, `name`, `subject` (nullable), `body` (sanitized HTML). Deleted with the
+mailbox. See [Message templates](templates.md).
 
 ## MailboxMessageLink
 

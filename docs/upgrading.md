@@ -4,8 +4,9 @@ Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob
 
 ## 0.11.0
 
-Publish the migrations again and migrate: `add_confirm_delete_to_mailboxes_table` adds `mailboxes.confirm_delete`
-(default `false`, also for existing mailboxes).
+Publish the migrations again and migrate: `create_mailbox_templates_table` adds the
+[message templates](templates.md), `add_confirm_delete_to_mailboxes_table` adds `mailboxes.confirm_delete` (default
+`false`, also for existing mailboxes).
 
 ```bash
 php artisan vendor:publish --tag=mailbox-migrations

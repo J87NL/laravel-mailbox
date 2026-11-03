@@ -114,6 +114,14 @@ class Mailbox extends Model
         return $this->hasMany(MailboxMessage::class);
     }
 
+    /**
+     * @return HasMany<MailboxTemplate, $this>
+     */
+    public function templates(): HasMany
+    {
+        return $this->hasMany(MailboxTemplate::class);
+    }
+
     public function folderWithRole(FolderRole $role): ?MailboxFolder
     {
         return $this->folders()->where('role', $role)->first();

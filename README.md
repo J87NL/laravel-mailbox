@@ -84,6 +84,14 @@ interface ProvidesContactSuggestions
 }
 ```
 
+## Message templates
+
+Each mailbox can have message templates (`mailbox_templates`): a name, an optional subject and an HTML body. `RenderTemplate` fills the placeholders `{voornaam}`, `{naam}`, `{onderwerp}`, `{datum}`, `{mijn_naam}` and `{mailbox_naam}` (or their English aliases) when a template is inserted, and leaves unknown ones as they are. See `docs/templates.md`.
+
+## Spam and Gmail archive
+
+`MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail (`X-GM-EXT-1`), archiving from the inbox removes the Inbox label instead of moving the mail to All Mail. See `docs/message-actions.md`.
+
 ## Signature
 
 A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos); style declarations that load resources (`url(…)`) are removed. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
