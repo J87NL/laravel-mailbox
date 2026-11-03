@@ -104,6 +104,7 @@ The connector records more:
 |-------------------------------|----------------------------------------------------------------------|
 | `$connector->appended`        | Messages appended to a folder: `folder`, `message`, `flags`          |
 | `$connector->expunged`        | `UID EXPUNGE` calls: `folder`, `uids`                                |
+| `storeKeywords()`             | Keyword changes of `MarkJunk`, recorded as `flag` operations on the folder |
 | `$connector->gmailLabelsRemoved` | Gmail labels removed with `-X-GM-LABELS`: `folder`, `label`, `uids` |
 | `$connector->readDeadlines`   | Read deadline per mailbox id set by a sync (`null` without a budget) |
 | `$connector->transport->sent` | Sent messages (Symfony `Email` objects)                              |

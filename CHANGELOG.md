@@ -3,6 +3,7 @@
 ## 0.11.0 - 2026-11-03
 
 - Gmail: `ArchiveMessages` archives messages in the inbox with `UID STORE -X-GM-LABELS (\Inbox)` when the server announces `X-GM-EXT-1`, the way Gmail archives. The message keeps its other labels and stays in All Mail, nothing is moved, no folder is created and no folder sync is queued. Before, archiving moved the mail to All Mail, and on an account that hides All Mail from IMAP the fallback created an `Archive` label. Messages in other folders are still moved to the archive folder. See `docs/message-actions.md#gmail`.
+- New `MarkJunk` action: `junk()` sets the IMAP keyword `$Junk`, removes `$NotJunk` and moves the messages to the folder with the `Junk` role, or to the new `folders.junk_fallback` (default `Junk`, created when needed). `notJunk()` sets `$NotJunk`, removes `$Junk` and moves them to the inbox. The keywords are stored with two `UID STORE` commands through the new `MailboxConnector::storeKeywords()`. A server that refuses the keywords gets the move without them and an `info` log line. New audit actions `marked_junk` and `marked_not_junk`, with translations. See `docs/message-actions.md#spam`.
 - `MoveMessages` queues no `SyncFolderJob` for a target the sync skips (`sync.skip_special_use`, such as Gmail's All Mail). The job did nothing there.
 - New `MailboxConnector::supportsGmailLabels()` and `removeGmailLabel()`. Testing: `FakeConnector::$gmailLabelsRemoved` and `RecordingMailbox::setCapabilities()`. See `docs/testing.md`.
 

@@ -114,6 +114,18 @@ class MailboxConnector
             ->store([$label], $uids, mode: '-', item: 'X-GM-LABELS');
     }
 
+    /**
+     * @param  array<int, int>  $uids
+     */
+    public function storeKeywords(MailboxFolder $folder, array $uids, string $add, string $remove): void
+    {
+        $this->folder($folder)->select();
+
+        $connection = $this->imap($folder->mailbox)->connection();
+        $connection->store([$add], $uids, mode: '+');
+        $connection->store([$remove], $uids, mode: '-');
+    }
+
     public function smtp(Mailbox $mailbox): EsmtpTransport
     {
         $transport = new EsmtpTransport($mailbox->smtp_host, (int) $mailbox->smtp_port, $mailbox->smtp_tls);

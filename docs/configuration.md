@@ -235,11 +235,13 @@ See [Synchronization](sync.md).
 ```php
 'folders' => [
     'archive_fallback' => 'Archive',
+    'junk_fallback' => 'Junk',
     'trash_fallback' => 'Trash',
 ],
 ```
 
-The folder paths used when a mailbox has no folder with the archive or trash role. The folder is created on the server
+The folder paths used when a mailbox has no folder with the archive, junk or trash role. A published config without
+`junk_fallback` uses `Junk`. The folder is created on the server
 when it does not exist. See [Message actions](message-actions.md).
 
 ## HTML

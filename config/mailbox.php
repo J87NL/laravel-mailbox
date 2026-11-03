@@ -73,6 +73,7 @@ return [
 
     'folders' => [
         'archive_fallback' => 'Archive',
+        'junk_fallback' => 'Junk',
         'trash_fallback' => 'Trash',
     ],
 

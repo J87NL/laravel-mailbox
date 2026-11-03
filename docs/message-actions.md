@@ -49,6 +49,27 @@ IMAP. When a Gmail user hides All Mail from IMAP, there is no folder with that r
 `Archive` that every archived message got. Messages in other Gmail folders, such as a label, are still moved to the
 archive folder.
 
+## Spam
+
+```php
+use J87NL\Mailbox\Actions\MarkJunk;
+
+app(MarkJunk::class)->junk($mailbox, $messages, $request->user());    // "Mark as spam"
+app(MarkJunk::class)->notJunk($mailbox, $messages, $request->user()); // "Not spam"
+```
+
+`junk()` sets the IMAP keyword `$Junk` and removes `$NotJunk` in the source folder, then moves the messages to the
+folder with the `Junk` role. Without one, it uses the folder at `mailbox.folders.junk_fallback` (`Junk`) and creates it
+on the server when needed. The audit action is `marked_junk`.
+
+`notJunk()` sets `$NotJunk`, removes `$Junk` and moves the messages to the inbox. The audit action is
+`marked_not_junk`.
+
+The keywords are set before the move, because `UID MOVE` keeps them and the message gets a new UID in the target. Spam
+filters that learn from IMAP keywords (Dovecot, Fastmail, Apple Mail) read them there. When the server refuses the
+keywords, for example because its folder allows no keywords, the messages are moved without them and an `info` line is
+logged. Messages already in the target folder are skipped.
+
 ## Deleting
 
 ```php

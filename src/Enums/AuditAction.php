@@ -15,6 +15,8 @@ enum AuditAction: string
     case Linked = 'linked';
     case MailboxCreated = 'mailbox_created';
     case MailboxUpdated = 'mailbox_updated';
+    case MarkedJunk = 'marked_junk';
+    case MarkedNotJunk = 'marked_not_junk';
     case MarkedRead = 'marked_read';
     case MarkedUnread = 'marked_unread';
     case Moved = 'moved';

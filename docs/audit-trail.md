@@ -44,6 +44,8 @@ $history = MailboxAuditEntry::query()
 | `Sent`           | `sent`            | `SendMessage`                      | `in_reply_to`, `to`: list of addresses |
 | `Moved`          | `moved`           | `MoveMessages`                     |                           |
 | `Archived`       | `archived`        | `ArchiveMessages`                  |                           |
+| `MarkedJunk`     | `marked_junk`     | `MarkJunk::junk()`                 |                           |
+| `MarkedNotJunk`  | `marked_not_junk` | `MarkJunk::notJunk()`              |                           |
 | `Trashed`        | `trashed`         | `DeleteMessages`, outside Trash    |                           |
 | `Deleted`        | `deleted`         | `DeleteMessages`, in Trash         |                           |
 | `MarkedRead`     | `marked_read`     | `MarkMessages::read()`             |                           |

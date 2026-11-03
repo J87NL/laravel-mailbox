@@ -136,6 +136,14 @@ class FakeConnector extends MailboxConnector
         ];
     }
 
+    public function storeKeywords(MailboxFolder $folder, array $uids, string $add, string $remove): void
+    {
+        $query = $this->folder($folder)->messages();
+        $query->uid($uids);
+        $query->flag($add, '+');
+        $query->flag($remove, '-');
+    }
+
     public function smtp(Mailbox $mailbox): EsmtpTransport
     {
         return $this->transport;
