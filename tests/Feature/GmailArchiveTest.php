@@ -1,0 +1,114 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\Bus;
+use J87NL\Mailbox\Actions\ArchiveMessages;
+use J87NL\Mailbox\Enums\AuditAction;
+use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Jobs\SyncFolderJob;
+use J87NL\Mailbox\Models\Mailbox;
+use J87NL\Mailbox\Models\MailboxAuditEntry;
+use J87NL\Mailbox\Models\MailboxFolder;
+use J87NL\Mailbox\Models\MailboxMessage;
+
+beforeEach(function (): void {
+    Bus::fake([SyncFolderJob::class]);
+});
+
+function gmail(): Mailbox
+{
+    $mailbox = mailbox();
+    test()->connector->remote($mailbox)->setCapabilities([
+        'IMAP4rev1',
+        'UIDPLUS',
+        'MOVE',
+        'X-GM-EXT-1',
+    ]);
+
+    return $mailbox;
+}
+
+it('archives from the Gmail inbox by removing the Inbox label instead of moving to All Mail', function (): void {
+    $mailbox = gmail();
+    $inbox = folder($mailbox);
+    folder($mailbox, '[Gmail]/All Mail', FolderRole::Archive, ['flags' => ['\\HasNoChildren', '\\All']]);
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1), remoteMessage(2)]);
+
+    $archived = app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), null);
+
+    expect($archived)->toBe(1)
+        ->and(test()->connector->gmailLabelsRemoved)->toBe([
+            [
+                'folder' => 'INBOX',
+                'label' => '\\Inbox',
+                'uids' => [1],
+            ],
+        ])
+        ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([])
+        ->and(collect(remoteFolder($mailbox, 'INBOX')->getMessages())->map->uid()->all())->toBe([2])
+        ->and(MailboxMessage::query()
+            ->count())->toBe(0)
+        ->and(MailboxAuditEntry::query()
+            ->sole()
+            ->only([
+                'action',
+                'target_path',
+            ]))->toBe([
+                'action' => AuditAction::Archived,
+                'target_path' => '[Gmail]/All Mail',
+            ]);
+
+    Bus::assertNotDispatched(SyncFolderJob::class);
+});
+
+it('does not create an Archive label on Gmail when All Mail is hidden from IMAP', function (): void {
+    $mailbox = gmail();
+    $inbox = folder($mailbox);
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+
+    app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), null);
+
+    expect(MailboxFolder::query()
+        ->where('role', FolderRole::Archive)
+        ->exists())->toBeFalse()
+        ->and(test()->connector->remote($mailbox)->folders()->find('Archive'))->toBeNull()
+        ->and(MailboxAuditEntry::query()
+            ->sole()->target_path)->toBeNull();
+});
+
+it('still moves Gmail messages outside the inbox to All Mail without syncing it', function (): void {
+    $mailbox = gmail();
+    $label = folder($mailbox, 'Klanten', FolderRole::Custom);
+    $allMail = folder($mailbox, '[Gmail]/All Mail', FolderRole::Archive, ['flags' => ['\\All']]);
+    remoteFolder($mailbox, '[Gmail]/All Mail');
+    remoteFolder($mailbox, 'Klanten')->setMessages([remoteMessage(3)]);
+
+    app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($label, 3)->load('folder')]), null);
+
+    expect(test()->connector->gmailLabelsRemoved)->toBe([])
+        ->and(remoteFolder($mailbox, 'Klanten')->operations)->toBe([
+            [
+                'target' => '[Gmail]/All Mail',
+                'type' => 'move',
+                'uids' => [3],
+            ],
+        ]);
+
+    Bus::assertNotDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $allMail->id);
+});
+
+it('keeps moving to the archive folder on servers without the Gmail extension', function (): void {
+    $mailbox = mailbox();
+    $inbox = folder($mailbox);
+    $archive = folder($mailbox, 'Archive', FolderRole::Archive);
+    remoteFolder($mailbox, 'Archive');
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+
+    app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), null);
+
+    expect(test()->connector->gmailLabelsRemoved)->toBe([])
+        ->and(remoteFolder($mailbox, 'INBOX')->operations[0]['target'])->toBe('Archive');
+
+    Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $archive->id);
+});

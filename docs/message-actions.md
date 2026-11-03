@@ -21,7 +21,8 @@ $moved = app(MoveMessages::class)->handle($messages, $targetFolder, $request->us
 - Messages already in the target folder are skipped.
 - One `UID MOVE` is sent per source folder.
 - The cached rows are deleted. A `SyncFolderJob` for the target folder is queued when anything moved, so the messages
-  reappear there with their new UIDs.
+  reappear there with their new UIDs. A target the sync [skips](sync.md#skipped-folders), such as Gmail's All Mail, gets
+  no job.
 - Returns the number of moved messages.
 
 ## Archiving
@@ -35,6 +36,18 @@ app(ArchiveMessages::class)->handle($mailbox, $messages, $request->user());
 Moves the messages to the folder with the `Archive` role. Without one, it uses the folder at
 `mailbox.folders.archive_fallback` (`Archive`) and creates it on the server when needed. The audit action is
 `archived`.
+
+### Gmail
+
+On a server that announces the Gmail extension (`X-GM-EXT-1` in its capabilities), messages in the inbox are archived
+the way Gmail itself does it: `UID STORE <uids> -X-GM-LABELS (\Inbox)` removes the Inbox label and the message stays
+in All Mail with its other labels. There is no move, no folder is created and no folder sync is queued. The audit entry
+has the path of the folder with the `Archive` role (All Mail) as target, or none when All Mail is hidden from IMAP.
+
+Before, archiving moved the mail to All Mail (`\All` has the `Archive` role), which works when All Mail is shown in
+IMAP. When a Gmail user hides All Mail from IMAP, there is no folder with that role, and the fallback created a label
+`Archive` that every archived message got. Messages in other Gmail folders, such as a label, are still moved to the
+archive folder.
 
 ## Deleting
 

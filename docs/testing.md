@@ -104,8 +104,12 @@ The connector records more:
 |-------------------------------|----------------------------------------------------------------------|
 | `$connector->appended`        | Messages appended to a folder: `folder`, `message`, `flags`          |
 | `$connector->expunged`        | `UID EXPUNGE` calls: `folder`, `uids`                                |
+| `$connector->gmailLabelsRemoved` | Gmail labels removed with `-X-GM-LABELS`: `folder`, `label`, `uids` |
 | `$connector->readDeadlines`   | Read deadline per mailbox id set by a sync (`null` without a budget) |
 | `$connector->transport->sent` | Sent messages (Symfony `Email` objects)                              |
+
+`$connector->remote($mailbox)->setCapabilities(['X-GM-EXT-1'])` makes the fake mailbox announce capabilities, for
+example to test the [Gmail archive](message-actions.md#gmail).
 
 ## Sent mail
 

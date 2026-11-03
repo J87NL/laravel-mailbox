@@ -34,7 +34,7 @@ class MoveMessages
             ->groupBy('mailbox_folder_id')
             ->sum(fn (Collection $group): int => $this->moveGroup($group, $target, $user, $action));
 
-        if ($moved > 0) {
+        if ($moved > 0 && ! $target->skipsSync()) {
             SyncFolderJob::dispatch($target->id);
         }
 

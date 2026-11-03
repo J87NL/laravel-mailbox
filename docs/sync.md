@@ -101,10 +101,11 @@ years of mail. The sync therefore skips folders with one of the special-use attr
 (default `\All`, `\Important` and `\Flagged`). The attributes are the same in every language, so the folder names do not
 matter. The inbox is never skipped.
 
-A skipped folder stays in the folder list with its role (All Mail keeps the archive role, so archiving in Gmail still
-moves mail there) and stays selectable, but its messages are not fetched or refreshed, its `synced_at` is not updated
-and its unseen count is set to 0. So a folder view of All Mail shows only what was cached before, and the
-`SyncFolderJob` that a move into it queues does nothing; archived mail simply leaves the inbox. A skipped folder is not
+A skipped folder stays in the folder list with its role (All Mail keeps the archive role, so archiving a Gmail label
+still moves mail there, and archiving from the Gmail inbox removes the Inbox label, see
+[Message actions](message-actions.md#gmail)) and stays selectable, but its messages are not fetched or refreshed, its
+`synced_at` is not updated and its unseen count is set to 0. So a folder view of All Mail shows only what was cached
+before, and a move into it queues no `SyncFolderJob`; archived mail simply leaves the inbox. A skipped folder is not
 part of the run's rotation and never shows up in the deferred-work log line. `MailboxFolder::skipsSync()` tells whether a folder is skipped, and `needsSync()` returns `false`
 for it, so opening it does not queue a sync. Messages cached before 0.5.3 are left as they are; they are no longer
 refreshed or removed. Sent, Drafts, Junk and Trash sync as before.

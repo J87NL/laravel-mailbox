@@ -15,6 +15,14 @@ class RecordingMailbox extends FakeMailbox
         return new RecordingFolderRepository($this, $this->folders);
     }
 
+    /**
+     * @param  array<int, string>  $capabilities
+     */
+    public function setCapabilities(array $capabilities): void
+    {
+        $this->capabilities = $capabilities;
+    }
+
     public function addFolder(RecordingFolder $folder): void
     {
         $folder->setMailbox($this);
