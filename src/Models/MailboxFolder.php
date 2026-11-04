@@ -35,8 +35,9 @@ class MailboxFolder extends Model
     /** @use HasFactory<MailboxFolderFactory> */
     use HasFactory;
 
+    public const ALL_MAIL = '\\All';
+
     public const DEFAULT_SKIPPED_SPECIAL_USE = [
-        '\\All',
         '\\Important',
         '\\Flagged',
     ];
@@ -83,9 +84,20 @@ class MailboxFolder extends Model
             return false;
         }
 
-        $skipped = array_map('strtolower', (array) config('mailbox.sync.skip_special_use', self::DEFAULT_SKIPPED_SPECIAL_USE));
+        return $this->hasSpecialUse((array) config('mailbox.sync.skip_special_use', self::DEFAULT_SKIPPED_SPECIAL_USE));
+    }
 
-        return array_intersect(array_map('strtolower', $this->flags ?? []), $skipped) !== [];
+    /**
+     * @param  array<int, string>  $attributes
+     */
+    public function hasSpecialUse(array $attributes): bool
+    {
+        return array_intersect(array_map('strtolower', $this->flags ?? []), array_map('strtolower', $attributes)) !== [];
+    }
+
+    public function isAllMail(): bool
+    {
+        return $this->hasSpecialUse([self::ALL_MAIL]);
     }
 
     public function needsSync(int $seconds = 60): bool

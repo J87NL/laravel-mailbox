@@ -96,7 +96,8 @@ that inline images are served from the raw cache. Fake the raw cache disk with `
 the flag refresh). `$secondsPerChunk`, `$secondsPerSearch`, `$secondsPerFetch` and `$secondsPerStatus` move the test
 clock (`Carbon::setTestNow()`) that many seconds per chunk, per search before the chunks, per other fetch and per
 `status()` call, so a test can make a step slow and use up a sync's time budget. The fake
-message query honours UID ranges like a server does.
+message query honours UID ranges like a server does. `RecordingFolder::$searches` lists the search criteria of every
+chunked fetch as IMAP text, such as `SINCE 06-Aug-2026` on a first sync or `UID 2:4294967295` after it.
 
 The connector records more:
 

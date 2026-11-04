@@ -70,6 +70,7 @@ class RecordingMessageQuery extends FakeMessageQuery
 
     public function chunk(callable $callback, int $chunkSize = 10, int $startChunk = 1): void
     {
+        $this->recordingFolder->searches[] = $this->query->toImap();
         $this->recordingFolder->advanceClock($this->recordingFolder->secondsPerSearch);
         $this->chunking = true;
 

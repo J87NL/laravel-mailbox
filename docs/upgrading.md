@@ -7,6 +7,17 @@ Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob
 - An IMAP connection the server closed (`ImapConnectionClosedException`) during a sync, a `SyncFolderJob` or a
   `FetchOlderMessagesJob` is no longer reported and no longer fails the job: it is listed in `last_error` like a read
   timeout. An error tracker that showed these will stop showing them; `last_error` still does.
+- **Behaviour change:** Gmail's All Mail (`\All`) is synced again. The default of `sync.skip_special_use` is now
+  `\Important` and `\Flagged`. A published config that still lists `\All` keeps skipping All Mail; remove `\All` there
+  to get the new behaviour, or keep it (or add it) to keep the old one. See [Gmail All Mail](sync.md#gmail-all-mail).
+- No migration. An All Mail folder that was never synced gets a first sync of the last `sync.initial_days` days, not
+  the whole archive; older mail comes in with `FetchOlderMessages`. One that last synced within `sync.initial_days`
+  continues from its stored `last_uid`; one that synced longer ago starts over with the windowed first sync.
+- Every Gmail message that is also in the inbox or a label is now cached twice, once in All Mail. All Mail does not fire
+  `MessageReceived`. Code that counts or lists messages across all folders of a mailbox sees the copies; group by
+  `message_id` (as `HasMailboxMessages` does) where that matters.
+- `MoveMessages` and `ArchiveMessages` queue a `SyncFolderJob` for All Mail now. A test that asserted no job for All
+  Mail sets `sync.skip_special_use` to include `\All` or asserts the job.
 
 ## 0.11.1
 

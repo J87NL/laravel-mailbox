@@ -21,6 +21,11 @@ class RecordingFolder extends FakeFolder
      */
     public array $operations = [];
 
+    /**
+     * @var array<int, string>
+     */
+    public array $searches = [];
+
     public int $messageFetches = 0;
 
     public int $chunkFetches = 0;

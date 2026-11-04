@@ -63,7 +63,6 @@ return [
         'older_batch_size' => 100,
         'queue' => env('MAILBOX_SYNC_QUEUE'),
         'skip_special_use' => [
-            '\\All',
             '\\Important',
             '\\Flagged',
         ],

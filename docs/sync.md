@@ -38,7 +38,7 @@ Both jobs implement `ShouldBeUnique` (per mailbox for 600 seconds, per folder fo
 
 ## Time budget
 
-A large mailbox (a Gmail "All mail" folder with thousands of messages) does not fit in one queue job. The jobs therefore
+A large mailbox (a Gmail All Mail folder with thousands of messages) does not fit in one queue job. The jobs therefore
 stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to the next scheduled run:
 
 - A folder sync has four kinds of steps: `status` (selecting the folder and reading its status), `fetch` (the search
@@ -93,23 +93,59 @@ app(SyncMailbox::class)->handle($mailbox, SyncBudget::seconds(40));
 app(SyncFolderMessages::class)->handle($folder, SyncBudget::fromConfig());
 ```
 
+## Gmail All Mail
+
+Gmail shows every label as a folder. All Mail ("[Gmail]/Alle e-mail", special-use attribute `\All`) holds every message
+of the account except spam and trash, including mail that is also in the inbox, in a label or in Sent. It has the
+`Archive` role, so archiving moves mail there (see [Message actions](message-actions.md#gmail)), and it syncs like any
+other folder:
+
+- Its first sync fetches only the last `sync.initial_days` days (`UID SEARCH SINCE`), in chunks within the
+  [time budget](#time-budget), like every first sync. Older mail comes in on request with
+  [Older messages](#older-messages). Later runs only ask for UIDs above `last_uid`.
+- It is a [backfill](#time-budget) until its first sync finishes, so it gets what is left of each run after the inbox
+  and the folders that synced before, and cannot keep new mail waiting.
+- A message that is in the inbox or a label is cached twice: once in that folder and once in All Mail. Its unseen count
+  is the server's, so unread inbox mail is also counted there. Marking one copy read or flagged changes the message on
+  the server, but the other cached copy only follows on its folder's next flag refresh.
+- All Mail never announces mail: it does not fire `MessageReceived` and writes no `received` audit entry, and a copy in
+  All Mail does not make a message known (see [Received messages](#received-messages)). New mail is announced from the
+  inbox or its label folder, and mail sent from Gmail is not announced from its copy in All Mail.
+- A move into All Mail queues a `SyncFolderJob` for it, so archived mail shows up there. Before All Mail's first sync
+  finished, that job searches the sync window only, so archiving mail older than `sync.initial_days` shows it in All
+  Mail only after [Older messages](#older-messages) reached it.
+
+Before 0.12.0 All Mail was skipped, see below. An All Mail folder that was never synced gets the windowed first sync
+above after the upgrade. One whose last completed sync is more recent than `sync.initial_days` continues from its stored
+`last_uid`. One whose last completed sync is older starts over: its cached messages are dropped, `last_uid`,
+`oldest_uid` and `older_exhausted` are cleared and it gets the windowed first sync, so a stale `last_uid` never pulls in
+years of mail. This also holds for an All Mail of a mailbox that was inactive for longer than `sync.initial_days`.
+
 ## Skipped folders
 
-Gmail shows every label as a folder and adds virtual folders that only repeat mail found elsewhere: All Mail
-("[Gmail]/Alle e-mail"), Important and Starred. All Mail holds the whole archive, so its first sync alone searches
-years of mail. The sync therefore skips folders with one of the special-use attributes in `sync.skip_special_use`
-(default `\All`, `\Important` and `\Flagged`). The attributes are the same in every language, so the folder names do not
-matter. The inbox is never skipped.
+Gmail's Important and Starred folders only repeat mail found elsewhere. The sync skips folders with one of the
+special-use attributes in `sync.skip_special_use` (default `\Important` and `\Flagged`). The attributes are the same in
+every language, so the folder names do not matter. The inbox is never skipped.
 
-A skipped folder stays in the folder list with its role (All Mail keeps the archive role, so archiving still moves mail
-there, see [Message actions](message-actions.md#gmail)) and stays selectable, but its messages are not fetched or refreshed, its
-`synced_at` is not updated and its unseen count is set to 0. So a folder view of All Mail shows only what was cached
-before, and a move into it queues no `SyncFolderJob`; archived mail simply leaves the inbox. A skipped folder is not
-part of the run's rotation and never shows up in the deferred-work log line. `MailboxFolder::skipsSync()` tells whether a folder is skipped, and `needsSync()` returns `false`
-for it, so opening it does not queue a sync. Messages cached before 0.5.3 are left as they are; they are no longer
-refreshed or removed. Sent, Drafts, Junk and Trash sync as before.
+A skipped folder stays in the folder list with its role and stays selectable, but its messages are not fetched or
+refreshed, its `synced_at` is not updated and its unseen count is set to 0. So a folder view of it shows only what was
+cached before, and a move into it queues no `SyncFolderJob`. A skipped folder is not part of the run's rotation and
+never shows up in the deferred-work log line. `MailboxFolder::skipsSync()` tells whether a folder is skipped, and
+`needsSync()` returns `false` for it, so opening it does not queue a sync; `FetchOlderMessages` leaves it alone.
+Messages cached before are left as they are; they are no longer refreshed or removed.
 
-Set `sync.skip_special_use` to `[]` to sync these folders again. There is no setting per mailbox.
+Set `sync.skip_special_use` to `[]` to sync these folders as well. To skip All Mail again, as before 0.12.0, add `\All`:
+
+```php
+'skip_special_use' => [
+    '\\All',
+    '\\Important',
+    '\\Flagged',
+],
+```
+
+All Mail then keeps its `Archive` role, archiving still moves mail there, no folder sync is queued for it and the
+archived mail simply leaves the inbox. There is no setting per mailbox.
 
 ## What a mailbox sync does
 
@@ -229,8 +265,9 @@ only announced when all of these hold:
 
 - the folder has finished a sync before and was not reset because of a new `UIDVALIDITY` since (a first sync or a
   reset that takes several runs announces nothing);
-- the folder role is not `Sent`, `Drafts`, `Junk` or `Trash`;
-- the `Message-ID` is not yet known in the mailbox, as a cached message in another folder or in the audit trail.
+- the folder role is not `Sent`, `Drafts`, `Junk` or `Trash`, and the folder is not Gmail's All Mail (`\All`);
+- the `Message-ID` is not yet known in the mailbox, as a cached message in another folder (a copy in All Mail does not
+  count) or in the audit trail.
 
 Every new message in a watched folder whose `Message-ID` is not yet known gets a `received` audit entry, also on the
 first sync when no event fires. So a message found during the first sync is known, and moving it to another folder

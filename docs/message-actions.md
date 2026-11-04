@@ -21,8 +21,7 @@ $moved = app(MoveMessages::class)->handle($messages, $targetFolder, $request->us
 - Messages already in the target folder are skipped.
 - One `UID MOVE` is sent per source folder.
 - The cached rows are deleted. A `SyncFolderJob` for the target folder is queued when anything moved, so the messages
-  reappear there with their new UIDs. A target the sync [skips](sync.md#skipped-folders), such as Gmail's All Mail, gets
-  no job.
+  reappear there with their new UIDs. A target the sync [skips](sync.md#skipped-folders) gets no job.
 - Returns the number of moved messages.
 
 ## Archiving
@@ -40,8 +39,10 @@ Moves the messages to the folder with the `Archive` role. Without one, it uses t
 ### Gmail
 
 Gmail archives like any other server: the messages move to the folder with the `Archive` role, which is All Mail
-(`\All`). `UID MOVE` from the inbox to All Mail removes the Inbox label and keeps the other labels. All Mail is skipped
-by the sync, so no folder sync is queued and the archived mail simply leaves the inbox.
+(`\All`). `UID MOVE` from the inbox to All Mail removes the Inbox label and keeps the other labels. A `SyncFolderJob`
+for All Mail is queued, so the archived mail shows up there. All Mail syncs within `sync.initial_days` like any folder,
+and mail in a label stays cached in both the label and All Mail, see [Gmail All Mail](sync.md#gmail-all-mail). When
+`\All` is in `sync.skip_special_use`, no folder sync is queued and the archived mail simply leaves the inbox.
 
 Removing the label with `UID STORE <uids> -X-GM-LABELS (\Inbox)` while the inbox is selected does not work: Gmail
 answers `OK` and leaves the label on. 0.11.0 archived that way, so mail archived from the Gmail inbox with 0.11.0

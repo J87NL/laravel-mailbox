@@ -92,6 +92,7 @@ class SyncFolderMessages
         });
 
         $this->resetWhenUidValidityChanged($folder, (int) ($status['UIDVALIDITY'] ?? 0));
+        $this->resetStaleAllMail($folder);
 
         if (! $this->fetchNew($folder, $remote, ! is_null($folder->synced_at), $budget)) {
             $folder->save();
@@ -121,6 +122,24 @@ class SyncFolderMessages
             return;
         }
 
+        $this->reset($folder);
+    }
+
+    private function resetStaleAllMail(MailboxFolder $folder): void
+    {
+        if (! $folder->isAllMail() || is_null($folder->synced_at)) {
+            return;
+        }
+
+        if ($folder->synced_at->gte(now()->subDays((int) config('mailbox.sync.initial_days')))) {
+            return;
+        }
+
+        $this->reset($folder);
+    }
+
+    private function reset(MailboxFolder $folder): void
+    {
         app(RawMessageCache::class)->forgetMatching($folder->messages()->getQuery()->clone());
         $folder->messages()->delete();
         $folder->last_uid = 0;

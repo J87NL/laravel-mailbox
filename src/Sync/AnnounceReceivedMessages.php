@@ -22,13 +22,18 @@ class AnnounceReceivedMessages
         FolderRole::Trash,
     ];
 
+    /**
+     * @var array<int, array<int, int>>
+     */
+    private array $allMailFolderIds = [];
+
     public function __construct(
         private readonly RecordAudit $audit,
     ) {}
 
     public function watches(MailboxFolder $folder): bool
     {
-        return ! in_array($folder->role, self::SILENT_ROLES, true);
+        return ! in_array($folder->role, self::SILENT_ROLES, true) && ! $folder->isAllMail();
     }
 
     /**
@@ -73,10 +78,15 @@ class AnnounceReceivedMessages
             ->values()
             ->all();
 
+        if ($messageIds === []) {
+            return $stored->values();
+        }
+
         $known = MailboxMessage::query()
             ->where('mailbox_id', $folder->mailbox_id)
             ->whereIn('message_id', $messageIds)
             ->whereKeyNot($stored->modelKeys())
+            ->whereNotIn('mailbox_folder_id', $this->allMailFolderIds($folder))
             ->pluck('message_id')
             ->merge(MailboxAuditEntry::query()
                 ->where('mailbox_id', $folder->mailbox_id)
@@ -88,5 +98,21 @@ class AnnounceReceivedMessages
             ->reject(fn (MailboxMessage $message): bool => in_array($message->message_id, $known, true))
             ->unique(fn (MailboxMessage $message): string => $message->message_id ?? sprintf('row:%d', $message->id))
             ->values();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function allMailFolderIds(MailboxFolder $folder): array
+    {
+        return $this->allMailFolderIds[$folder->mailbox_id] ??= MailboxFolder::query()
+            ->where('mailbox_id', $folder->mailbox_id)
+            ->whereNotNull('flags')
+            ->get([
+                'id',
+                'flags',
+            ])
+            ->filter(fn (MailboxFolder $candidate): bool => $candidate->isAllMail())
+            ->modelKeys();
     }
 }

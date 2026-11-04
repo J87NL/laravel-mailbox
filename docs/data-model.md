@@ -69,6 +69,9 @@ Relations: `mailbox()`, `messages()`.
 ```php
 $folder->needsSync();    // true when never synced or synced more than 60 seconds ago
 $folder->needsSync(300); // custom age in seconds
+$folder->skipsSync();    // true for a special-use attribute in sync.skip_special_use, never for the inbox
+$folder->isAllMail();    // true for Gmail's All Mail (\All)
+$folder->hasSpecialUse(['\\Important', '\\Flagged']); // any of these attributes, case-insensitive
 $folder->depth();        // number of delimiters in the path
 ```
 

@@ -60,7 +60,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
-| `sync.skip_special_use` | | `\All`, `\Important`, `\Flagged` | Folders with these special-use attributes (Gmail All Mail, Important, Starred) are not synced |
+| `sync.skip_special_use` | | `\Important`, `\Flagged` | Folders with these special-use attributes (Gmail Important, Starred) are not synced; Gmail All Mail syncs within `sync.initial_days`, add `\All` to skip it |
 | `sync.time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40` | Seconds a sync job works before it stops and leaves the rest to the next run |
 | `sync.job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55` | Timeout of the sync jobs; keep it above the budget and below the queue's `retry_after` |
 
@@ -90,7 +90,7 @@ Each mailbox can have message templates (`mailbox_templates`): a name, an option
 
 ## Spam and Gmail archive
 
-`MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail, archiving moves the mail to All Mail, which removes the Inbox label. See `docs/message-actions.md`.
+`MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail, archiving moves the mail to All Mail, which removes the Inbox label; All Mail is synced within `sync.initial_days`, so archived mail stays visible. See `docs/message-actions.md`.
 
 ## Signature
 

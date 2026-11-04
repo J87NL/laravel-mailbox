@@ -19,8 +19,8 @@ when you need it.
 It fires once per `Message-ID` and mailbox, and never:
 
 - on the first sync of a folder, or after a `UIDVALIDITY` reset;
-- in folders with the role `Sent`, `Drafts`, `Junk` or `Trash`;
-- for a message the mailbox already knows, in another folder or in the audit trail.
+- in folders with the role `Sent`, `Drafts`, `Junk` or `Trash`, or in Gmail's All Mail (`\All`);
+- for a message the mailbox already knows, in another folder (other than All Mail) or in the audit trail.
 
 A message without a `Message-ID` header is never treated as known, so it is announced again after a move to another
 watched folder.

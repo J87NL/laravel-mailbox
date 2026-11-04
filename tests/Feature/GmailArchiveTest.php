@@ -28,7 +28,7 @@ function gmail(): Mailbox
     return $mailbox;
 }
 
-it('archives from the Gmail inbox by moving the mail to All Mail without syncing it', function (): void {
+it('archives from the Gmail inbox by moving the mail to All Mail and syncs All Mail', function (): void {
     $mailbox = gmail();
     $inbox = folder($mailbox);
     $allMail = folder($mailbox, '[Gmail]/All Mail', FolderRole::Archive, ['flags' => ['\\HasNoChildren', '\\All']]);
@@ -57,7 +57,7 @@ it('archives from the Gmail inbox by moving the mail to All Mail without syncing
                 'target_path' => '[Gmail]/All Mail',
             ]);
 
-    Bus::assertNotDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $allMail->id);
+    Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $allMail->id);
 });
 
 it('moves Gmail inbox mail to the archive fallback when All Mail is hidden from IMAP', function (): void {
@@ -72,7 +72,7 @@ it('moves Gmail inbox mail to the archive fallback when All Mail is hidden from 
             ->sole()->target_path)->toBe('Archive');
 });
 
-it('still moves Gmail messages outside the inbox to All Mail without syncing it', function (): void {
+it('still moves Gmail messages outside the inbox to All Mail and syncs All Mail', function (): void {
     $mailbox = gmail();
     $label = folder($mailbox, 'Klanten', FolderRole::Custom);
     $allMail = folder($mailbox, '[Gmail]/All Mail', FolderRole::Archive, ['flags' => ['\\All']]);
@@ -89,7 +89,7 @@ it('still moves Gmail messages outside the inbox to All Mail without syncing it'
         ],
     ]);
 
-    Bus::assertNotDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $allMail->id);
+    Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $allMail->id);
 });
 
 it('keeps moving to the archive folder on servers without the Gmail extension', function (): void {
@@ -104,4 +104,19 @@ it('keeps moving to the archive folder on servers without the Gmail extension', 
     expect(remoteFolder($mailbox, 'INBOX')->operations[0]['target'])->toBe('Archive');
 
     Bus::assertDispatched(SyncFolderJob::class, fn (SyncFolderJob $job): bool => $job->folderId === $archive->id);
+});
+
+it('queues no sync of All Mail when it is skipped', function (): void {
+    config()->set('mailbox.sync.skip_special_use', ['\\All']);
+    $mailbox = gmail();
+    $inbox = folder($mailbox);
+    folder($mailbox, '[Gmail]/All Mail', FolderRole::Archive, ['flags' => ['\\All']]);
+    remoteFolder($mailbox, '[Gmail]/All Mail');
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+
+    app(ArchiveMessages::class)->handle($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), null);
+
+    expect(remoteFolder($mailbox, 'INBOX')->operations[0]['target'])->toBe('[Gmail]/All Mail');
+
+    Bus::assertNotDispatched(SyncFolderJob::class);
 });

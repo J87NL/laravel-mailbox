@@ -133,12 +133,12 @@ it('never announces older messages', function (): void {
 
 it('leaves folders alone that are not synced', function (): void {
     $mailbox = mailbox();
-    $allMail = folder($mailbox, 'All Mail', FolderRole::Custom, ['flags' => ['\\All']]);
+    $important = folder($mailbox, 'Important', FolderRole::Custom, ['flags' => ['\\Important']]);
     $parent = folder($mailbox, 'Parent', FolderRole::Custom, ['selectable' => false]);
-    remoteFolder($mailbox, 'All Mail')->setMessages([remoteMessage(1)]);
+    remoteFolder($mailbox, 'Important')->setMessages([remoteMessage(1)]);
     remoteFolder($mailbox, 'Parent')->setMessages([remoteMessage(1)]);
 
-    expect(app(FetchOlderMessages::class)->handle($allMail))->toBe(0)
+    expect(app(FetchOlderMessages::class)->handle($important))->toBe(0)
         ->and(app(FetchOlderMessages::class)->handle($parent))->toBe(0)
         ->and(storedUids())->toBe([]);
 });
@@ -156,6 +156,18 @@ it('waits for a running sync of the same folder', function (): void {
 
     expect($stored)->toBeNull()
         ->and(storedUids())->toBe([]);
+});
+
+it('fetches older messages of All Mail', function (): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = mailbox();
+    $allMail = folder($mailbox, 'All Mail', FolderRole::Archive, ['flags' => ['\\All'], 'last_uid' => 9, 'uid_validity' => 1]);
+    storedMessage($allMail, 9);
+    remoteFolder($mailbox, 'All Mail')->setMessages([remoteMessage(4), remoteMessage(9)]);
+
+    expect(app(FetchOlderMessages::class)->handle($allMail))->toBe(1)
+        ->and(storedUids())->toBe([4, 9]);
+    Event::assertNotDispatched(MessageReceived::class);
 });
 
 it('fetches older messages from the queued job', function (): void {

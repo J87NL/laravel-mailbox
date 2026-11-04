@@ -188,7 +188,6 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
     'older_batch_size' => 100,
     'queue' => env('MAILBOX_SYNC_QUEUE'),
     'skip_special_use' => [
-        '\\All',
         '\\Important',
         '\\Flagged',
     ],
@@ -206,7 +205,7 @@ DisplayTime::isToday($message->sent_at);          // "today" in the display time
 | `job_timeout_seconds` | `MAILBOX_SYNC_JOB_TIMEOUT` | `55`          | `$timeout` of `SyncMailboxJob`, `SyncFolderJob` and `FetchOlderMessagesJob` |
 | `older_batch_size`    |                            | `100`         | Messages `FetchOlderMessages` fetches per call                              |
 | `queue`               | `MAILBOX_SYNC_QUEUE`       | default queue | Queue for `SyncMailboxJob`, `SyncFolderJob` and `FetchOlderMessagesJob`     |
-| `skip_special_use`    |                            | `\All`, `\Important`, `\Flagged` | Folders with one of these special-use attributes are not synced, see [Skipped folders](sync.md#skipped-folders); `[]` syncs them |
+| `skip_special_use`    |                            | `\Important`, `\Flagged` | Folders with one of these special-use attributes are not synced, see [Skipped folders](sync.md#skipped-folders); `[]` syncs them, adding `\All` skips Gmail's All Mail again |
 | `step_reserve_seconds` | `MAILBOX_SYNC_STEP_RESERVE` | `5`          | Seconds a sync step needs at least before it starts, when it took less the last time |
 | `time_budget_seconds` | `MAILBOX_SYNC_TIME_BUDGET` | `40`          | Seconds a sync job spends on folders before it stops and leaves the rest to the next run |
 
