@@ -39,15 +39,16 @@ Moves the messages to the folder with the `Archive` role. Without one, it uses t
 
 ### Gmail
 
-On a server that announces the Gmail extension (`X-GM-EXT-1` in its capabilities), messages in the inbox are archived
-the way Gmail itself does it: `UID STORE <uids> -X-GM-LABELS (\Inbox)` removes the Inbox label and the message stays
-in All Mail with its other labels. There is no move, no folder is created and no folder sync is queued. The audit entry
-has the path of the folder with the `Archive` role (All Mail) as target, or none when All Mail is hidden from IMAP.
+Gmail archives like any other server: the messages move to the folder with the `Archive` role, which is All Mail
+(`\All`). `UID MOVE` from the inbox to All Mail removes the Inbox label and keeps the other labels. All Mail is skipped
+by the sync, so no folder sync is queued and the archived mail simply leaves the inbox.
 
-Before, archiving moved the mail to All Mail (`\All` has the `Archive` role), which works when All Mail is shown in
-IMAP. When a Gmail user hides All Mail from IMAP, there is no folder with that role, and the fallback created a label
-`Archive` that every archived message got. Messages in other Gmail folders, such as a label, are still moved to the
-archive folder.
+Removing the label with `UID STORE <uids> -X-GM-LABELS (\Inbox)` while the inbox is selected does not work: Gmail
+answers `OK` and leaves the label on. 0.11.0 archived that way, so mail archived from the Gmail inbox with 0.11.0
+stayed in the Gmail inbox while it was removed from the cache.
+
+When a Gmail user hides All Mail from IMAP, there is no folder with the `Archive` role and the fallback
+`mailbox.folders.archive_fallback` (`Archive`) is created as a label that every archived message gets.
 
 ## Spam
 

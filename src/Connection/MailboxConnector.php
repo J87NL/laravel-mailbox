@@ -19,8 +19,6 @@ class MailboxConnector
 {
     public const DEFAULT_READ_TIMEOUT = 15;
 
-    public const GMAIL_CAPABILITY = 'X-GM-EXT-1';
-
     /**
      * @var array<string, MailboxInterface>
      */
@@ -95,23 +93,6 @@ class MailboxConnector
         $this->folder($folder)->select();
 
         return $imap->expungeUids($uids);
-    }
-
-    public function supportsGmailLabels(Mailbox $mailbox): bool
-    {
-        return in_array(self::GMAIL_CAPABILITY, array_map('strtoupper', $this->imap($mailbox)->capabilities()), true);
-    }
-
-    /**
-     * @param  array<int, int>  $uids
-     */
-    public function removeGmailLabel(MailboxFolder $folder, array $uids, string $label): void
-    {
-        $this->folder($folder)->select();
-
-        $this->imap($folder->mailbox)
-            ->connection()
-            ->store([$label], $uids, mode: '-', item: 'X-GM-LABELS');
     }
 
     /**

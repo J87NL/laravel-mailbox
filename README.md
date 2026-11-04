@@ -90,7 +90,7 @@ Each mailbox can have message templates (`mailbox_templates`): a name, an option
 
 ## Spam and Gmail archive
 
-`MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail (`X-GM-EXT-1`), archiving from the inbox removes the Inbox label instead of moving the mail to All Mail. See `docs/message-actions.md`.
+`MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail, archiving moves the mail to All Mail, which removes the Inbox label. See `docs/message-actions.md`.
 
 ## Signature
 

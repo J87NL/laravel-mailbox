@@ -39,7 +39,7 @@ package does not implement that contract, so there is no built-in bridge between
 - **Sync** - folders and message headers are mirrored to the database; IMAP stays the source of truth
 - **Lazy bodies** - a message body and its attachment list are fetched on first open and cached; the raw message is
   kept for a day so inline images and attachments need no new fetch
-- **Actions** - move, archive (Gmail-aware), mark as spam, delete, mark read or unread, flag and create folders; the IMAP command runs first,
+- **Actions** - move, archive, mark as spam, delete, mark read or unread, flag and create folders; the IMAP command runs first,
   then the cache and the audit trail follow
 - **Sending** - SMTP per mailbox with `In-Reply-To` and `References` headers, a copy in Sent and forwarded attachments
 - **Access control** - read, write and manage levels per mailbox for users and groups, as Gate abilities

@@ -2,6 +2,15 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.11.1
+
+Archiving Gmail inbox mail moves it to All Mail again. `MailboxConnector::supportsGmailLabels()`,
+`MailboxConnector::removeGmailLabel()`, `MailboxConnector::GMAIL_CAPABILITY` and `FakeConnector::$gmailLabelsRemoved`
+are removed; a test that read `gmailLabelsRemoved` checks the `move` operation on the inbox instead.
+`ArchiveMessages` takes two constructor arguments again; resolve it from the container.
+
+Mail archived from the Gmail inbox with 0.11.0 is still in the Gmail inbox but no longer cached; archive it in Gmail itself.
+
 ## 0.11.0
 
 Publish the migrations again and migrate: `create_mailbox_templates_table` adds the
@@ -14,8 +23,7 @@ php artisan migrate
 ```
 
 `folders.junk_fallback` is optional in a published config. `ArchiveMessages` takes two more constructor arguments; resolve
-it from the container. A test that archives Gmail inbox mail with the fake now sees a label removal in
-`$connector->gmailLabelsRemoved` instead of a move, but only when the fake announces `X-GM-EXT-1`.
+it from the container.
 
 ## 0.10.0
 

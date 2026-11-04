@@ -130,6 +130,10 @@ class MailboxForm extends AbstractForm
                 ->label(__('mailbox::mailbox.imap_port'))
                 ->default(993)
                 ->rules('required', 'integer', 'between:1,65535'),
+            Text::make('imap_username')
+                ->label(__('mailbox::mailbox.username'))
+                ->required(),
+            $this->password('imap_password'),
             Select::make('imap_encryption')
                 ->label(__('mailbox::mailbox.imap_encryption'))
                 ->options([
@@ -144,10 +148,6 @@ class MailboxForm extends AbstractForm
                 ])
                 ->default('ssl')
                 ->rules('required', 'in:ssl,starttls'),
-            Text::make('imap_username')
-                ->label(__('mailbox::mailbox.username'))
-                ->required(),
-            $this->password('imap_password'),
         ];
     }
 

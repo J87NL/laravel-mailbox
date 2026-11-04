@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1 - 2026-11-04
+
+- Gmail: archiving from the inbox moves the mail to All Mail with `UID MOVE` again, which removes the Inbox label. 0.11.0 removed the label with `UID STORE -X-GM-LABELS (\Inbox)` while the inbox was selected; Gmail answers `OK` to that and leaves the label on, so the mail stayed in the Gmail inbox while it left the cache. Verified against Gmail. See `docs/message-actions.md#gmail`.
+- `MailboxForm`: the IMAP encryption field comes after the IMAP password, so username and password sit in the same columns for IMAP and SMTP.
+- Removed `MailboxConnector::supportsGmailLabels()`, `removeGmailLabel()` and `GMAIL_CAPABILITY`, and `FakeConnector::$gmailLabelsRemoved`. See `docs/upgrading.md`.
+
 ## 0.11.0 - 2026-11-03
 
 - Gmail: `ArchiveMessages` archives messages in the inbox with `UID STORE -X-GM-LABELS (\Inbox)` when the server announces `X-GM-EXT-1`, the way Gmail archives. The message keeps its other labels and stays in All Mail, nothing is moved, no folder is created and no folder sync is queued. Before, archiving moved the mail to All Mail, and on an account that hides All Mail from IMAP the fallback created an `Archive` label. Messages in other folders are still moved to the archive folder. See `docs/message-actions.md#gmail`.

@@ -32,11 +32,6 @@ class FakeConnector extends MailboxConnector
     public array $expunged = [];
 
     /**
-     * @var array<int, array{folder: string, label: string, uids: array<int, int>}>
-     */
-    public array $gmailLabelsRemoved = [];
-
-    /**
      * @var array<string, CarbonInterface|null>
      */
     public array $readDeadlines = [];
@@ -118,22 +113,6 @@ class FakeConnector extends MailboxConnector
         ];
 
         return true;
-    }
-
-    public function removeGmailLabel(MailboxFolder $folder, array $uids, string $label): void
-    {
-        $remote = $this->remote($folder->mailbox)->folder(Str::fromImapUtf7($folder->path));
-
-        $remote->setMessages(array_values(array_filter(
-            $remote->getMessages(),
-            fn ($message): bool => ! in_array($message->uid(), $uids, true),
-        )));
-
-        $this->gmailLabelsRemoved[] = [
-            'folder' => $folder->path,
-            'label' => $label,
-            'uids' => $uids,
-        ];
     }
 
     public function storeKeywords(MailboxFolder $folder, array $uids, string $add, string $remove): void
