@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionClosedException;
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use J87NL\Mailbox\Actions\FetchOlderMessages;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Events\MessageReceived;
@@ -286,3 +289,19 @@ it('lists a failed job in the last error of the mailbox', function (): void {
 
     expect($mailbox->refresh()->last_error)->toBe('Archive: Server went away');
 });
+
+it('lets the job end without failing on a lost IMAP connection and lists it in last_error', function (Throwable $failure): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    $folder = folder($mailbox, 'Archive', FolderRole::Custom);
+    test()->connector->imapFailure = $failure;
+
+    FetchOlderMessagesJob::dispatchSync($folder->id);
+
+    expect($mailbox->refresh()->last_error)->toBe(sprintf('Archive: %s', $failure->getMessage()))
+        ->and($folder->refresh()->older_exhausted)->toBeFalse();
+    Exceptions::assertNothingReported();
+})->with([
+    'timeout' => fn (): Throwable => new ImapConnectionTimedOutException('Stream timed out, no response'),
+    'closed' => fn (): Throwable => new ImapConnectionClosedException('Server closed the connection (EOF)'),
+]);

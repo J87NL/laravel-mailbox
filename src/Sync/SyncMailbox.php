@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Sync;
 
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionClosedException;
 use DirectoryTree\ImapEngine\Exceptions\ImapConnectionException;
 use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use DirectoryTree\ImapEngine\Exceptions\ImapParserException;
@@ -41,7 +42,7 @@ class SyncMailbox
             $budget->reportDeferred([
                 'mailbox_id' => $mailbox->id,
             ]);
-        } catch (ImapConnectionTimedOutException $exception) {
+        } catch (ImapConnectionClosedException|ImapConnectionTimedOutException $exception) {
             $mailbox->update(['last_error' => $exception->getMessage()]);
         } catch (Throwable $exception) {
             $mailbox->update(['last_error' => $exception->getMessage()]);
@@ -76,7 +77,7 @@ class SyncMailbox
 
             try {
                 $this->syncFolderMessages->handle($folder, $budget);
-            } catch (ImapConnectionTimedOutException $exception) {
+            } catch (ImapConnectionClosedException|ImapConnectionTimedOutException $exception) {
                 $failures[$folder->path] = $exception->getMessage();
                 $stopped = true;
             } catch (ImapConnectionException|ImapParserException|ImapStreamException $exception) {

@@ -333,7 +333,7 @@ it('lets a folder job end without failing on an IMAP timeout and lists it in las
     Exceptions::assertNothingReported();
 });
 
-it('reports a closed IMAP connection and stops the run', function (): void {
+it('stops the run on a closed IMAP connection like on a timeout, without reporting it', function (): void {
     Exceptions::fake();
     $mailbox = mailbox();
     folder($mailbox, 'Alpha', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now()->subMinutes(10), 'uid_validity' => 1]);
@@ -352,7 +352,32 @@ it('reports a closed IMAP connection and stops the run', function (): void {
 
     expect($mailbox->refresh()->last_error)->toBe('Alpha: Server closed the connection (EOF)')
         ->and(budgetStoredUids('Beta'))->toBe([]);
-    Exceptions::assertReported(ImapConnectionClosedException::class);
+    Exceptions::assertNothingReported();
+});
+
+it('records a closed connection while the folder list is fetched without reporting or failing the job', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    test()->connector->imapFailure = new ImapConnectionClosedException('Server closed the connection (EOF)');
+
+    app()->call([new SyncMailboxJob($mailbox->id), 'handle']);
+
+    expect($mailbox->refresh()->last_error)->toBe('Server closed the connection (EOF)')
+        ->and($mailbox->synced_at)->toBeNull();
+    Exceptions::assertNothingReported();
+});
+
+it('lets a folder job end without failing on a closed IMAP connection and lists it in last_error', function (): void {
+    Exceptions::fake();
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    test()->connector->imapFailure = new ImapConnectionClosedException('Server closed the connection (EOF)');
+
+    app()->call([new SyncFolderJob($folder->id), 'handle']);
+
+    expect($folder->refresh()->synced_at)->toBeNull()
+        ->and($mailbox->refresh()->last_error)->toBe('INBOX: Server closed the connection (EOF)');
+    Exceptions::assertNothingReported();
 });
 
 it('gives the sync jobs a timeout between the time budget and the queue retry_after', function (string $job): void {

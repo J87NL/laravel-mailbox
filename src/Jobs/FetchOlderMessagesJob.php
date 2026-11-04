@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Jobs;
 
+use DirectoryTree\ImapEngine\Exceptions\ImapConnectionClosedException;
 use DirectoryTree\ImapEngine\Exceptions\ImapConnectionTimedOutException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -60,7 +61,7 @@ class FetchOlderMessagesJob implements ShouldBeUnique, ShouldQueue
             if (is_null($fetch->handle($folder))) {
                 $this->release(self::RELEASE_SECONDS);
             }
-        } catch (ImapConnectionTimedOutException $exception) {
+        } catch (ImapConnectionClosedException|ImapConnectionTimedOutException $exception) {
             $this->recordError($folder, $exception);
         } finally {
             $connector->disconnect($folder->mailbox);

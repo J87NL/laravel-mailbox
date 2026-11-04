@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 - 2026-11-04
+
+- **Behaviour change:** a connection the IMAP server closed (`ImapConnectionClosedException`, `Server closed the connection (EOF)`) is handled like a read timeout everywhere a timeout is handled: in `SyncMailbox` (also while the folder list is fetched), `SyncFolderJob` and `FetchOlderMessagesJob` it stops the run, is listed in the mailbox's `last_error`, is not reported and does not fail the job. Before, it was reported, and while the folder list was fetched it failed the job. Gmail closes connections now and then, also during `LIST`; the next run simply tries again. The test that pinned the report now asserts that nothing is reported, `last_error` is set and the run stops. See `docs/sync.md#what-a-mailbox-sync-does`.
+
 ## 0.11.1 - 2026-11-04
 
 - Gmail: archiving from the inbox moves the mail to All Mail with `UID MOVE` again, which removes the Inbox label. 0.11.0 removed the label with `UID STORE -X-GM-LABELS (\Inbox)` while the inbox was selected; Gmail answers `OK` to that and leaves the label on, so the mail stayed in the Gmail inbox while it left the cache. Verified against Gmail. See `docs/message-actions.md#gmail`.

@@ -60,7 +60,7 @@ stop after `sync.time_budget_seconds` seconds (default 40) and leave the rest to
 - The first step of a run always runs, so a run makes progress even with a tiny budget.
 - A folder whose last chunk was smaller than `sync.chunk_size` counts as fetched completely, also when the budget is
   used up after it.
-- A run that stops on a broken IMAP connection (a read timeout or a response it cannot parse, see
+- A run that stops on a broken IMAP connection (a read timeout, a closed connection or a response it cannot parse, see
   [Configuration](configuration.md#connection)) skips the remaining folders instead of trying them on the same
   connection.
 - Nothing is dispatched when a run stops early; the next `mailbox:sync` simply continues.
@@ -121,10 +121,11 @@ Set `sync.skip_special_use` to `[]` to sync these folders again. There is no set
    budget is used up.
 3. `synced_at` is set on the mailbox. `last_error` is cleared, or lists the folders that failed with their error.
 
-A folder that fails is reported and skipped; the other folders still sync. An IMAP read timeout is not reported: it is
-only listed in `last_error` and stops the run, and the next run tries again. This also holds for a timeout while the
-folder list is fetched, for example on `LOGIN`: the job ends without failing. Any other error while the folder list is
-fetched is stored in `last_error` and thrown again. A `SyncFolderJob` that runs into a read timeout ends without
+A folder that fails is reported and skipped; the other folders still sync. A lost IMAP connection, a read timeout or a
+connection the server closed (`Server closed the connection (EOF)`, which Gmail does now and then), is not reported: it is
+only listed in `last_error` and stops the run, and the next run tries again. This also holds while the folder list is
+fetched, for example on `LOGIN` or `LIST`: the job ends without failing. Any other error while the folder list is
+fetched is stored in `last_error` and thrown again. A `SyncFolderJob` that loses its connection this way ends without
 failing as well and lists the folder with the error in `last_error`; the next scheduled sync picks the folder up. The IMAP connection is closed at the end.
 
 ## What a folder sync does
@@ -188,7 +189,7 @@ FetchOlderMessagesJob::dispatch($folder->id);   // the same, on the sync queue
   nothing, queues a `SyncFolderJob` to reset the folder and returns `0`.
 - `FetchOlderMessagesJob` releases itself when the folder is busy and tries again 30 seconds later, at most three
   times. It is unique per folder for 300 seconds, uses `sync.queue` and `sync.job_timeout_seconds`, lists a read
-  timeout in the mailbox's `last_error` like `SyncFolderJob`, and when it fails for another reason, `failed()` lists
+  timeout or a closed connection in the mailbox's `last_error` like `SyncFolderJob`, without reporting it or failing, and when it fails for another reason, `failed()` lists
   that error there as well.
 
 ## Conversations

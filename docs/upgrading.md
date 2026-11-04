@@ -2,6 +2,12 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.12.0
+
+- An IMAP connection the server closed (`ImapConnectionClosedException`) during a sync, a `SyncFolderJob` or a
+  `FetchOlderMessagesJob` is no longer reported and no longer fails the job: it is listed in `last_error` like a read
+  timeout. An error tracker that showed these will stop showing them; `last_error` still does.
+
 ## 0.11.1
 
 Archiving Gmail inbox mail moves it to All Mail again. `MailboxConnector::supportsGmailLabels()`,
