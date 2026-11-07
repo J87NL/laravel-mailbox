@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1 - 2026-11-07
+
+- Requires `symfony/html-sanitizer` ^7.4.23 or ^8.1.11, so a host can no longer resolve versions with the November 2026 sanitizer advisories (CVE-2026-118517 `allowLinkHosts()`/`allowMediaHosts()` bypass, unsanitized `srcset`/`imagesrcset`, narrow meta refresh matching). The 8.0 line has no patched release and is no longer allowed.
+
 ## 0.12.0 - 2026-11-04
 
 - **Behaviour change:** a connection the IMAP server closed (`ImapConnectionClosedException`, `Server closed the connection (EOF)`) is handled like a read timeout everywhere a timeout is handled: in `SyncMailbox` (also while the folder list is fetched), `SyncFolderJob` and `FetchOlderMessagesJob` it stops the run, is listed in the mailbox's `last_error`, is not reported and does not fail the job. Before, it was reported, and while the folder list was fetched it failed the job. Gmail closes connections now and then, also during `LIST`; the next run simply tries again. The test that pinned the report now asserts that nothing is reported, `last_error` is set and the run stops. See `docs/sync.md#what-a-mailbox-sync-does`.
