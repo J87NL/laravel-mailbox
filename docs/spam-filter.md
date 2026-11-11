@@ -138,6 +138,50 @@ Limits to know:
 | `spam_reason`     | The reason the classifier gave, cut to 255 characters (also in the `spam_moved` meta)   |
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
 | `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
+| `server_spam_flag`  | The mail server's verdict from the `X-Spam-Flag` header: `true` for `YES`, `false` for `NO`, `null` otherwise. See [The mail server's verdict](#the-mail-servers-verdict) |
+| `server_spam_score` | The mail server's score from the `X-Spam-Score` header, two decimals, `null` when missing or not a number |
+
+### The mail server's verdict
+
+Many mail hosts already score incoming mail but leave it in the inbox. TransIP, for example, adds `X-Spam-Flag: YES`
+or `NO` and `X-Spam-Score: 6.95` to every message. The sync stores that verdict on every message it fetches, in every
+mode (also `off`), so you can measure it before you rely on it. It is read from the headers the sync fetches anyway
+(`BODY.PEEK[HEADER]`), so it costs no extra request and never marks mail as read.
+
+- When a header occurs more than once, the last occurrence counts: that is the one the receiving server adds, below
+  the headers the sender wrote (a milter such as ClueGetter at TransIP appends its headers at the end of the header
+  block; where a host puts them differs per scanner and setup). A sender who writes his own `X-Spam-Flag: NO` at the top therefore cannot overrule the server. When the
+  occurrences disagree, an info line with the `Message-ID`, the header and the count is logged.
+- The flag is matched without regard to case and surrounding spaces; any other value than `YES` or `NO` gives `null`.
+- The score is any number (also negative), rounded to two decimals; anything else, or a value beyond `9999.99`, gives
+  `null`.
+- The header names come from `spam.server_headers.flag` and `spam.server_headers.score` (env
+  `MAILBOX_SPAM_FLAG_HEADER`, `MAILBOX_SPAM_SCORE_HEADER`). A missing key uses the default name, `null` or an empty name
+  stops reading that header and stores `null`. See [Configuration](configuration.md#spam-filter).
+- Mail synced before 0.14.0 has `null` in both columns; the sync does not fetch it again. A row that is stored again
+  keeps its first verdict.
+- Anyone can write these headers into a mail. They are only worth something when your mail server adds its own below
+  them (or replaces them) on incoming mail; check that for your host. A server that puts its headers at the top
+  instead would let the sender's last copy win.
+
+The package does nothing with the verdict by itself: `CheckSpam` and its thresholds only look at your classifier. Use
+it in your [classifier](#writing-a-classifier), for example as a floor:
+
+```php
+public function classify(MailboxMessage $message): SpamVerdict
+{
+    $verdict = $this->ownVerdict($message);
+
+    if ($message->server_spam_flag !== true) {
+        return $verdict;
+    }
+
+    return new SpamVerdict(max($verdict->score ?? 0.0, 0.85), $verdict->reason ?? 'Flagged by the mail server');
+}
+```
+
+With the default `spam.suggest_threshold` of `0.80`, mail the server flags is then at least `suggested` in `suggest` and
+`auto` mode, while your own classifier still decides what moves.
 
 ## Not spam
 
@@ -238,4 +282,5 @@ $this->app->bind(ClassifiesSpam::class, App\Mailbox\SpamClassifier::class);
 ## Testing
 
 `J87NL\Mailbox\Testing\FakeSpamClassifier` replaces your classifier in tests, see
-[Testing](testing.md#spam-classifier).
+[Testing](testing.md#spam-classifier). `RecordingFolder::addScoredMessage()` adds a remote message with the mail
+server's spam headers, see [Testing](testing.md#remote-folders-and-messages).

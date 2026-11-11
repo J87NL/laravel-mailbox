@@ -63,6 +63,21 @@ that many messages in its fetch order (`newest()` or `oldest()`), as on a real s
 
 The third argument of `FakeMessage` is the raw message; a Symfony `Email` with `toString()` is an easy way to build one.
 
+`RecordingFolder::addScoredMessage()` adds a message with the mail server's spam headers, so a test can check what your
+classifier does with [the mail server's verdict](spam-filter.md#the-mail-servers-verdict):
+
+```php
+$remote->folder('INBOX')->addScoredMessage(1, $email->toString(), 'YES', '6.95');
+$remote->folder('INBOX')->addScoredMessage(2, $email->toString(), 'NO', flags: [ImapFlag::Seen->value]);
+$remote->folder('INBOX')->addScoredMessage(3, $email->toString(), 'YES', prepend: true);
+```
+
+It takes the UID, the raw message, the flag value, an optional score, optional IMAP flags and `prepend`, adds the
+headers named in `spam.server_headers` (`X-Spam-Flag` and `X-Spam-Score` when not set) at the end of the header block,
+as a receiving server does, adds the message to the folder and returns the `FakeMessage`. With `prepend: true` the
+headers go on top instead, for example to test a sender's forged header that comes after them. A `null` flag or score leaves that header out. After a sync the values are on
+`server_spam_flag` and `server_spam_score`.
+
 Then run the code under test, for example the sync:
 
 ```php
@@ -98,6 +113,8 @@ clock (`Carbon::setTestNow()`) that many seconds per chunk, per search before th
 `status()` call, so a test can make a step slow and use up a sync's time budget. The fake
 message query honours UID ranges like a server does. `RecordingFolder::$searches` lists the search criteria of every
 chunked fetch as IMAP text, such as `SINCE 06-Aug-2026` on a first sync or `UID 2:4294967295` after it.
+`RecordingFolder::$fetchItems` lists the `FETCH` items of every chunked fetch as a real server would get them, such as
+`['FLAGS', 'RFC822.SIZE', 'BODY.PEEK[HEADER]', 'BODYSTRUCTURE']`; `BODY.PEEK` means the fetch leaves `\Seen` alone.
 
 The connector records more:
 

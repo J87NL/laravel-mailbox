@@ -61,6 +61,8 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `spam.move_threshold` | `MAILBOX_SPAM_MOVE_THRESHOLD` | `0.95` | Spam filter score from which a mailbox in `auto` mode moves the message to the junk folder |
 | `spam.queue` | `MAILBOX_SPAM_QUEUE` | default queue | Queue for `CheckSpamJob` |
 | `spam.max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20` | Spam filter moves per mailbox per hour; above it messages are only suggested |
+| `spam.server_headers.flag` | `MAILBOX_SPAM_FLAG_HEADER` | `X-Spam-Flag` | Header with the mail server's spam flag, stored as `server_spam_flag`; `null` disables |
+| `spam.server_headers.score` | `MAILBOX_SPAM_SCORE_HEADER` | `X-Spam-Score` | Header with the mail server's spam score, stored as `server_spam_score`; `null` disables |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
@@ -98,7 +100,7 @@ Each mailbox can have message templates (`mailbox_templates`): a name, an option
 
 ## Spam filter
 
-Each mailbox has a `spam_filter_mode`: `off` (default), `measure`, `suggest` or `auto`. When it is not `off`, every message `MessageReceived` announces gets a queued `CheckSpamJob`: senders on the allowlist are skipped, the others go to the app's `ClassifiesSpam` binding (default: no verdict). The score and reason are stored on the message, `suggest` marks scores from `spam.suggest_threshold` as `suggested`, and `auto` moves scores from `spam.move_threshold` to the junk folder through `MarkJunk` (audit action `spam_moved`). Without a verdict or when the classifier throws, nothing moves. Nothing is ever deleted. Mail of an allowlisted sender in the junk folder is moved back to the inbox only when its `Authentication-Results` header, written by a server in `spam.trusted_authserv_ids` (empty by default, which releases nothing), shows `dmarc=pass` or an aligned `dkim=pass` and it has no `$Junk` keyword. See `docs/spam-filter.md`.
+Each mailbox has a `spam_filter_mode`: `off` (default), `measure`, `suggest` or `auto`. When it is not `off`, every message `MessageReceived` announces gets a queued `CheckSpamJob`: senders on the allowlist are skipped, the others go to the app's `ClassifiesSpam` binding (default: no verdict). The score and reason are stored on the message, `suggest` marks scores from `spam.suggest_threshold` as `suggested`, and `auto` moves scores from `spam.move_threshold` to the junk folder through `MarkJunk` (audit action `spam_moved`). Without a verdict or when the classifier throws, nothing moves. Nothing is ever deleted. Mail of an allowlisted sender in the junk folder is moved back to the inbox only when its `Authentication-Results` header, written by a server in `spam.trusted_authserv_ids` (empty by default, which releases nothing), shows `dmarc=pass` or an aligned `dkim=pass` and it has no `$Junk` keyword. The sync also stores the mail server's own verdict (`X-Spam-Flag`, `X-Spam-Score`) as `server_spam_flag` and `server_spam_score` on every message, for your classifier to use. See `docs/spam-filter.md`.
 
 ## Signature
 
@@ -129,7 +131,7 @@ $connector = FakeConnector::install();
 $connector->remote($mailbox)->folder('INBOX')->setMessages([...]);
 ```
 
-The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `FakeSpamClassifier::install()` replaces the spam classifier and records which messages it was asked about. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
+The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `FakeSpamClassifier::install()` replaces the spam classifier and records which messages it was asked about, and `RecordingFolder::addScoredMessage()` adds a remote message with the mail server's spam headers. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
 
 ## Development
 

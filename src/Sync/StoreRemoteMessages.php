@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Spam\ServerSpamHeaders;
 use J87NL\Mailbox\Threading\ConversationKeys;
 
 class StoreRemoteMessages
@@ -41,6 +42,7 @@ class StoreRemoteMessages
 
     public function __construct(
         private readonly ConversationKeys $conversations,
+        private readonly ServerSpamHeaders $serverSpamHeaders,
     ) {}
 
     public function query(FolderInterface $remote): MessageQueryInterface
@@ -136,6 +138,7 @@ class StoreRemoteMessages
             'to' => json_encode($this->addresses($message->to())),
             'uid' => $message->uid(),
             ...$this->flagAttributes($message->flags()),
+            ...$this->serverSpamHeaders->attributes($message),
         ];
     }
 

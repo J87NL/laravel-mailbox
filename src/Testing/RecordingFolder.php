@@ -8,6 +8,7 @@ use DirectoryTree\ImapEngine\MessageQueryInterface;
 use DirectoryTree\ImapEngine\Testing\FakeFolder;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Spam\ServerSpamHeaders;
 use Throwable;
 
 class RecordingFolder extends FakeFolder
@@ -26,6 +27,11 @@ class RecordingFolder extends FakeFolder
      * @var array<int, string>
      */
     public array $searches = [];
+
+    /**
+     * @var array<int, array<int, string>>
+     */
+    public array $fetchItems = [];
 
     public int $messageFetches = 0;
 
@@ -74,6 +80,26 @@ class RecordingFolder extends FakeFolder
         $this->operations[] = $operation;
     }
 
+    /**
+     * @param  array<int, string>  $flags
+     */
+    public function addScoredMessage(int $uid, string $message, ?string $spamFlag, ?string $spamScore = null, array $flags = [], bool $prepend = false): FakeMessage
+    {
+        $headers = collect([
+            'flag' => $spamFlag,
+            'score' => $spamScore,
+        ])
+            ->reject(fn (?string $value): bool => is_null($value))
+            ->map(fn (string $value, string $key): string => sprintf("%s: %s\r\n", $this->serverSpamHeader($key), $value))
+            ->implode('');
+
+        $fake = new FakeMessage($uid, $flags, $prepend ? $headers.$message : $this->appendHeaders($message, $headers));
+
+        $this->addMessage($fake);
+
+        return $fake;
+    }
+
     public function message(int $uid): ?FakeMessage
     {
         foreach ($this->messages as $message) {
@@ -83,5 +109,21 @@ class RecordingFolder extends FakeFolder
         }
 
         return null;
+    }
+
+    private function appendHeaders(string $message, string $headers): string
+    {
+        $end = strpos($message, "\r\n\r\n");
+
+        if ($end === false) {
+            return $headers.$message;
+        }
+
+        return substr($message, 0, $end + 2).$headers.substr($message, $end + 2);
+    }
+
+    private function serverSpamHeader(string $key): string
+    {
+        return ServerSpamHeaders::headerName($key) ?? ServerSpamHeaders::DEFAULT_HEADERS[$key];
     }
 }

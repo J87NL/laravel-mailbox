@@ -173,7 +173,9 @@ scheduled sync and a folder job never sync the same folder at once.
    are deleted, `last_uid` starts again at 0, `oldest_uid` and `older_exhausted` are cleared, and `synced_at` is cleared until the folder is fetched again completely.
 2. **New messages** - fetches messages with a UID above `last_uid`. On the first sync of a folder (`last_uid` is 0) it
    fetches the messages of the last `sync.initial_days` days instead. It fetches headers, flags, size and body
-   structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. Each chunk is stored with
+   structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. The mail server's spam
+   verdict (`X-Spam-Flag`, `X-Spam-Score`) is read from those headers and stored as `server_spam_flag` and
+   `server_spam_score`, see [The mail server's verdict](spam-filter.md#the-mail-servers-verdict). Each chunk is stored with
    one upsert and moves `last_uid` up. When the [time budget](#time-budget) is used up after a chunk, the folder sync
    stops here and steps 3 and 4 wait for the next run. For a mailbox with the [spam filter](spam-filter.md#after-the-sync)
    on, the messages this step stored in a folder that synced before are handed to `FilterSyncedMessages`, also when the

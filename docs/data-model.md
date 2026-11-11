@@ -122,6 +122,8 @@ Table `mailbox_messages`. The header cache, one row per folder and UID.
 | `spam_reason`       | The classifier's reason, nullable                                          |
 | `spam_status`       | A `SpamStatus` enum, nullable: `suggested`, `moved` or `released`          |
 | `spam_checked_at`   | When the spam filter looked at the message; `null` means not checked       |
+| `server_spam_flag`  | Boolean, nullable: the mail server's `X-Spam-Flag` (`YES` is `true`, `NO` is `false`), see [The mail server's verdict](spam-filter.md#the-mail-servers-verdict) |
+| `server_spam_score` | decimal(6,2), nullable: the mail server's `X-Spam-Score`                   |
 
 Relations: `mailbox()`, `folder()`, `links()`.
 

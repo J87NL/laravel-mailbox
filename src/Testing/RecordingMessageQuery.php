@@ -71,6 +71,7 @@ class RecordingMessageQuery extends FakeMessageQuery
     public function chunk(callable $callback, int $chunkSize = 10, int $startChunk = 1): void
     {
         $this->recordingFolder->searches[] = $this->query->toImap();
+        $this->recordingFolder->fetchItems[] = $this->fetchItems();
         $this->recordingFolder->advanceClock($this->recordingFolder->secondsPerSearch);
         $this->chunking = true;
 
@@ -155,6 +156,22 @@ class RecordingMessageQuery extends FakeMessageQuery
                 $message->flag(ImapFlag::Deleted, '+');
             }
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fetchItems(): array
+    {
+        $section = fn (string $part): string => sprintf($this->fetchAsUnread ? 'BODY.PEEK[%s]' : 'BODY[%s]', $part);
+
+        return array_values(array_filter([
+            $this->isFetchingFlags() ? 'FLAGS' : null,
+            $this->isFetchingSize() ? 'RFC822.SIZE' : null,
+            $this->isFetchingHeaders() ? $section('HEADER') : null,
+            $this->isFetchingBody() ? $section('TEXT') : null,
+            $this->isFetchingBodyStructure() ? 'BODYSTRUCTURE' : null,
+        ]));
     }
 
     private function withinLimit(MessageCollection $messages): MessageCollection

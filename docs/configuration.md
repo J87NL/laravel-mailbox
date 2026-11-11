@@ -225,6 +225,10 @@ See [Synchronization](sync.md).
     'max_moves_per_hour' => env('MAILBOX_SPAM_MAX_MOVES_PER_HOUR', 20),
     'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
     'queue' => env('MAILBOX_SPAM_QUEUE'),
+    'server_headers' => [
+        'flag' => env('MAILBOX_SPAM_FLAG_HEADER', 'X-Spam-Flag'),
+        'score' => env('MAILBOX_SPAM_SCORE_HEADER', 'X-Spam-Score'),
+    ],
     'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
     'trusted_authserv_ids' => [],
 ],
@@ -235,10 +239,14 @@ See [Synchronization](sync.md).
 | `max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20`         | At most this many `auto` moves per mailbox per hour; above it a message is only `suggested`. `null` has no limit, `0` never moves |
 | `move_threshold`    | `MAILBOX_SPAM_MOVE_THRESHOLD`    | `0.95`        | From this score on, a mailbox in `auto` mode moves the message to the junk folder |
 | `queue`             | `MAILBOX_SPAM_QUEUE`             | default queue | Queue for `CheckSpamJob`                                               |
+| `server_headers.flag` | `MAILBOX_SPAM_FLAG_HEADER`     | `X-Spam-Flag` | Header with the mail server's spam flag (`YES`/`NO`), stored as `server_spam_flag` on every synced message. `null` or empty stops reading it, see [The mail server's verdict](spam-filter.md#the-mail-servers-verdict) |
+| `server_headers.score` | `MAILBOX_SPAM_SCORE_HEADER`  | `X-Spam-Score` | Header with the mail server's spam score, stored as `server_spam_score`. `null` or empty stops reading it |
 | `suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80`        | From this score on, a mailbox in `suggest` or `auto` mode sets `spam_status` to `suggested` |
 | `trusted_authserv_ids` |                               | `[]`          | The authserv-ids of your own mail server; mail is only released from the junk folder on an `Authentication-Results` header of one of these. Empty releases nothing, see [Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder) |
 
-A published config without `spam` uses the defaults. A threshold that is missing, empty (an empty env value casts to `0`)
+A published config without `spam` uses the defaults. A missing `server_headers.flag` or `server_headers.score` key
+(for example in a `spam` block published before 0.14.0) uses `X-Spam-Flag` and `X-Spam-Score`; only an explicit `null`
+or empty name stops reading the header. A threshold that is missing, empty (an empty env value casts to `0`)
 or outside `0` (exclusive) to `1` falls back to its default, and when `move_threshold` is below `suggest_threshold` both
 fall back to their defaults; each case logs a warning. The mode is set per mailbox, see [Spam filter](spam-filter.md).
 
@@ -303,9 +311,11 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_CONNECTION_READ_TIMEOUT` | `connection.read_timeout` | `15`        |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |
+| `MAILBOX_SPAM_FLAG_HEADER`   | `spam.server_headers.flag` | `X-Spam-Flag`    |
 | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `spam.max_moves_per_hour` | `20`         |
 | `MAILBOX_SPAM_MOVE_THRESHOLD` | `spam.move_threshold`  | `0.95`              |
 | `MAILBOX_SPAM_QUEUE`         | `spam.queue`            | default queue       |
+| `MAILBOX_SPAM_SCORE_HEADER`  | `spam.server_headers.score` | `X-Spam-Score`  |
 | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `spam.suggest_threshold` | `0.80`         |
 | `MAILBOX_SYNC_JOB_TIMEOUT`   | `sync.job_timeout_seconds` | `55`             |
 | `MAILBOX_SYNC_QUEUE`         | `sync.queue`            | default queue       |
