@@ -35,3 +35,19 @@ it('keeps one entry per pattern and mailbox and removes it again', function (): 
         ->and($allowlist->remove($mailbox, 'Boss@example.org'))->toBeTrue()
         ->and(MailboxSpamAllowlistEntry::query()->count())->toBe(0);
 });
+
+it('refuses an empty pattern', function (string $pattern): void {
+    app(SpamAllowlist::class)->add(mailbox(), $pattern);
+})->throws(InvalidArgumentException::class)->with([
+    '',
+    '  ',
+    '@',
+]);
+
+it('never matches a domain for a sender without an at sign', function (): void {
+    $mailbox = mailbox();
+    app(SpamAllowlist::class)->add($mailbox, 'example.org');
+
+    expect(app(SpamAllowlist::class)->matches($mailbox, 'example.org'))->toBeTrue()
+        ->and(app(SpamAllowlist::class)->matches($mailbox, 'nobody'))->toBeFalse();
+});

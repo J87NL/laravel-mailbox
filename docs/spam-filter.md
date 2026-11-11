@@ -140,7 +140,8 @@ $allowlist->allowedSenders($mailbox, collect(['a@example.org', 'b@spam.example']
 ```
 
 Patterns are trimmed, lowercased and lose a leading `@`, so `@Example.org` and `example.org` are the same entry.
-`add()` keeps an existing entry and its source. The `source` tells where an entry came from:
+`add()` keeps an existing entry and its source, and throws an `InvalidArgumentException` for an empty pattern or one
+that is only `@`. A sender without `@` matches only an entry with exactly that text, never a domain. The `source` tells where an entry came from:
 
 | Source     | Added by                                                                                   |
 |------------|--------------------------------------------------------------------------------------------|
