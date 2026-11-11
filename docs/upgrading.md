@@ -15,6 +15,9 @@ php artisan migrate
 
 With every mailbox on `off`, nothing changes until you pick a mode.
 
+`MarkJunk` and `SyncFolderMessages` take a new constructor argument (`SpamFeedback` and `FilterSyncedMessages`). Code
+that resolves them from the container needs no change; a test that builds them by hand passes the new argument.
+
 ## 0.12.0
 
 - An IMAP connection the server closed (`ImapConnectionClosedException`) during a sync, a `SyncFolderJob` or a

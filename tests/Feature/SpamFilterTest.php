@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use J87NL\Mailbox\Actions\MarkJunk;
+use J87NL\Mailbox\Actions\RecordAudit;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Enums\SpamAllowlistSource;
@@ -14,9 +16,11 @@ use J87NL\Mailbox\Jobs\CheckSpamJob;
 use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxAuditEntry;
+use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Models\MailboxSpamAllowlistEntry;
 use J87NL\Mailbox\Spam\SpamAllowlist;
+use J87NL\Mailbox\Sync\SyncFolderMessages;
 use J87NL\Mailbox\Testing\FakeSpamClassifier;
 
 function spamMailbox(string $mode): Mailbox
@@ -205,3 +209,92 @@ it('clears the suggestion when a user marks a message junk', function (): void {
 
     expect($message->refresh()->spam_status)->toBeNull();
 });
+
+function syncedJunkFolder(Mailbox $mailbox): MailboxFolder
+{
+    $junk = $mailbox->folderWithRole(FolderRole::Junk);
+    $junk->update(['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'Spam')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(2)]);
+
+    return $junk;
+}
+
+it('moves allowlisted mail out of the junk folder during the sync', function (): void {
+    $mailbox = spamMailbox('measure');
+    folder($mailbox);
+    app(SpamAllowlist::class)->add($mailbox, 'Sender@example.org');
+
+    app(SyncFolderMessages::class)->handle(syncedJunkFolder($mailbox));
+
+    expect(collect(remoteFolder($mailbox, 'Spam')->operations)->last())->toBe([
+        'target' => 'INBOX',
+        'type' => 'move',
+        'uids' => [2],
+    ])
+        ->and(MailboxAuditEntry::query()->sole()->only(['action', 'user_id']))->toBe([
+            'action' => AuditAction::MarkedNotJunk,
+            'user_id' => null,
+        ]);
+});
+
+it('leaves junk alone when the filter is off, the sender is unknown or a user put it there', function (string $mode, bool $allowlisted, ?AuditAction $history): void {
+    $mailbox = spamMailbox($mode);
+    folder($mailbox);
+    $junk = syncedJunkFolder($mailbox);
+
+    if ($allowlisted) {
+        app(SpamAllowlist::class)->add($mailbox, 'sender@example.org');
+    }
+
+    if ($history) {
+        app(RecordAudit::class)->forMailbox($mailbox, $history, user(), 'message-2@example.org');
+    }
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(remoteFolder($mailbox, 'Spam')->operations)->toBe([])
+        ->and(MailboxMessage::query()->where('mailbox_folder_id', $junk->id)->count())->toBe(1);
+})->with([
+    'filter off' => ['off', true, null],
+    'unknown sender' => ['auto', false, null],
+    'marked junk by a user' => ['auto', true, AuditAction::MarkedJunk],
+    'moved there by a user' => ['auto', true, AuditAction::Moved],
+]);
+
+it('shows the verdict on mail the filter moved to the junk folder', function (): void {
+    $mailbox = spamMailbox('auto');
+    $junk = syncedJunkFolder($mailbox);
+    app(RecordAudit::class)->forMailbox($mailbox, AuditAction::SpamMoved, null, 'message-2@example.org', meta: [
+        'reason' => 'Phishing',
+        'score' => 0.97,
+    ]);
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(MailboxMessage::query()->where('mailbox_folder_id', $junk->id)->sole()->only(['spam_reason', 'spam_score', 'spam_status']))->toBe([
+        'spam_reason' => 'Phishing',
+        'spam_score' => 0.97,
+        'spam_status' => SpamStatus::Moved,
+    ]);
+});
+
+it('announces mail that comes back from the junk folder once, and keeps a released verdict', function (?int $userId, ?SpamStatus $status): void {
+    Event::fake([MessageReceived::class]);
+    $mailbox = spamMailbox('suggest');
+    $inbox = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'INBOX')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(2)]);
+    $user = $userId ? user() : null;
+    app(RecordAudit::class)->forMailbox($mailbox, AuditAction::MarkedNotJunk, $user, 'message-2@example.org');
+
+    app(SyncFolderMessages::class)->handle($inbox);
+    app(SyncFolderMessages::class)->handle($inbox->refresh());
+
+    Event::assertDispatchedTimes(MessageReceived::class, 1);
+    expect(MailboxMessage::query()->sole()->spam_status)->toBe($status)
+        ->and(MailboxAuditEntry::query()->where('action', AuditAction::Received)->count())->toBe(1);
+})->with([
+    'released by the allowlist' => [null, null],
+    'released by a user' => [1, SpamStatus::Released],
+]);

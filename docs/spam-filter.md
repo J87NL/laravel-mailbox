@@ -46,6 +46,31 @@ A move goes through `MarkJunk::junk()` without a user and writes the audit actio
 Mail the sync announces nothing for, such as mail in the junk folder, a first sync or `FetchOlderMessages`, is never
 checked. The job runs once per message: a message with `spam_checked_at` is skipped.
 
+## After the sync
+
+A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)), so the
+verdict on the old row is gone. For a mailbox whose mode is not `off`, the folder sync hands the messages it stored to
+`J87NL\Mailbox\Spam\FilterSyncedMessages`, which reads their audit history in one query and:
+
+- **restores the verdict**: after `spam_moved` the new row gets `spam_status` `moved` with the score and reason from
+  the audit meta; after `marked_not_junk` by a user it gets `released` (with the score and reason of an earlier
+  `spam_moved`); after any other `marked_junk` or `marked_not_junk` the status is empty. `spam_checked_at` is set, so the
+  message is not classified again;
+- **announces returned mail**: a message whose last junk action is `marked_not_junk` and that was never announced,
+  because the server put it straight in the junk folder, fires `MessageReceived` once in the watched folder it lands
+  in, with a `received` audit entry;
+- **moves allowlisted mail out of the junk folder**, see below.
+
+Only folders that synced before are handled, like `MessageReceived`. Messages without a `Message-ID` are skipped.
+
+### Mail in the junk folder
+
+New mail in the folder with the `Junk` role whose sender is on the [allowlist](#the-allowlist) is moved back to the
+inbox with `MarkJunk::notJunk()` without a user. The server's own filter put it there; the allowlist says it is wanted.
+Only mail without any audit history other than `received` is moved: mail a user marked as spam or moved to the junk
+folder stays there, also when its sender is on the allowlist. When the move throws, the error is reported and the sync
+goes on.
+
 ## Stored on the message
 
 | Column            | Notes                                                                                   |

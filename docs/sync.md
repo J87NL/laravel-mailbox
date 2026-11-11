@@ -175,7 +175,9 @@ scheduled sync and a folder job never sync the same folder at once.
    fetches the messages of the last `sync.initial_days` days instead. It fetches headers, flags, size and body
    structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. Each chunk is stored with
    one upsert and moves `last_uid` up. When the [time budget](#time-budget) is used up after a chunk, the folder sync
-   stops here and steps 3 and 4 wait for the next run.
+   stops here and steps 3 and 4 wait for the next run. For a mailbox with the [spam filter](spam-filter.md#after-the-sync)
+   on, the messages this step stored in a folder that synced before are handed to `FilterSyncedMessages`, also when the
+   budget stopped the step: one query for their audit history and, in the junk folder, one for the allowlist.
 3. **Known messages** - refreshes the flags of the newest `sync.flag_window` cached messages and deletes cached rows
    that are gone from the server, for example because they were moved in another mail client.
 4. **Counts** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not
@@ -269,7 +271,10 @@ only announced when all of these hold:
 - the `Message-ID` is not yet known in the mailbox, as a cached message in another folder (a copy in All Mail does not
   count) or in the audit trail.
 
-For a mailbox with the [spam filter](spam-filter.md) on, every announced message gets a queued `CheckSpamJob`.
+For a mailbox with the [spam filter](spam-filter.md) on, every announced message gets a queued `CheckSpamJob`. A
+message that comes back from the junk folder through "not spam" (`marked_not_junk`) and was never announced, because
+it went straight to the junk folder, is announced once when it lands in a watched folder, with a `received` entry. With
+the filter off this does not happen.
 
 Every new message in a watched folder whose `Message-ID` is not yet known gets a `received` audit entry, also on the
 first sync when no event fires. So a message found during the first sync is known, and moving it to another folder
