@@ -50,10 +50,11 @@ class SpamAllowlist
      */
     public function allowedSenders(Mailbox $mailbox, Collection $emails): Collection
     {
+        /** @var Collection<int, string> $senders */
         $senders = $emails
             ->filter()
             ->map(fn (string $email): string => MailboxSpamAllowlistEntry::normalizePattern($email))
-            ->filter()
+            ->reject(fn (string $email): bool => $email === '')
             ->unique()
             ->values();
 
