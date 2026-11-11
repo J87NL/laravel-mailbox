@@ -121,7 +121,7 @@ $connector = FakeConnector::install();
 $connector->remote($mailbox)->folder('INBOX')->setMessages([...]);
 ```
 
-The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
+The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `FakeSpamClassifier::install()` replaces the spam classifier and records which messages it was asked about. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
 
 ## Development
 

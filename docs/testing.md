@@ -135,6 +135,26 @@ $connector->supportsUidPlus = false;                    // purge flags \Deleted 
 
 `imapFailure` can also be set to any `Throwable` directly.
 
+## Spam classifier
+
+`FakeSpamClassifier` replaces your [spam classifier](spam-filter.md#writing-a-classifier) in tests:
+
+```php
+use J87NL\Mailbox\Spam\SpamVerdict;
+use J87NL\Mailbox\Testing\FakeSpamClassifier;
+
+$classifier = FakeSpamClassifier::install();                  // no verdict for any message
+$classifier = FakeSpamClassifier::install(new SpamVerdict(0.97, 'Phishing'));
+
+$classifier->score(0.85, 'Bulk mail');                        // every message
+$classifier->scoreSender('promo@example.org', 0.99);          // only this sender, case-insensitive
+$classifier->failure = new RuntimeException('Service down');  // classify() throws
+
+$classifier->classified;                                      // ids of the messages it was asked about
+```
+
+`install()` binds it as `ClassifiesSpam` in the container and returns it. A sender score wins over the general one.
+
 ## Queues and events
 
 The actions queue sync jobs and dispatch events. Fake them as usual:

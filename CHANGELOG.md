@@ -4,6 +4,7 @@
 
 - New spam filter hook, see `docs/spam-filter.md`. New column `mailboxes.spam_filter_mode` (`SpamFilterMode` enum: `off` (default), `measure`, `suggest`, `auto`) with `Mailbox::spamFilterMode()`, new columns `mailbox_messages.spam_score`, `spam_reason`, `spam_status` (`SpamStatus` enum: `suggested`, `moved`, `released`) and `spam_checked_at`, and new table `mailbox_spam_allowlist` (model `MailboxSpamAllowlistEntry`, `SpamAllowlistSource` enum: `manual`, `not_junk`, `default`; a `null` `mailbox_id` applies to every mailbox) with relation `Mailbox::spamAllowlist()`.
 - New contract `J87NL\Mailbox\Contracts\ClassifiesSpam` with `classify(MailboxMessage): SpamVerdict`, and the value object `J87NL\Mailbox\Spam\SpamVerdict` (`score` from 0 to 1 or `null` for no verdict, optional `reason`, `SpamVerdict::none()`). The default binding `NullSpamClassifier` gives no verdict, so the filter does nothing until the app binds its own. See `docs/extension-points.md#classifiesspam`.
+- Testing: new `FakeSpamClassifier` (`install()`, `score()`, `scoreSender()`, `failure`, `classified`). See `docs/testing.md#spam-classifier`.
 - **Migration:** publish the migrations again and migrate (`php artisan vendor:publish --tag=mailbox-migrations` and `php artisan migrate`) to add `add_spam_filter_to_mailbox_tables` and `create_mailbox_spam_allowlist_table`. See `docs/upgrading.md`.
 
 ## 0.12.1 - 2026-11-07

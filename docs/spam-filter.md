@@ -80,3 +80,8 @@ $this->app->bind(ClassifiesSpam::class, App\Mailbox\SpamClassifier::class);
   does nothing in any mode.
 - The text of a mail is written by its sender. When the classifier is an AI model, treat the mail as data and give the
   model no tools.
+
+## Testing
+
+`J87NL\Mailbox\Testing\FakeSpamClassifier` replaces your classifier in tests, see
+[Testing](testing.md#spam-classifier).
