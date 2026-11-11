@@ -22,17 +22,19 @@ class MoveMessages
 
     /**
      * @param  Collection<int, MailboxMessage>  $messages
+     * @param  array<string, mixed>  $meta
      */
     public function handle(
         Collection $messages,
         MailboxFolder $target,
         ?Authenticatable $user,
         AuditAction $action = AuditAction::Moved,
+        array $meta = [],
     ): int {
         $moved = $messages
             ->reject(fn (MailboxMessage $message): bool => $message->mailbox_folder_id === $target->id)
             ->groupBy('mailbox_folder_id')
-            ->sum(fn (Collection $group): int => $this->moveGroup($group, $target, $user, $action));
+            ->sum(fn (Collection $group): int => $this->moveGroup($group, $target, $user, $action, $meta));
 
         if ($moved > 0 && ! $target->skipsSync()) {
             SyncFolderJob::dispatch($target->id);
@@ -43,14 +45,15 @@ class MoveMessages
 
     /**
      * @param  Collection<int, MailboxMessage>  $group
+     * @param  array<string, mixed>  $meta
      */
-    private function moveGroup(Collection $group, MailboxFolder $target, ?Authenticatable $user, AuditAction $action): int
+    private function moveGroup(Collection $group, MailboxFolder $target, ?Authenticatable $user, AuditAction $action, array $meta): int
     {
         $query = $this->connector->folder($group->first()->folder)->messages();
         $query->uid($group->pluck('uid')->all());
         $query->move($target->path);
 
-        $this->audit->forMessages($group, $action, $user, $target->path);
+        $this->audit->forMessages($group, $action, $user, $target->path, $meta);
         $this->raw()->forget($group);
 
         MailboxMessage::query()

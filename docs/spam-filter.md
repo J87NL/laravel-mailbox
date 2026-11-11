@@ -22,6 +22,30 @@ Every mailbox has a `spam_filter_mode` (`J87NL\Mailbox\Enums\SpamFilterMode`), `
 
 Start with `measure` to see what the classifier would do, then move on to `suggest` and `auto`.
 
+## How a message is checked
+
+The package listens to [`MessageReceived`](events.md#messagereceived). For a mailbox whose mode is not `off` and a
+message without `spam_checked_at`, it queues a `J87NL\Mailbox\Jobs\CheckSpamJob` on `spam.queue`. The job runs
+`J87NL\Mailbox\Spam\CheckSpam`:
+
+1. A sender on the [allowlist](#the-allowlist) is not classified: `spam_checked_at` is set, nothing else.
+2. Otherwise your [classifier](#writing-a-classifier) is asked for a verdict.
+3. No verdict, or the classifier throws: the exception is reported, `spam_checked_at` is set and nothing else happens.
+   The job does not fail and is not retried, so a broken classifier never moves mail and never loops.
+4. With a score, `spam_score` and `spam_reason` are stored and the mode decides the rest:
+
+| Score                                   | `measure` | `suggest`   | `auto`                         |
+|-----------------------------------------|-----------|-------------|--------------------------------|
+| below `spam.suggest_threshold` (`0.80`) | `null`    | `null`      | `null`                         |
+| from `spam.suggest_threshold`           | `null`    | `suggested` | `suggested`                    |
+| from `spam.move_threshold` (`0.95`)     | `null`    | `suggested` | moved to the junk folder       |
+
+A move goes through `MarkJunk::junk()` without a user and writes the audit action `spam_moved` with the `score` and
+`reason` as meta. When the move throws, the error is reported and the message stays in the inbox as `suggested`.
+
+Mail the sync announces nothing for, such as mail in the junk folder, a first sync or `FetchOlderMessages`, is never
+checked. The job runs once per message: a message with `spam_checked_at` is skipped.
+
 ## Stored on the message
 
 | Column            | Notes                                                                                   |

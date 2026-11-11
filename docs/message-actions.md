@@ -16,13 +16,14 @@ use J87NL\Mailbox\Actions\MoveMessages;
 $moved = app(MoveMessages::class)->handle($messages, $targetFolder, $request->user());
 ```
 
-`handle(Collection $messages, MailboxFolder $target, ?Authenticatable $user, AuditAction $action = AuditAction::Moved): int`
+`handle(Collection $messages, MailboxFolder $target, ?Authenticatable $user, AuditAction $action = AuditAction::Moved, array $meta = []): int`
 
 - Messages already in the target folder are skipped.
 - One `UID MOVE` is sent per source folder.
 - The cached rows are deleted. A `SyncFolderJob` for the target folder is queued when anything moved, so the messages
   reappear there with their new UIDs. A target the sync [skips](sync.md#skipped-folders) gets no job.
 - Returns the number of moved messages.
+- `$meta` is stored on every audit entry, see [Audit trail](audit-trail.md).
 
 ## Archiving
 
@@ -62,7 +63,8 @@ app(MarkJunk::class)->notJunk($mailbox, $messages, $request->user()); // "Not sp
 
 `junk()` sets the IMAP keyword `$Junk` and removes `$NotJunk` in the source folder, then moves the messages to the
 folder with the `Junk` role. Without one, it uses the folder at `mailbox.folders.junk_fallback` (`Junk`) and creates it
-on the server when needed. The audit action is `marked_junk`.
+on the server when needed. The audit action is `marked_junk`; `junk()` takes an optional audit action and meta as its
+fourth and fifth argument, which the [spam filter](spam-filter.md) uses for `spam_moved`.
 
 `notJunk()` sets `$NotJunk`, removes `$Junk` and moves the messages to the inbox. The audit action is
 `marked_not_junk`.

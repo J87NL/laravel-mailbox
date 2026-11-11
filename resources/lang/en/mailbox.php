@@ -33,6 +33,7 @@ return [
     'audit_moved' => 'moved',
     'audit_received' => 'received',
     'audit_sent' => 'sent',
+    'audit_spam_moved' => 'moved to spam by the spam filter',
     'audit_trashed' => 'moved to trash',
     'audit_unflagged' => 'removed flag',
     'auth_plain' => 'Username and password',

@@ -76,6 +76,12 @@ return [
         'trash_fallback' => 'Trash',
     ],
 
+    'spam' => [
+        'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
+        'queue' => env('MAILBOX_SPAM_QUEUE'),
+        'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
+    ],
+
     'threading' => [
         'subject_days' => 90,
     ],

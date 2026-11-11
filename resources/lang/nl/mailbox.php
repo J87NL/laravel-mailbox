@@ -33,6 +33,7 @@ return [
     'audit_moved' => 'verplaatste',
     'audit_received' => 'ontvangen',
     'audit_sent' => 'verstuurde',
+    'audit_spam_moved' => 'door het spamfilter naar spam verplaatst',
     'audit_trashed' => 'verplaatste naar prullenbak',
     'audit_unflagged' => 'haalde markering weg',
     'auth_plain' => 'Gebruikersnaam en wachtwoord',

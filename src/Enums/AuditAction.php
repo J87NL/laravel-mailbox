@@ -22,6 +22,7 @@ enum AuditAction: string
     case Moved = 'moved';
     case Received = 'received';
     case Sent = 'sent';
+    case SpamMoved = 'spam_moved';
     case Trashed = 'trashed';
     case Unflagged = 'unflagged';
 }

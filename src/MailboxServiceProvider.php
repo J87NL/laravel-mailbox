@@ -6,6 +6,7 @@ namespace J87NL\Mailbox;
 
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use J87NL\Mailbox\Access\MailboxAccessResolver;
 use J87NL\Mailbox\Commands\AddMailboxCommand;
@@ -18,7 +19,9 @@ use J87NL\Mailbox\Contracts\ClassifiesSpam;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
 use J87NL\Mailbox\Enums\AccessLevel;
+use J87NL\Mailbox\Events\MessageReceived;
 use J87NL\Mailbox\Html\NoInlineImageUrls;
+use J87NL\Mailbox\Listeners\QueueSpamCheck;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Spam\NullSpamClassifier;
 use Spatie\LaravelPackageTools\Package;
@@ -64,6 +67,8 @@ class MailboxServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        Event::listen(MessageReceived::class, QueueSpamCheck::class);
+
         $this->app->booted(function (): void {
             self::defineAbilities();
         });

@@ -57,6 +57,9 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `cache.raw_hours` | `MAILBOX_RAW_CACHE_HOURS` | `24` | Hours a raw message stays cached; `null` or `0` fetches every time |
 | `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
 | `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |
+| `spam.suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80` | Spam filter score from which a message is suggested as spam |
+| `spam.move_threshold` | `MAILBOX_SPAM_MOVE_THRESHOLD` | `0.95` | Spam filter score from which a mailbox in `auto` mode moves the message to the junk folder |
+| `spam.queue` | `MAILBOX_SPAM_QUEUE` | default queue | Queue for `CheckSpamJob` |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
@@ -91,6 +94,10 @@ Each mailbox can have message templates (`mailbox_templates`): a name, an option
 ## Spam and Gmail archive
 
 `MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail, archiving moves the mail to All Mail, which removes the Inbox label; All Mail is synced within `sync.initial_days`, so archived mail stays visible. See `docs/message-actions.md`.
+
+## Spam filter
+
+Each mailbox has a `spam_filter_mode`: `off` (default), `measure`, `suggest` or `auto`. When it is not `off`, every message `MessageReceived` announces gets a queued `CheckSpamJob`: senders on the allowlist are skipped, the others go to the app's `ClassifiesSpam` binding (default: no verdict). The score and reason are stored on the message, `suggest` marks scores from `spam.suggest_threshold` as `suggested`, and `auto` moves scores from `spam.move_threshold` to the junk folder through `MarkJunk` (audit action `spam_moved`). Without a verdict or when the classifier throws, nothing moves. Nothing is ever deleted. See `docs/spam-filter.md`.
 
 ## Signature
 

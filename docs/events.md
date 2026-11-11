@@ -52,6 +52,10 @@ class CreateTicket
 
 The sync usually runs in a queued job, so the listener runs there too.
 
+The package listens to it itself: for a mailbox whose `spam_filter_mode` is not `off`, `QueueSpamCheck` queues a
+`CheckSpamJob` for the message, see [Spam filter](spam-filter.md). Your listener runs before that job, so a new message
+has no spam verdict yet.
+
 ## MessageSent
 
 `J87NL\Mailbox\Events\MessageSent` fires after `SendMessage` sent a message.

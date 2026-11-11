@@ -46,6 +46,7 @@ $history = MailboxAuditEntry::query()
 | `Archived`       | `archived`        | `ArchiveMessages`                  |                           |
 | `MarkedJunk`     | `marked_junk`     | `MarkJunk::junk()`                 |                           |
 | `MarkedNotJunk`  | `marked_not_junk` | `MarkJunk::notJunk()`              |                           |
+| `SpamMoved`      | `spam_moved`      | the [spam filter](spam-filter.md), in `auto` mode | `score`, `reason` of the classifier |
 | `Trashed`        | `trashed`         | `DeleteMessages`, outside Trash    |                           |
 | `Deleted`        | `deleted`         | `DeleteMessages`, in Trash         |                           |
 | `MarkedRead`     | `marked_read`     | `MarkMessages::read()`             |                           |

@@ -269,6 +269,8 @@ only announced when all of these hold:
 - the `Message-ID` is not yet known in the mailbox, as a cached message in another folder (a copy in All Mail does not
   count) or in the audit trail.
 
+For a mailbox with the [spam filter](spam-filter.md) on, every announced message gets a queued `CheckSpamJob`.
+
 Every new message in a watched folder whose `Message-ID` is not yet known gets a `received` audit entry, also on the
 first sync when no event fires. So a message found during the first sync is known, and moving it to another folder
 later does not announce it. A message without a `Message-ID` is never known: it is announced again when it shows up in
