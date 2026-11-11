@@ -212,17 +212,23 @@ it('clears the suggestion when a user marks a message junk', function (): void {
     expect($message->refresh()->spam_status)->toBeNull();
 });
 
-function syncedJunkFolder(Mailbox $mailbox): MailboxFolder
+function syncedJunkFolder(Mailbox $mailbox, ?string $authenticationResults = 'mx.example.com; dmarc=pass header.from=example.org', array $flags = []): MailboxFolder
 {
+    $email = email('Message 2');
+
+    if (! is_null($authenticationResults)) {
+        $email->getHeaders()->addTextHeader('Authentication-Results', $authenticationResults);
+    }
+
     $junk = $mailbox->folderWithRole(FolderRole::Junk);
     $junk->update(['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
     remoteFolder($mailbox, 'Spam')->status = ['UIDVALIDITY' => 1];
-    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(2)]);
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(2, $flags, $email)]);
 
     return $junk;
 }
 
-it('moves allowlisted mail out of the junk folder during the sync', function (): void {
+it('moves authenticated allowlisted mail out of the junk folder during the sync', function (): void {
     $mailbox = spamMailbox('measure');
     folder($mailbox);
     app(SpamAllowlist::class)->add($mailbox, 'Sender@example.org');
@@ -406,4 +412,20 @@ it('drops the moved status once a user moved the message on', function (AuditAct
     'dragged out by a user' => [AuditAction::Moved, true, SpamStatus::Released],
     'archived by a user' => [AuditAction::Archived, true, SpamStatus::Released],
     'moved by the system' => [AuditAction::Moved, false, null],
+]);
+
+it('keeps allowlisted mail in the junk folder without a passing authentication or with the junk keyword', function (?string $results, array $flags): void {
+    $mailbox = spamMailbox('auto');
+    folder($mailbox);
+    app(SpamAllowlist::class)->add($mailbox, 'sender@example.org');
+    $junk = syncedJunkFolder($mailbox, $results, $flags);
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(collect(remoteFolder($mailbox, 'Spam')->operations)->where('type', 'move')->all())->toBe([])
+        ->and(MailboxMessage::query()->where('mailbox_folder_id', $junk->id)->count())->toBe(1);
+})->with([
+    'forged from' => ['mx.example.com; spf=fail; dkim=pass header.d=evil.test; dmarc=fail header.from=example.org', []],
+    'no results' => [null, []],
+    'junked in another client' => ['mx.example.com; dmarc=pass header.from=example.org', ['$Junk']],
 ]);

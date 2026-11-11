@@ -83,19 +83,33 @@ messages are handled in batches of 500, so every query stays bounded. Messages w
 
 ### Mail in the junk folder
 
-New mail in the folder with the `Junk` role whose sender is on the [allowlist](#the-allowlist) is moved back to the
+New mail in the folder with the `Junk` role whose sender is on the [allowlist](#the-allowlist) can be moved back to the
 inbox with `MarkJunk::notJunk()` without a user. The server's own filter put it there; the allowlist says it is wanted.
-Only mail without any audit history other than `received` is moved: mail a user marked as spam or moved to the junk
-folder stays there, also when its sender is on the allowlist. When the move throws, the error is reported and the sync
-goes on.
+Because a `From` header is easy to forge, and phishing with a forged `From` is exactly what lands in the junk folder,
+every condition below has to hold:
+
+1. The mail has no audit history other than `received`: mail a user marked as spam or moved to the junk folder in the
+   app stays there.
+2. The mail does not carry the `$Junk` keyword: mail a user marked as spam in another client (Apple Mail, Thunderbird)
+   stays there. A server whose filter sets `$Junk` itself therefore never gets mail released.
+3. The sender is authenticated. For these few candidates the headers are fetched once more, and the first (topmost)
+   `Authentication-Results` header, the one the receiving server added, must hold `dmarc=pass` (with a `header.from`
+   equal to the `From` domain, when given) or `dkim=pass` with a `header.d` equal to the `From` domain or a parent
+   domain of it. SPF alone does not count. Without the header, or when it cannot be read, the mail stays.
+
+With `spam.trusted_authserv_ids` set, the header must also come from one of those servers (the first word of the
+header, for example `mx.example.com`). Set it when your mail server does not always add its own header on top: a
+sender can put a forged `Authentication-Results` header in a mail, and then it is the topmost one.
+
+When fetching or moving throws, the error is reported, the mail stays and the sync goes on.
 
 Limits to know:
 
-- The package only sees its own audit trail. Mail a user moved to the junk folder in another mail client (a phone,
-  Thunderbird) has no history here, so an allowlisted sender's mail moved that way comes back. Remove the sender from
-  the allowlist to stop that.
-- The allowlist trusts the `From` address, without SPF or DKIM checks. A forged `From` of an allowlisted address or
-  domain skips the classifier. Keep global domain entries for domains you trust.
+- The package only sees its own audit trail and the `$Junk` keyword. Mail a user moved to the junk folder in a client
+  that sets no keyword has no history here, so authenticated mail of an allowlisted sender moved that way comes back.
+  Remove the sender from the allowlist to stop that.
+- In the inbox the allowlist trusts the `From` address without these checks: a forged `From` of an allowlisted address
+  or domain skips the classifier there. Keep global domain entries for domains you trust.
 - Mail without a `Message-ID` is never restored or moved out of the junk folder.
 
 ## Stored on the message

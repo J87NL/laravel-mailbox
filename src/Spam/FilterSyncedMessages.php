@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Spam;
 
+use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use J87NL\Mailbox\Actions\MarkJunk;
 use J87NL\Mailbox\Actions\RecordAudit;
+use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Enums\SpamStatus;
@@ -42,8 +44,10 @@ class FilterSyncedMessages
 
     public function __construct(
         private readonly AnnounceReceivedMessages $announcer,
+        private readonly MailboxConnector $connector,
         private readonly MarkJunk $markJunk,
         private readonly RecordAudit $audit,
+        private readonly SenderAuthentication $authentication,
         private readonly SpamAllowlist $allowlist,
     ) {}
 
@@ -204,10 +208,46 @@ class FilterSyncedMessages
         }
 
         try {
-            $this->markJunk->notJunk($folder->mailbox, $released, null);
+            $authenticated = $this->authenticated($folder, $released);
+
+            if ($authenticated->isEmpty()) {
+                return;
+            }
+
+            $this->markJunk->notJunk($folder->mailbox, $authenticated, null);
         } catch (Throwable $exception) {
             report($exception);
         }
+    }
+
+    /**
+     * @param  Collection<int, MailboxMessage>  $candidates
+     * @return Collection<int, MailboxMessage>
+     */
+    private function authenticated(MailboxFolder $folder, Collection $candidates): Collection
+    {
+        $query = $this->connector->folder($folder)
+            ->messages()
+            ->leaveUnread()
+            ->withHeaders()
+            ->withFlags();
+
+        $query->uid($candidates->map(fn (MailboxMessage $message): int => (int) $message->uid)->values()->all());
+
+        $remote = collect($query->get()->all())
+            ->keyBy(fn (MessageInterface $message): int => $message->uid());
+
+        return $candidates
+            ->filter(function (MailboxMessage $message) use ($remote): bool {
+                $fetched = $remote->get((int) $message->uid);
+
+                if (is_null($fetched) || in_array(MarkJunk::JUNK_KEYWORD, $fetched->flags(), true)) {
+                    return false;
+                }
+
+                return $this->authentication->passes($message->from_email, $fetched->header('Authentication-Results')?->getRawValue());
+            })
+            ->values();
     }
 
     /**
