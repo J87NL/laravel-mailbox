@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use J87NL\Mailbox\Actions\MarkJunk;
 use J87NL\Mailbox\Actions\RecordAudit;
@@ -19,6 +20,7 @@ use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Models\MailboxSpamAllowlistEntry;
+use J87NL\Mailbox\Spam\FilterSyncedMessages;
 use J87NL\Mailbox\Spam\SpamAllowlist;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 use J87NL\Mailbox\Testing\FakeSpamClassifier;
@@ -374,3 +376,17 @@ it('learns nothing when the not junk move fails', function (): void {
     expect(fn () => app(MarkJunk::class)->notJunk($mailbox, collect([$message]), user()))->toThrow(RuntimeException::class)
         ->and(MailboxSpamAllowlistEntry::query()->count())->toBe(0);
 });
+
+it('handles the stored messages in batches and skips sent, drafts and trash', function (FolderRole $role, int $queries): void {
+    $mailbox = spamMailbox('auto');
+    $folder = folder($mailbox, 'Other', $role);
+    collect(range(1, 501))->each(fn (int $uid): MailboxMessage => storedMessage($folder, $uid));
+
+    DB::enableQueryLog();
+    app(FilterSyncedMessages::class)->handle($folder->load('mailbox'), range(1, 501));
+
+    expect(collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'mailbox_audit_entries'))->count())->toBe($queries);
+})->with([
+    'custom folder' => [FolderRole::Custom, 2],
+    'sent' => [FolderRole::Sent, 0],
+]);

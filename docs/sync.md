@@ -177,7 +177,8 @@ scheduled sync and a folder job never sync the same folder at once.
    one upsert and moves `last_uid` up. When the [time budget](#time-budget) is used up after a chunk, the folder sync
    stops here and steps 3 and 4 wait for the next run. For a mailbox with the [spam filter](spam-filter.md#after-the-sync)
    on, the messages this step stored in a folder that synced before are handed to `FilterSyncedMessages`, also when the
-   budget stopped the step: one query for their audit history and, in the junk folder, one for the allowlist.
+   budget stopped the step: per batch of 500 one query for their audit history and, in the junk folder, one for the
+   allowlist. `Sent`, `Drafts` and `Trash` are skipped.
 3. **Known messages** - refreshes the flags of the newest `sync.flag_window` cached messages and deletes cached rows
    that are gone from the server, for example because they were moved in another mail client.
 4. **Counts** - takes `UNSEEN` from the folder status, or counts the unread cached rows when the server does not

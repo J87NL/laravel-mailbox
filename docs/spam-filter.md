@@ -76,7 +76,8 @@ verdict on the old row is gone. For a mailbox whose mode is not `off`, the folde
   in, with a `received` audit entry;
 - **moves allowlisted mail out of the junk folder**, see below.
 
-Only folders that synced before are handled, like `MessageReceived`. Messages without a `Message-ID` are skipped.
+Only folders that synced before are handled, like `MessageReceived`, and never `Sent`, `Drafts` or `Trash`. The
+messages are handled in batches of 500, so every query stays bounded. Messages without a `Message-ID` are skipped.
 
 ### Mail in the junk folder
 

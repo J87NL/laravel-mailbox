@@ -27,6 +27,14 @@ class FilterSyncedMessages
         AuditAction::SpamMoved,
     ];
 
+    private const BATCH_SIZE = 500;
+
+    private const SKIPPED_ROLES = [
+        FolderRole::Drafts,
+        FolderRole::Sent,
+        FolderRole::Trash,
+    ];
+
     public function __construct(
         private readonly AnnounceReceivedMessages $announcer,
         private readonly MarkJunk $markJunk,
@@ -39,10 +47,20 @@ class FilterSyncedMessages
      */
     public function handle(MailboxFolder $folder, array $uids): void
     {
-        if ($uids === [] || ! $folder->mailbox->spamFilterMode()->isActive()) {
+        if ($uids === [] || in_array($folder->role, self::SKIPPED_ROLES, true) || ! $folder->mailbox->spamFilterMode()->isActive()) {
             return;
         }
 
+        foreach (array_chunk($uids, self::BATCH_SIZE) as $batch) {
+            $this->handleBatch($folder, $batch);
+        }
+    }
+
+    /**
+     * @param  array<int, int>  $uids
+     */
+    private function handleBatch(MailboxFolder $folder, array $uids): void
+    {
         $messages = $folder->messages()
             ->whereIn('uid', $uids)
             ->whereNotNull('message_id')
