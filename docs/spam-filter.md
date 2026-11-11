@@ -58,6 +58,10 @@ the inbox.
 A move goes through `MarkJunk::junk()` without a user and writes the audit action `spam_moved` with the `score` and
 `reason` as meta. When the move throws, the error is reported and the message stays in the inbox as `suggested`.
 
+The check runs after `MessageReceived`. Your own listeners on that event, for example one that creates a ticket from a
+mail, have already run when the filter moves a message, so a mail that ends up in the junk folder has had those side
+effects. Read `spam_status` later, or check the mail in your own queued job after the spam check, when that matters.
+
 Mail the sync announces nothing for, such as mail in the junk folder, a first sync or `FetchOlderMessages`, is never
 checked. The job runs once per message: a message with `spam_checked_at` is skipped.
 
@@ -77,6 +81,10 @@ verdict on the old row is gone. For a mailbox whose mode is not `off`, the folde
   because the server put it straight in the junk folder, fires `MessageReceived` once in the watched folder it lands
   in, with a `received` audit entry;
 - **moves allowlisted mail out of the junk folder**, see below.
+
+The history is keyed on the `Message-ID` within the mailbox, like the rest of the audit trail. A sender that reuses a
+`Message-ID` for a new mail gets the status of the earlier one, and a new mail with the `Message-ID` of a released
+message is not announced.
 
 Only folders that synced before are handled, like `MessageReceived`, and never `Sent`, `Drafts` or `Trash`. The
 messages are handled in batches of 500, so every query stays bounded. Messages without a `Message-ID` are skipped.

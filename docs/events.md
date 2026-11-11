@@ -57,7 +57,8 @@ The sync usually runs in a queued job, so the listener runs there too.
 
 The package listens to it itself: for a mailbox whose `spam_filter_mode` is not `off`, `QueueSpamCheck` queues a
 `CheckSpamJob` for the message, see [Spam filter](spam-filter.md). Your listener runs before that job, so a new message
-has no spam verdict yet.
+has no spam verdict yet, and a message the filter later moves to the junk folder has already been through your
+listener.
 
 ## MessageSent
 
