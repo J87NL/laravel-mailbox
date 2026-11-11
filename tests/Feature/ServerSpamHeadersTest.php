@@ -3,7 +3,11 @@
 declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
+use J87NL\Mailbox\Actions\MarkJunk;
+use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 
@@ -214,3 +218,40 @@ it('keeps the last occurrence, which the receiving server adds', function (strin
     'forged YES on top, server NO at the end' => ['YES', '9', 'NO', '0.4', false, false, 0.4],
     'server headers prepended, the last one wins' => ['YES', '9', 'NO', '0.4', true, true, 9.0],
 ]);
+
+it('keeps the verdict when a message moved to the junk folder is synced there', function (): void {
+    Bus::fake([SyncFolderJob::class]);
+    $mailbox = mailbox();
+    $inbox = folder($mailbox);
+    $junk = folder($mailbox, 'Spam', FolderRole::Junk);
+    $remoteInbox = remoteFolder($mailbox, 'INBOX');
+    $remoteJunk = remoteFolder($mailbox, 'Spam');
+    $original = $remoteInbox->addScoredMessage(1, email()->toString(), 'YES', '6.95');
+
+    app(SyncFolderMessages::class)->handle($inbox);
+
+    app(MarkJunk::class)->junk($mailbox, MailboxMessage::query()
+        ->with('folder')
+        ->get(), user());
+
+    $remoteJunk->addMessage(new FakeMessage(40, [], (string) $original));
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(MailboxMessage::query()
+        ->get()
+        ->map(fn (MailboxMessage $message): array => $message->only([
+            'mailbox_folder_id',
+            'uid',
+            'server_spam_flag',
+            'server_spam_score',
+        ]))
+        ->all())->toBe([
+            [
+                'mailbox_folder_id' => $junk->id,
+                'uid' => 40,
+                'server_spam_flag' => true,
+                'server_spam_score' => 6.95,
+            ],
+        ]);
+});
