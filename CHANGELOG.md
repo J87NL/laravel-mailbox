@@ -17,6 +17,7 @@
 - `MailboxForm` has a "Spam filter" select (`spam_filter_mode`, default `off`), validated with `sometimes` so a submit without it keeps the stored mode. New translations `spam_filter_mode`, `spam_filter_mode_help` and `spam_filter_mode_<mode>`, and `SpamFilterMode::label()`. See `docs/forms.md#mailboxform`.
 - `SpamAllowlist::add()` refuses an empty pattern or one that is only `@` with an `InvalidArgumentException`; a sender without `@` never matches a domain entry.
 - `MarkJunk`: when the move throws, the keywords are turned back before the exception is rethrown, and the spam feedback (allowlist, `released`, clearing `suggested`) only runs after a successful move.
+- A message the filter moved that a user later moves or archives, for example by dragging it out of the junk folder, gets `released` on its new row instead of keeping `moved`; a later move without a user clears the status.
 - `FilterSyncedMessages` works in batches of 500 messages and skips `Sent`, `Drafts` and `Trash`.
 - Testing: new `FakeSpamClassifier` (`install()`, `score()`, `scoreSender()`, `failure`, `classified`), and `RecordingFolder::$moveFailure` makes a move from that folder throw. See `docs/testing.md#spam-classifier`.
 - **Migration:** publish the migrations again and migrate (`php artisan vendor:publish --tag=mailbox-migrations` and `php artisan migrate`) to add `add_spam_filter_to_mailbox_tables` and `create_mailbox_spam_allowlist_table`. See `docs/upgrading.md`.

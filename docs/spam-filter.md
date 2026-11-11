@@ -67,9 +67,11 @@ A move gives a message a new row in the target folder (see [Data model](data-mod
 verdict on the old row is gone. For a mailbox whose mode is not `off`, the folder sync hands the messages it stored to
 `J87NL\Mailbox\Spam\FilterSyncedMessages`, which reads their audit history in one query and:
 
-- **restores the verdict**: after `spam_moved` the new row gets `spam_status` `moved` with the score and reason from
-  the audit meta; after `marked_not_junk` by a user it gets `released` (with the score and reason of an earlier
-  `spam_moved`); after any other `marked_junk` or `marked_not_junk` the status is empty. `spam_checked_at` is set, so the
+- **restores the verdict**: when the last of `spam_moved`, `marked_junk`, `marked_not_junk`, `moved` and `archived` is
+  `spam_moved`, the new row gets `spam_status` `moved` with the score and reason from the audit meta. A later
+  `marked_not_junk` by a user, or a later `moved` or `archived` by a user of mail the filter moved (dragged out of the
+  junk folder), gives `released` (with the score and reason of the `spam_moved`). Anything else after it, including a
+  move without a user, leaves the status empty. `spam_checked_at` is set, so the
   message is not classified again;
 - **announces returned mail**: a message whose last junk action is `marked_not_junk` and that was never announced,
   because the server put it straight in the junk folder, fires `MessageReceived` once in the watched folder it lands

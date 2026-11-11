@@ -29,6 +29,11 @@ class FilterSyncedMessages
 
     private const BATCH_SIZE = 500;
 
+    private const USER_MOVES = [
+        AuditAction::Archived,
+        AuditAction::Moved,
+    ];
+
     private const SKIPPED_ROLES = [
         FolderRole::Drafts,
         FolderRole::Sent,
@@ -107,11 +112,14 @@ class FilterSyncedMessages
     {
         $messages->each(function (MailboxMessage $message) use ($history): void {
             $entries = $history->get($message->message_id, collect());
-            $latest = $this->latestJunkEntry($entries);
 
-            if (is_null($latest)) {
+            if (is_null($this->latestJunkEntry($entries))) {
                 return;
             }
+
+            $latest = $entries
+                ->filter(fn (MailboxAuditEntry $entry): bool => in_array($entry->action, [...self::JUNK_ACTIONS, ...self::USER_MOVES], true))
+                ->last();
 
             $verdict = $entries
                 ->filter(fn (MailboxAuditEntry $entry): bool => $entry->action === AuditAction::SpamMoved)
@@ -121,18 +129,22 @@ class FilterSyncedMessages
                 'spam_checked_at' => now(),
                 'spam_reason' => $verdict?->meta['reason'] ?? null,
                 'spam_score' => $verdict?->meta['score'] ?? null,
-                'spam_status' => $this->restoredStatus($latest),
+                'spam_status' => $this->restoredStatus($latest, ! is_null($verdict)),
             ])->save();
         });
     }
 
-    private function restoredStatus(MailboxAuditEntry $latest): ?SpamStatus
+    private function restoredStatus(MailboxAuditEntry $latest, bool $movedByFilter): ?SpamStatus
     {
         if ($latest->action === AuditAction::SpamMoved) {
             return SpamStatus::Moved;
         }
 
-        if ($latest->action === AuditAction::MarkedNotJunk && ! is_null($latest->user_id)) {
+        if (is_null($latest->user_id)) {
+            return null;
+        }
+
+        if ($latest->action === AuditAction::MarkedNotJunk || ($movedByFilter && in_array($latest->action, self::USER_MOVES, true))) {
             return SpamStatus::Released;
         }
 

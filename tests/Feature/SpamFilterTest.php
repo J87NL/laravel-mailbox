@@ -390,3 +390,20 @@ it('handles the stored messages in batches and skips sent, drafts and trash', fu
     'custom folder' => [FolderRole::Custom, 2],
     'sent' => [FolderRole::Sent, 0],
 ]);
+
+it('drops the moved status once a user moved the message on', function (AuditAction $action, bool $byUser, ?SpamStatus $status): void {
+    $mailbox = spamMailbox('auto');
+    $folder = folder($mailbox, 'Projects', FolderRole::Custom, ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'Projects')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Projects')->setMessages([remoteMessage(2)]);
+    app(RecordAudit::class)->forMailbox($mailbox, AuditAction::SpamMoved, null, 'message-2@example.org', meta: ['score' => 0.97]);
+    app(RecordAudit::class)->forMailbox($mailbox, $action, $byUser ? user() : null, 'message-2@example.org');
+
+    app(SyncFolderMessages::class)->handle($folder);
+
+    expect(MailboxMessage::query()->where('mailbox_folder_id', $folder->id)->sole()->spam_status)->toBe($status);
+})->with([
+    'dragged out by a user' => [AuditAction::Moved, true, SpamStatus::Released],
+    'archived by a user' => [AuditAction::Archived, true, SpamStatus::Released],
+    'moved by the system' => [AuditAction::Moved, false, null],
+]);
