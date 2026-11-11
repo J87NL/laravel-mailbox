@@ -51,6 +51,10 @@ A threshold that is empty or outside `0` (exclusive) to `1` uses its default, an
 `suggest_threshold` makes both use their defaults, with a warning in the log. An empty env value therefore never moves
 every scored mail.
 
+A mailbox gets at most `spam.max_moves_per_hour` (default `20`) moves per hour, counted from its `spam_moved` audit
+entries. Above that a message is only `suggested` and a warning is logged, so a classifier that goes wrong cannot empty
+the inbox.
+
 A move goes through `MarkJunk::junk()` without a user and writes the audit action `spam_moved` with the `score` and
 `reason` as meta. When the move throws, the error is reported and the message stays in the inbox as `suggested`.
 

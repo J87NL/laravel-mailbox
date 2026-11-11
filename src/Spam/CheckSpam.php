@@ -12,11 +12,14 @@ use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\SpamFilterMode;
 use J87NL\Mailbox\Enums\SpamStatus;
 use J87NL\Mailbox\Models\Mailbox;
+use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxMessage;
 use Throwable;
 
 class CheckSpam
 {
+    public const DEFAULT_MAX_MOVES_PER_HOUR = 20;
+
     private const REASON_LENGTH = 255;
 
     public function __construct(
@@ -50,7 +53,7 @@ class CheckSpam
 
         $status = $this->status($mode, (float) $verdict->score, $this->isHandled($message));
 
-        if ($status === SpamStatus::Moved && $this->moveToJunk($mailbox, $message, $verdict)) {
+        if ($status === SpamStatus::Moved && $this->mayMove($mailbox) && $this->moveToJunk($mailbox, $message, $verdict)) {
             return;
         }
 
@@ -99,6 +102,32 @@ class CheckSpam
         }
 
         return null;
+    }
+
+    private function mayMove(Mailbox $mailbox): bool
+    {
+        $limit = config('mailbox.spam.max_moves_per_hour', self::DEFAULT_MAX_MOVES_PER_HOUR);
+
+        if (is_null($limit)) {
+            return true;
+        }
+
+        $moved = MailboxAuditEntry::query()
+            ->where('mailbox_id', $mailbox->id)
+            ->where('action', AuditAction::SpamMoved)
+            ->where('created_at', '>=', now()->subHour())
+            ->count();
+
+        if ($moved < (int) $limit) {
+            return true;
+        }
+
+        Log::warning('The spam filter reached its move limit for this mailbox, the message is only suggested as spam.', [
+            'limit' => (int) $limit,
+            'mailbox_id' => $mailbox->id,
+        ]);
+
+        return false;
     }
 
     private function moveToJunk(Mailbox $mailbox, MailboxMessage $message, SpamVerdict $verdict): bool

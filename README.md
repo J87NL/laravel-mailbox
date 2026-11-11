@@ -60,6 +60,7 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `spam.suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80` | Spam filter score from which a message is suggested as spam |
 | `spam.move_threshold` | `MAILBOX_SPAM_MOVE_THRESHOLD` | `0.95` | Spam filter score from which a mailbox in `auto` mode moves the message to the junk folder |
 | `spam.queue` | `MAILBOX_SPAM_QUEUE` | default queue | Queue for `CheckSpamJob` |
+| `spam.max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20` | Spam filter moves per mailbox per hour; above it messages are only suggested |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |

@@ -222,6 +222,7 @@ See [Synchronization](sync.md).
 
 ```php
 'spam' => [
+    'max_moves_per_hour' => env('MAILBOX_SPAM_MAX_MOVES_PER_HOUR', 20),
     'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
     'queue' => env('MAILBOX_SPAM_QUEUE'),
     'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
@@ -230,6 +231,7 @@ See [Synchronization](sync.md).
 
 | Key                 | Env                              | Default       | Description                                                            |
 |---------------------|----------------------------------|---------------|------------------------------------------------------------------------|
+| `max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20`         | At most this many `auto` moves per mailbox per hour; above it a message is only `suggested`. `null` has no limit, `0` never moves |
 | `move_threshold`    | `MAILBOX_SPAM_MOVE_THRESHOLD`    | `0.95`        | From this score on, a mailbox in `auto` mode moves the message to the junk folder |
 | `queue`             | `MAILBOX_SPAM_QUEUE`             | default queue | Queue for `CheckSpamJob`                                               |
 | `suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80`        | From this score on, a mailbox in `suggest` or `auto` mode sets `spam_status` to `suggested` |
@@ -299,6 +301,7 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_CONNECTION_READ_TIMEOUT` | `connection.read_timeout` | `15`        |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |
+| `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `spam.max_moves_per_hour` | `20`         |
 | `MAILBOX_SPAM_MOVE_THRESHOLD` | `spam.move_threshold`  | `0.95`              |
 | `MAILBOX_SPAM_QUEUE`         | `spam.queue`            | default queue       |
 | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `spam.suggest_threshold` | `0.80`         |

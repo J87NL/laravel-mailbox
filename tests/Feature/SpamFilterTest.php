@@ -349,3 +349,16 @@ it('queues one spam check per message while one is waiting', function (): void {
 
     Bus::assertDispatchedTimes(CheckSpamJob::class, 1);
 });
+
+it('only suggests clear spam once the mailbox reached its moves for the hour', function (): void {
+    config()->set('mailbox.spam.max_moves_per_hour', 2);
+    FakeSpamClassifier::install()->score(0.99);
+    $mailbox = spamMailbox('auto');
+    app(RecordAudit::class)->forMailbox($mailbox, AuditAction::SpamMoved, null, 'old@example.org');
+    app(RecordAudit::class)->forMailbox($mailbox, AuditAction::SpamMoved, null, 'older@example.org');
+
+    $checked = checkSpam(receivedMessage($mailbox));
+
+    expect($checked->spam_status)->toBe(SpamStatus::Suggested)
+        ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([]);
+});
