@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use J87NL\Mailbox\Spam\SenderAuthentication;
 
+beforeEach(function (): void {
+    config()->set('mailbox.spam.trusted_authserv_ids', ['mx.example.com']);
+});
+
 it('trusts a sender only with a passing dmarc or an aligned dkim signature', function (?string $results, bool $passes): void {
     expect(app(SenderAuthentication::class)->passes('Boss@Mail.Example.org', $results))->toBe($passes);
 })->with([
@@ -24,10 +28,18 @@ it('trusts a sender only with a passing dmarc or an aligned dkim signature', fun
     'pass only inside a nested comment' => ['mx.example.com; dkim=fail (x (dmarc=pass) y) header.d=example.org', false],
 ]);
 
-it('only reads results from a trusted server when those are configured', function (): void {
-    config()->set('mailbox.spam.trusted_authserv_ids', ['mx.example.com']);
+it('only reads results from a trusted server', function (): void {
     $authentication = app(SenderAuthentication::class);
 
     expect($authentication->passes('boss@example.org', 'mx.example.com 1; dmarc=pass'))->toBeTrue()
         ->and($authentication->passes('boss@example.org', 'forged.test; dmarc=pass'))->toBeFalse();
 });
+
+it('trusts no result without trusted servers', function (array $trusted): void {
+    config()->set('mailbox.spam.trusted_authserv_ids', $trusted);
+
+    expect(app(SenderAuthentication::class)->passes('boss@example.org', 'mx.example.com; dmarc=pass header.from=example.org'))->toBeFalse();
+})->with([
+    'empty' => [[]],
+    'blank' => [['  ']],
+]);

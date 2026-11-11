@@ -67,10 +67,10 @@ class SenderAuthentication
 
     private function trustedServer(?string $authservId): bool
     {
-        $trusted = array_map(fn (string $id): string => Str::lower(trim($id)), (array) config('mailbox.spam.trusted_authserv_ids', []));
+        $trusted = array_filter(array_map(fn (mixed $id): string => Str::lower(trim((string) $id)), (array) config('mailbox.spam.trusted_authserv_ids', [])));
 
         if ($trusted === []) {
-            return true;
+            return false;
         }
 
         $id = Str::lower((string) Str::of((string) $authservId)->trim()->explode(' ')->first());

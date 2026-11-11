@@ -236,7 +236,7 @@ See [Synchronization](sync.md).
 | `move_threshold`    | `MAILBOX_SPAM_MOVE_THRESHOLD`    | `0.95`        | From this score on, a mailbox in `auto` mode moves the message to the junk folder |
 | `queue`             | `MAILBOX_SPAM_QUEUE`             | default queue | Queue for `CheckSpamJob`                                               |
 | `suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80`        | From this score on, a mailbox in `suggest` or `auto` mode sets `spam_status` to `suggested` |
-| `trusted_authserv_ids` |                               | `[]`          | When set, mail is only released from the junk folder on an `Authentication-Results` header of one of these servers, see [Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder) |
+| `trusted_authserv_ids` |                               | `[]`          | The authserv-ids of your own mail server; mail is only released from the junk folder on an `Authentication-Results` header of one of these. Empty releases nothing, see [Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder) |
 
 A published config without `spam` uses the defaults. A threshold that is missing, empty (an empty env value casts to `0`)
 or outside `0` (exclusive) to `1` falls back to its default, and when `move_threshold` is below `suggest_threshold` both

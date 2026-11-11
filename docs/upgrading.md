@@ -15,6 +15,9 @@ php artisan migrate
 
 With every mailbox on `off`, nothing changes until you pick a mode.
 
+Allowlisted mail is only moved out of the junk folder once `spam.trusted_authserv_ids` names your own mail server, see
+[Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder).
+
 `MarkJunk` and `SyncFolderMessages` take a new constructor argument (`SpamFeedback` and `FilterSyncedMessages`). Code
 that resolves them from the container needs no change; a test that builds them by hand passes the new argument.
 

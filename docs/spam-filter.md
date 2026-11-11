@@ -105,12 +105,16 @@ every condition below has to hold:
    equal to the `From` domain, when given) or `dkim=pass` with a `header.d` equal to the `From` domain or a parent
    domain of it. SPF alone does not count. Without the header, or when it cannot be read, the mail stays.
 
-With `spam.trusted_authserv_ids` set, the header must also come from one of those servers (the first word of the
-header, for example `mx.example.com`).
+The header must also come from a server in `spam.trusted_authserv_ids`: its first word (the authserv-id, for example
+`mx.example.com`) has to be in that list. With the default `[]` nothing is ever moved out of the junk folder. Set it to
+the name your own mail server writes in that header, and only when that server adds the header to every incoming
+mail: otherwise a sender's forged header is the topmost one.
 
-> **Warning:** with the default `[]` every server name is accepted. When your mail server does not add its own
-> `Authentication-Results` header to every incoming mail, a sender's forged header is the topmost one and can release
-> its mail from the junk folder. Set `spam.trusted_authserv_ids` to the name your server writes in that header.
+```php
+'spam' => [
+    'trusted_authserv_ids' => ['mx.example.com'],
+],
+```
 
 Comments in parentheses and quoted values (such as `reason="..."`) are ignored, the first `header.d` or `header.from`
 of a result counts, and a `header.d` without a dot (a bare suffix such as `org`) never passes.

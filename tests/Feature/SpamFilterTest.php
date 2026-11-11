@@ -51,6 +51,7 @@ function checkSpam(MailboxMessage $message): ?MailboxMessage
 
 beforeEach(function (): void {
     Bus::fake([SyncFolderJob::class]);
+    config()->set('mailbox.spam.trusted_authserv_ids', ['mx.example.com']);
 });
 
 it('queues no spam check and leaves the message alone when the filter is off', function (): void {
@@ -444,4 +445,17 @@ it('reads only the topmost authentication results header', function (): void {
     app(SyncFolderMessages::class)->handle($junk);
 
     expect(collect(remoteFolder($mailbox, 'Spam')->operations)->where('type', 'move')->all())->toBe([]);
+});
+
+it('keeps allowlisted mail in the junk folder when no trusted server is configured', function (): void {
+    config()->set('mailbox.spam.trusted_authserv_ids', []);
+    $mailbox = spamMailbox('auto');
+    folder($mailbox);
+    app(SpamAllowlist::class)->add($mailbox, 'sender@example.org');
+    $junk = syncedJunkFolder($mailbox);
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(collect(remoteFolder($mailbox, 'Spam')->operations)->where('type', 'move')->all())->toBe([])
+        ->and(MailboxMessage::query()->where('mailbox_folder_id', $junk->id)->count())->toBe(1);
 });
