@@ -362,3 +362,15 @@ it('only suggests clear spam once the mailbox reached its moves for the hour', f
     expect($checked->spam_status)->toBe(SpamStatus::Suggested)
         ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([]);
 });
+
+it('learns nothing when the not junk move fails', function (): void {
+    $mailbox = spamMailbox('suggest');
+    folder($mailbox);
+    $junk = $mailbox->folderWithRole(FolderRole::Junk);
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(5)]);
+    remoteFolder($mailbox, 'Spam')->moveFailure = new RuntimeException('NO');
+    $message = storedMessage($junk, 5, ['from_email' => 'friend@example.org'])->load('folder.mailbox');
+
+    expect(fn () => app(MarkJunk::class)->notJunk($mailbox, collect([$message]), user()))->toThrow(RuntimeException::class)
+        ->and(MailboxSpamAllowlistEntry::query()->count())->toBe(0);
+});

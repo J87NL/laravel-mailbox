@@ -15,6 +15,7 @@ use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Spam\SpamFeedback;
+use Throwable;
 
 class MarkJunk
 {
@@ -42,9 +43,11 @@ class MarkJunk
     ): int {
         $junk = $this->ensureFolder->handle($mailbox, FolderRole::Junk, (string) config('mailbox.folders.junk_fallback', 'Junk'));
 
+        $moved = $this->moveWithKeyword($messages, $junk, self::JUNK_KEYWORD, self::NOT_JUNK_KEYWORD, $user, $action, $meta);
+
         $this->feedback->markedJunk($mailbox, $messages, $user);
 
-        return $this->moveWithKeyword($messages, $junk, self::JUNK_KEYWORD, self::NOT_JUNK_KEYWORD, $user, $action, $meta);
+        return $moved;
     }
 
     /**
@@ -54,9 +57,11 @@ class MarkJunk
     {
         $inbox = $this->ensureFolder->handle($mailbox, FolderRole::Inbox, 'INBOX');
 
+        $moved = $this->moveWithKeyword($messages, $inbox, self::NOT_JUNK_KEYWORD, self::JUNK_KEYWORD, $user, AuditAction::MarkedNotJunk);
+
         $this->feedback->markedNotJunk($mailbox, $messages, $user);
 
-        return $this->moveWithKeyword($messages, $inbox, self::NOT_JUNK_KEYWORD, self::JUNK_KEYWORD, $user, AuditAction::MarkedNotJunk);
+        return $moved;
     }
 
     /**
@@ -72,14 +77,22 @@ class MarkJunk
         AuditAction $action,
         array $meta = [],
     ): int {
-        $messages
+        $groups = $messages
             ->reject(fn (MailboxMessage $message): bool => $message->mailbox_folder_id === $target->id)
             ->groupBy('mailbox_folder_id')
             ->each(function (Collection $group) use ($add, $remove): void {
                 $this->keywords($group, $add, $remove);
             });
 
-        return $this->moveMessages->handle($messages, $target, $user, $action, $meta);
+        try {
+            return $this->moveMessages->handle($messages, $target, $user, $action, $meta);
+        } catch (Throwable $exception) {
+            $groups->each(function (Collection $group) use ($add, $remove): void {
+                rescue(fn () => $this->keywords($group, $remove, $add));
+            });
+
+            throw $exception;
+        }
     }
 
     /**

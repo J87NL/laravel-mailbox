@@ -115,7 +115,8 @@ and only when a user is passed:
 - `junk()` clears a `suggested` status. The sender stays on the allowlist when it was there; remove it with
   `SpamAllowlist::remove()` when that is what your UI offers.
 
-Calls without a user, such as the filter's own moves, teach nothing.
+This happens after the move succeeded: when the move throws, nothing is learned. Calls without a user, such as the
+filter's own moves, teach nothing.
 
 ## The allowlist
 

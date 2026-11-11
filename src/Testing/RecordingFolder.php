@@ -8,6 +8,7 @@ use DirectoryTree\ImapEngine\MessageQueryInterface;
 use DirectoryTree\ImapEngine\Testing\FakeFolder;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
 use Illuminate\Support\Carbon;
+use Throwable;
 
 class RecordingFolder extends FakeFolder
 {
@@ -39,6 +40,8 @@ class RecordingFolder extends FakeFolder
     public int $secondsPerSearch = 0;
 
     public int $secondsPerStatus = 0;
+
+    public ?Throwable $moveFailure = null;
 
     public function advanceClock(int $seconds): void
     {

@@ -111,6 +111,12 @@ The connector records more:
 
 `$connector->remote($mailbox)->setCapabilities(['X-GM-EXT-1'])` makes the fake mailbox announce capabilities.
 
+A move from a folder can be made to fail:
+
+```php
+$remote->folder('INBOX')->moveFailure = new RuntimeException('NO');
+```
+
 ## Sent mail
 
 ```php
