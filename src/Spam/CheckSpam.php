@@ -52,7 +52,7 @@ class CheckSpam
             return;
         }
 
-        $status = $this->status($mode, (float) $verdict->score);
+        $status = $this->status($mode, (float) $verdict->score, $this->isHandled($message));
 
         if ($status === SpamStatus::Moved && $this->moveToJunk($mailbox, $message, $verdict)) {
             return;
@@ -81,13 +81,18 @@ class CheckSpam
         return $verdict;
     }
 
-    private function status(SpamFilterMode $mode, float $score): ?SpamStatus
+    private function isHandled(MailboxMessage $message): bool
+    {
+        return $message->is_seen || $message->is_flagged || $message->is_answered;
+    }
+
+    private function status(SpamFilterMode $mode, float $score, bool $handled): ?SpamStatus
     {
         if ($mode === SpamFilterMode::Measure) {
             return null;
         }
 
-        if ($mode === SpamFilterMode::Auto && $score >= $this->threshold('move_threshold', self::DEFAULT_MOVE_THRESHOLD)) {
+        if ($mode === SpamFilterMode::Auto && ! $handled && $score >= $this->threshold('move_threshold', self::DEFAULT_MOVE_THRESHOLD)) {
             return SpamStatus::Moved;
         }
 

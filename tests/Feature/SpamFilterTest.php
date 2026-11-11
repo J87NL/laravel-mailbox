@@ -299,6 +299,22 @@ it('announces mail that comes back from the junk folder once, and keeps a releas
     'released by a user' => [1, SpamStatus::Released],
 ]);
 
+it('only suggests clear spam in auto mode once a user has read, flagged or answered it', function (string $flag): void {
+    FakeSpamClassifier::install()->score(0.99);
+    $mailbox = spamMailbox('auto');
+    $message = receivedMessage($mailbox);
+    $message->update([$flag => true]);
+
+    $checked = checkSpam($message);
+
+    expect($checked->spam_status)->toBe(SpamStatus::Suggested)
+        ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([]);
+})->with([
+    'is_seen',
+    'is_flagged',
+    'is_answered',
+]);
+
 it('cuts a long reason to the column length', function (): void {
     FakeSpamClassifier::install()->score(0.5, str_repeat('a', 400));
 
