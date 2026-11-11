@@ -25,7 +25,9 @@ Sections and fields:
 
 - **General**: `name`, `email`, `from_name`, `authentication` (`plain` or `oauth`), `active`, `append_sent`,
   `conversation_view` (off by default, see [Conversations](sync.md#conversations)), `confirm_delete` (off by default:
-  "Confirm before deleting", for a UI that asks before deleting messages), `signature` (the compose editor).
+  "Confirm before deleting", for a UI that asks before deleting messages), `spam_filter_mode` (`off` by default, then
+  `measure`, `suggest` or `auto`, see [Spam filter](spam-filter.md#modes); optional on submit, a missing value keeps the
+  stored mode), `signature` (the compose editor).
 - **IMAP**: `imap_host`, `imap_port` (993), `imap_username`, `imap_password`, `imap_encryption` (`ssl` or `starttls`).
 - **SMTP**: `smtp_host`, `smtp_port` (587), `smtp_username`, `smtp_password`.
 

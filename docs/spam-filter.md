@@ -22,6 +22,9 @@ Every mailbox has a `spam_filter_mode` (`J87NL\Mailbox\Enums\SpamFilterMode`), `
 
 Start with `measure` to see what the classifier would do, then move on to `suggest` and `auto`.
 
+Set it in the "Spam filter" select of [`MailboxForm`](forms.md#mailboxform), through `SaveMailbox`, or on the model.
+`SpamFilterMode::label()` gives the translated label (`mailbox::mailbox.spam_filter_mode_<value>`).
+
 ## How a message is checked
 
 The package listens to [`MessageReceived`](events.md#messagereceived). For a mailbox whose mode is not `off` and a

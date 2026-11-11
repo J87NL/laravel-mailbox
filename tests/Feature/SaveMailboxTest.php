@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Validation\ValidationException;
 use J87NL\Mailbox\Actions\SaveMailbox;
 use J87NL\Mailbox\Contracts\ProvidesAccessToken;
+use J87NL\Mailbox\Enums\SpamFilterMode;
 use J87NL\Mailbox\Forms\MailboxForm;
 use J87NL\Mailbox\Jobs\SyncMailboxJob;
 use J87NL\Mailbox\Models\Mailbox;
@@ -266,4 +267,20 @@ it('does not ask for a delete confirmation unless the mailbox is set to', functi
     app(SaveMailbox::class)->handle($mailbox, mailboxData(['confirm_delete' => true]), null);
 
     expect($mailbox->refresh()->confirm_delete)->toBeTrue();
+});
+
+it('sets the spam filter mode through the mailbox form and refuses unknown modes', function (): void {
+    $mailbox = mailbox();
+    $form = new MailboxForm('', $mailbox);
+
+    app(SaveMailbox::class)->handle($mailbox, $form->validate(Request::create('/', 'PUT', [
+        ...mailboxData(),
+        'spam_filter_mode' => 'suggest',
+    ])), user(), test: false);
+
+    expect($mailbox->refresh()->spam_filter_mode)->toBe(SpamFilterMode::Suggest)
+        ->and(fn () => $form->validate(Request::create('/', 'PUT', [
+            ...mailboxData(),
+            'spam_filter_mode' => 'delete',
+        ])))->toThrow(ValidationException::class);
 });
