@@ -30,6 +30,11 @@ class MailboxSpamAllowlistEntry extends Model
         ];
     }
 
+    public static function normalizePattern(string $pattern): string
+    {
+        return ltrim(Str::lower(trim($pattern)), '@');
+    }
+
     /**
      * @return BelongsTo<Mailbox, $this>
      */
@@ -44,7 +49,7 @@ class MailboxSpamAllowlistEntry extends Model
     protected function pattern(): Attribute
     {
         return Attribute::make(
-            set: fn (string $value): string => ltrim(Str::lower(trim($value)), '@'),
+            set: fn (string $value): string => self::normalizePattern($value),
         );
     }
 }

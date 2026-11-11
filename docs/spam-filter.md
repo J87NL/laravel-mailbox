@@ -31,6 +31,37 @@ Start with `measure` to see what the classifier would do, then move on to `sugge
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
 | `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
 
+## The allowlist
+
+Senders on the allowlist are never classified, and their mail is moved out of the junk folder (see
+[Mail in the junk folder](#mail-in-the-junk-folder)). An entry is a lowercased email address or a domain, for one
+mailbox or, with a `null` `mailbox_id`, for every mailbox. A domain matches only that domain, not its subdomains.
+
+`J87NL\Mailbox\Spam\SpamAllowlist` manages it:
+
+```php
+use J87NL\Mailbox\Enums\SpamAllowlistSource;
+use J87NL\Mailbox\Spam\SpamAllowlist;
+
+$allowlist = app(SpamAllowlist::class);
+
+$allowlist->add($mailbox, 'boss@example.org');                          // source manual
+$allowlist->add(null, 'example.org', SpamAllowlistSource::Default);     // every mailbox, the whole domain
+$allowlist->remove($mailbox, 'boss@example.org');                       // true when an entry was removed
+
+$allowlist->matches($mailbox, 'Boss@Example.org');                      // true
+$allowlist->allowedSenders($mailbox, collect(['a@example.org', 'b@spam.example'])); // the allowed ones, one query
+```
+
+Patterns are trimmed, lowercased and lose a leading `@`, so `@Example.org` and `example.org` are the same entry.
+`add()` keeps an existing entry and its source. The `source` tells where an entry came from:
+
+| Source     | Added by                                                                                   |
+|------------|--------------------------------------------------------------------------------------------|
+| `manual`   | your app, the default of `add()`                                                           |
+| `not_junk` | the package, when a user marks a message as not spam (see [Not spam](#not-spam))           |
+| `default`  | your app, for entries it ships itself, for example a seeder with partner domains           |
+
 ## Writing a classifier
 
 Bind your own `J87NL\Mailbox\Contracts\ClassifiesSpam` in a service provider. It gets the cached message row; the
