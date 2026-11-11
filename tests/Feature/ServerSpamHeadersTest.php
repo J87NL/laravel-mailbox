@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
+use Illuminate\Support\Facades\Log;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 
@@ -181,3 +182,35 @@ it('reads the verdict from the peeked headers without an extra fetch', function 
                 'server_spam_score' => 6.95,
             ]);
 });
+
+it('keeps the last occurrence, which the receiving server adds', function (string $forgedFlag, string $forgedScore, string $serverFlag, string $serverScore, bool $prepend, bool $flag, float $score): void {
+    Log::spy();
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    $email = email();
+    $email->getHeaders()->addTextHeader('X-Spam-Flag', $forgedFlag);
+    $email->getHeaders()->addTextHeader('X-Spam-Score', $forgedScore);
+    remoteFolder($mailbox, 'INBOX')->addScoredMessage(1, $email->toString(), $serverFlag, $serverScore, prepend: $prepend);
+
+    app(SyncFolderMessages::class)->handle($folder);
+
+    expect(MailboxMessage::query()
+        ->sole()
+        ->only([
+            'server_spam_flag',
+            'server_spam_score',
+        ]))->toBe([
+            'server_spam_flag' => $flag,
+            'server_spam_score' => $score,
+        ]);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $context['count'] === 2
+            && in_array($context['header'], ['X-Spam-Flag', 'X-Spam-Score'], true)
+            && array_key_exists('message_id', $context))
+        ->twice();
+})->with([
+    'forged NO on top, server YES at the end' => ['NO', '-5', 'YES', '7.5', false, true, 7.5],
+    'forged YES on top, server NO at the end' => ['YES', '9', 'NO', '0.4', false, false, 0.4],
+    'server headers prepended, the last one wins' => ['YES', '9', 'NO', '0.4', true, true, 9.0],
+]);

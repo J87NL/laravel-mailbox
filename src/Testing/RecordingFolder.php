@@ -83,7 +83,7 @@ class RecordingFolder extends FakeFolder
     /**
      * @param  array<int, string>  $flags
      */
-    public function addScoredMessage(int $uid, string $message, ?string $spamFlag, ?string $spamScore = null, array $flags = []): FakeMessage
+    public function addScoredMessage(int $uid, string $message, ?string $spamFlag, ?string $spamScore = null, array $flags = [], bool $prepend = false): FakeMessage
     {
         $headers = collect([
             'flag' => $spamFlag,
@@ -93,7 +93,7 @@ class RecordingFolder extends FakeFolder
             ->map(fn (string $value, string $key): string => sprintf("%s: %s\r\n", $this->serverSpamHeader($key), $value))
             ->implode('');
 
-        $fake = new FakeMessage($uid, $flags, $headers.$message);
+        $fake = new FakeMessage($uid, $flags, $prepend ? $headers.$message : $this->appendHeaders($message, $headers));
 
         $this->addMessage($fake);
 
@@ -109,6 +109,17 @@ class RecordingFolder extends FakeFolder
         }
 
         return null;
+    }
+
+    private function appendHeaders(string $message, string $headers): string
+    {
+        $end = strpos($message, "\r\n\r\n");
+
+        if ($end === false) {
+            return $headers.$message;
+        }
+
+        return substr($message, 0, $end + 2).$headers.substr($message, $end + 2);
     }
 
     private function serverSpamHeader(string $key): string

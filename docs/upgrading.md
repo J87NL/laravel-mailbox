@@ -13,7 +13,8 @@ php artisan migrate
 ```
 
 From then on the sync stores the mail server's `X-Spam-Flag` and `X-Spam-Score` on every new message, see
-[The mail server's verdict](spam-filter.md#the-mail-servers-verdict). Messages synced before keep `null`. Nothing else
+[The mail server's verdict](spam-filter.md#the-mail-servers-verdict). Messages synced before 0.14.0 keep `null`: the sync does not fetch them again, and
+a message it stores again keeps the verdict it got first. Nothing else
 changes: the spam filter only uses it when your classifier does. A host with other header names sets
 `MAILBOX_SPAM_FLAG_HEADER` and `MAILBOX_SPAM_SCORE_HEADER`.
 

@@ -69,11 +69,13 @@ classifier does with [the mail server's verdict](spam-filter.md#the-mail-servers
 ```php
 $remote->folder('INBOX')->addScoredMessage(1, $email->toString(), 'YES', '6.95');
 $remote->folder('INBOX')->addScoredMessage(2, $email->toString(), 'NO', flags: [ImapFlag::Seen->value]);
+$remote->folder('INBOX')->addScoredMessage(3, $email->toString(), 'YES', prepend: true);
 ```
 
-It takes the UID, the raw message, the flag value, an optional score and optional IMAP flags, puts the headers named in
-`spam.server_headers` (`X-Spam-Flag` and `X-Spam-Score` when not set) on top, adds the message to the folder and
-returns the `FakeMessage`. A `null` flag or score leaves that header out. After a sync the values are on
+It takes the UID, the raw message, the flag value, an optional score, optional IMAP flags and `prepend`, adds the
+headers named in `spam.server_headers` (`X-Spam-Flag` and `X-Spam-Score` when not set) at the end of the header block,
+as a receiving server does, adds the message to the folder and returns the `FakeMessage`. With `prepend: true` the
+headers go on top instead, for example to test a sender's forged header that comes after them. A `null` flag or score leaves that header out. After a sync the values are on
 `server_spam_flag` and `server_spam_score`.
 
 Then run the code under test, for example the sync:

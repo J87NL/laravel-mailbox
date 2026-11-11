@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Spam;
 
 use DirectoryTree\ImapEngine\MessageInterface;
+use Illuminate\Support\Facades\Log;
 
 final class ServerSpamHeaders
 {
@@ -51,13 +52,35 @@ final class ServerSpamHeaders
             return null;
         }
 
-        $value = $message->header($name)?->getValue();
+        $values = $this->occurrences($message, $name);
 
-        if (! is_string($value)) {
+        if ($values === []) {
             return null;
         }
 
-        return trim($value);
+        if (count(array_unique($values)) > 1) {
+            Log::info('A message carries conflicting spam headers, the mailbox keeps the last one.', [
+                'count' => count($values),
+                'header' => $name,
+                'message_id' => $message->messageId(),
+            ]);
+        }
+
+        return $values[array_key_last($values)];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function occurrences(MessageInterface $message, string $name): array
+    {
+        $values = [];
+
+        for ($offset = 0; ! is_null($header = $message->header($name, $offset)); $offset++) {
+            $values[] = trim((string) $header->getValue());
+        }
+
+        return $values;
     }
 
     private function flag(?string $value): ?bool
