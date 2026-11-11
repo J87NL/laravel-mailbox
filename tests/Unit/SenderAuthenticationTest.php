@@ -19,6 +19,9 @@ it('trusts a sender only with a passing dmarc or an aligned dkim signature', fun
     'empty' => ['', false],
     'missing' => [null, false],
     'garbage' => ['nonsense', false],
+    'dkim pass on a bare suffix' => ['mx.example.com; dkim=pass header.d=org', false],
+    'signer only inside a quoted reason' => ['mx.example.com; dkim=pass reason="header.d=example.org" header.d=evil.test', false],
+    'pass only inside a nested comment' => ['mx.example.com; dkim=fail (x (dmarc=pass) y) header.d=example.org', false],
 ]);
 
 it('only reads results from a trusted server when those are configured', function (): void {

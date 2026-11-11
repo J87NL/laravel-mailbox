@@ -45,7 +45,11 @@ class SenderAuthentication
 
         $signer = $properties['header.d'] ?? '';
 
-        return $signer !== '' && ($signer === $domain || str_ends_with($domain, sprintf('.%s', $signer)));
+        if (! str_contains($signer, '.')) {
+            return false;
+        }
+
+        return $signer === $domain || str_ends_with($domain, sprintf('.%s', $signer));
     }
 
     /**
@@ -56,6 +60,7 @@ class SenderAuthentication
         preg_match_all('/([a-z]+\.[a-z0-9_-]+)\s*=\s*"?([^\s";]+)"?/i', $result, $matches, PREG_SET_ORDER);
 
         return collect($matches)
+            ->reverse()
             ->mapWithKeys(fn (array $match): array => [Str::lower($match[1]) => Str::lower($match[2])])
             ->all();
     }
@@ -75,7 +80,15 @@ class SenderAuthentication
 
     private function withoutComments(string $value): string
     {
-        return (string) preg_replace('/\([^)]*\)/', ' ', (string) preg_replace('/\s+/', ' ', $value));
+        $value = (string) preg_replace('/\s+/', ' ', $value);
+        $value = (string) preg_replace('/"[^"]*"/', ' ', $value);
+
+        do {
+            $previous = $value;
+            $value = (string) preg_replace('/\([^()]*\)/', ' ', $value);
+        } while ($value !== $previous);
+
+        return $value;
     }
 
     private function domain(?string $email): string

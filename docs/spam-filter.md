@@ -106,8 +106,14 @@ every condition below has to hold:
    domain of it. SPF alone does not count. Without the header, or when it cannot be read, the mail stays.
 
 With `spam.trusted_authserv_ids` set, the header must also come from one of those servers (the first word of the
-header, for example `mx.example.com`). Set it when your mail server does not always add its own header on top: a
-sender can put a forged `Authentication-Results` header in a mail, and then it is the topmost one.
+header, for example `mx.example.com`).
+
+> **Warning:** with the default `[]` every server name is accepted. When your mail server does not add its own
+> `Authentication-Results` header to every incoming mail, a sender's forged header is the topmost one and can release
+> its mail from the junk folder. Set `spam.trusted_authserv_ids` to the name your server writes in that header.
+
+Comments in parentheses and quoted values (such as `reason="..."`) are ignored, the first `header.d` or `header.from`
+of a result counts, and a `header.d` without a dot (a bare suffix such as `org`) never passes.
 
 When fetching or moving throws, the error is reported, the mail stays and the sync goes on.
 
