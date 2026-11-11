@@ -98,13 +98,19 @@ class MailboxConnector
     /**
      * @param  array<int, int>  $uids
      */
-    public function storeKeywords(MailboxFolder $folder, array $uids, string $add, string $remove): void
+    public function storeKeywords(MailboxFolder $folder, array $uids, ?string $add, ?string $remove): void
     {
         $this->folder($folder)->select();
 
         $connection = $this->imap($folder->mailbox)->connection();
-        $connection->store([$add], $uids, mode: '+');
-        $connection->store([$remove], $uids, mode: '-');
+
+        if (! is_null($add)) {
+            $connection->store([$add], $uids, mode: '+');
+        }
+
+        if (! is_null($remove)) {
+            $connection->store([$remove], $uids, mode: '-');
+        }
     }
 
     public function smtp(Mailbox $mailbox): EsmtpTransport

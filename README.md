@@ -57,6 +57,10 @@ All keys live in `config/mailbox.php`; the ones you are most likely to set in `.
 | `cache.raw_hours` | `MAILBOX_RAW_CACHE_HOURS` | `24` | Hours a raw message stays cached; `null` or `0` fetches every time |
 | `compose.editor` | `MAILBOX_COMPOSE_EDITOR` | `hugerte` | Wysiwyg adapter for the compose form and the signature; the toolbar comes from the FormBuilder `email` profile |
 | `compose.editor_options` | | HugeRTE basics | Editor options laid over the profile (deep-merged by the renderer); keep it for non-toolbar settings |
+| `spam.suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80` | Spam filter score from which a message is suggested as spam |
+| `spam.move_threshold` | `MAILBOX_SPAM_MOVE_THRESHOLD` | `0.95` | Spam filter score from which a mailbox in `auto` mode moves the message to the junk folder |
+| `spam.queue` | `MAILBOX_SPAM_QUEUE` | default queue | Queue for `CheckSpamJob` |
+| `spam.max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20` | Spam filter moves per mailbox per hour; above it messages are only suggested |
 | `contacts.providers` | | `[]` | Classes implementing `ProvidesContactSuggestions`, asked for recipient suggestions |
 | `contacts.scanned_messages` | | `500` | Recent messages scanned for "seen" addresses in suggestions |
 | `sync.queue` | `MAILBOX_SYNC_QUEUE` | default queue | Queue for sync jobs |
@@ -92,6 +96,10 @@ Each mailbox can have message templates (`mailbox_templates`): a name, an option
 
 `MarkJunk` moves messages to the junk folder with the `$Junk` keyword, and back to the inbox with `$NotJunk`. On Gmail, archiving moves the mail to All Mail, which removes the Inbox label; All Mail is synced within `sync.initial_days`, so archived mail stays visible. See `docs/message-actions.md`.
 
+## Spam filter
+
+Each mailbox has a `spam_filter_mode`: `off` (default), `measure`, `suggest` or `auto`. When it is not `off`, every message `MessageReceived` announces gets a queued `CheckSpamJob`: senders on the allowlist are skipped, the others go to the app's `ClassifiesSpam` binding (default: no verdict). The score and reason are stored on the message, `suggest` marks scores from `spam.suggest_threshold` as `suggested`, and `auto` moves scores from `spam.move_threshold` to the junk folder through `MarkJunk` (audit action `spam_moved`). Without a verdict or when the classifier throws, nothing moves. Nothing is ever deleted. Mail of an allowlisted sender in the junk folder is moved back to the inbox only when its `Authentication-Results` header, written by a server in `spam.trusted_authserv_ids` (empty by default, which releases nothing), shows `dmarc=pass` or an aligned `dkim=pass` and it has no `$Junk` keyword. See `docs/spam-filter.md`.
+
 ## Signature
 
 A mailbox can have an HTML signature. It is sanitised on save with the message sanitizer, with `https:` and `data:` images allowed (logos); style declarations that load resources (`url(…)`) are removed. Compose puts it below an empty first paragraph and above the quote, wrapped in `<div class="mailbox-signature">`.
@@ -121,7 +129,7 @@ $connector = FakeConnector::install();
 $connector->remote($mailbox)->folder('INBOX')->setMessages([...]);
 ```
 
-The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
+The fake records IMAP operations per folder and sent mail on `$connector->transport->sent`; nothing reaches a real server. `FakeSpamClassifier::install()` replaces the spam classifier and records which messages it was asked about. `Mailbox::factory()`, `MailboxFolder::factory()` and `MailboxMessage::factory()` create rows, see `docs/testing.md`.
 
 ## Development
 

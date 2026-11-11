@@ -29,17 +29,19 @@ Table `mailboxes`. One row per shared mailbox.
 | `append_sent`     | bool             | Store a copy of sent mail in Sent. Default `true`                        |
 | `conversation_view` | bool           | Show the message list as conversations, see [Conversations](sync.md#conversations). Default `false` |
 | `confirm_delete`  | bool             | Ask for confirmation before deleting messages in the UI. Default `false` |
+| `spam_filter_mode` | string          | A `SpamFilterMode` enum: `off` (default), `measure`, `suggest` or `auto`, see [Spam filter](spam-filter.md) |
 | `active`          | bool             | Not synced when false, see [Inactive mailboxes](access.md#inactive-mailboxes) |
 | `synced_at`       | timestamp, nullable | Last completed sync                                                     |
 | `last_error`      | text, nullable   | The last sync error, or the folders that failed                          |
 
-Relations: `folders()`, `messages()`, `accesses()`, `contacts()`, `templates()`, `auditEntries()`.
+Relations: `folders()`, `messages()`, `accesses()`, `contacts()`, `templates()`, `auditEntries()`, `spamAllowlist()`.
 
 Helpers:
 
 ```php
 $mailbox->folderWithRole(FolderRole::Trash); // ?MailboxFolder
 $mailbox->usesOAuth();                        // true when authentication is 'oauth'
+$mailbox->spamFilterMode();                   // SpamFilterMode, Off when the column is not set
 ```
 
 Because the passwords use Laravel's `encrypted` cast, rotating `APP_KEY` means entering them again.
@@ -116,6 +118,10 @@ Table `mailbox_messages`. The header cache, one row per folder and UID.
 | `body_html`, `body_text` | Fetched on first open, hidden from arrays                             |
 | `attachments`       | Array of `content_id`, `content_type`, `filename`, `inline`                |
 | `body_fetched_at`   | When the body was fetched; `null` means not cached                         |
+| `spam_score`        | decimal(4,3), nullable: the classifier's score from `0` to `1`, see [Spam filter](spam-filter.md) |
+| `spam_reason`       | The classifier's reason, nullable                                          |
+| `spam_status`       | A `SpamStatus` enum, nullable: `suggested`, `moved` or `released`          |
+| `spam_checked_at`   | When the spam filter looked at the message; `null` means not checked       |
 
 Relations: `mailbox()`, `folder()`, `links()`.
 
@@ -146,6 +152,18 @@ Table `mailbox_contacts`. The address book of a mailbox, see [Address book & sug
 Table `mailbox_templates`: `mailbox_id`, `name`, `subject` (nullable), `body` (sanitized HTML). Deleted with the
 mailbox. See [Message templates](templates.md).
 
+## MailboxSpamAllowlistEntry
+
+Table `mailbox_spam_allowlist`. Senders the [spam filter](spam-filter.md#the-allowlist) never classifies.
+
+| Column       | Notes                                                                           |
+|--------------|---------------------------------------------------------------------------------|
+| `mailbox_id` | Nullable: `null` applies to every mailbox                                       |
+| `pattern`    | A lowercased email address or domain, unique per mailbox                        |
+| `source`     | A `SpamAllowlistSource` enum: `manual`, `not_junk` or `default`                 |
+
+Relation: `mailbox()`. Deleted with the mailbox.
+
 ## MailboxMessageLink
 
 Table `mailbox_message_links`. Polymorphic links from a `Message-ID` to a model of your app, see
@@ -154,4 +172,4 @@ Table `mailbox_message_links`. Polymorphic links from a `Message-ID` to a model 
 ## Deleting a mailbox
 
 All tables reference `mailboxes` with a cascading foreign key. Deleting a `Mailbox` row removes its folders, cached
-messages, audit trail, access rows, contacts and links. Mail on the server is untouched.
+messages, audit trail, access rows, contacts, links and spam allowlist entries. Mail on the server is untouched.

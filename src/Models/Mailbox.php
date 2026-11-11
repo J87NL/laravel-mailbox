@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use J87NL\Mailbox\Database\Factories\MailboxFactory;
 use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Enums\SpamFilterMode;
 use J87NL\Mailbox\Support\RawMessageCache;
 
 /**
@@ -32,6 +33,7 @@ use J87NL\Mailbox\Support\RawMessageCache;
  * @property bool $append_sent
  * @property bool $conversation_view
  * @property bool $confirm_delete
+ * @property SpamFilterMode|null $spam_filter_mode
  * @property bool $active
  * @property Carbon|null $synced_at
  * @property string|null $last_error
@@ -70,6 +72,7 @@ class Mailbox extends Model
             'imap_password' => 'encrypted',
             'smtp_password' => 'encrypted',
             'smtp_tls' => 'boolean',
+            'spam_filter_mode' => SpamFilterMode::class,
             'synced_at' => 'datetime',
         ];
     }
@@ -115,6 +118,14 @@ class Mailbox extends Model
     }
 
     /**
+     * @return HasMany<MailboxSpamAllowlistEntry, $this>
+     */
+    public function spamAllowlist(): HasMany
+    {
+        return $this->hasMany(MailboxSpamAllowlistEntry::class);
+    }
+
+    /**
      * @return HasMany<MailboxTemplate, $this>
      */
     public function templates(): HasMany
@@ -125,6 +136,11 @@ class Mailbox extends Model
     public function folderWithRole(FolderRole $role): ?MailboxFolder
     {
         return $this->folders()->where('role', $role)->first();
+    }
+
+    public function spamFilterMode(): SpamFilterMode
+    {
+        return $this->spam_filter_mode ?? SpamFilterMode::Off;
     }
 
     public function usesOAuth(): bool

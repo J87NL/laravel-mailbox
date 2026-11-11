@@ -12,6 +12,7 @@
     - [HTML rendering](html.md)
     - [Address book & suggestions](contacts.md)
     - [Message templates](templates.md)
+    - [Spam filter](spam-filter.md)
     - [Audit trail](audit-trail.md)
     - [Linking messages to models](message-links.md)
     - [Forms](forms.md)

@@ -115,12 +115,18 @@ class FakeConnector extends MailboxConnector
         return true;
     }
 
-    public function storeKeywords(MailboxFolder $folder, array $uids, string $add, string $remove): void
+    public function storeKeywords(MailboxFolder $folder, array $uids, ?string $add, ?string $remove): void
     {
         $query = $this->folder($folder)->messages();
         $query->uid($uids);
-        $query->flag($add, '+');
-        $query->flag($remove, '-');
+
+        if (! is_null($add)) {
+            $query->flag($add, '+');
+        }
+
+        if (! is_null($remove)) {
+            $query->flag($remove, '-');
+        }
     }
 
     public function smtp(Mailbox $mailbox): EsmtpTransport

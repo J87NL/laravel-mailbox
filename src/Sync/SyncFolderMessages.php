@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use J87NL\Mailbox\Connection\MailboxConnector;
 use J87NL\Mailbox\Models\MailboxFolder;
+use J87NL\Mailbox\Spam\FilterSyncedMessages;
 use J87NL\Mailbox\Support\RawMessageCache;
 
 class SyncFolderMessages
@@ -33,6 +34,7 @@ class SyncFolderMessages
         private readonly AnnounceReceivedMessages $announcer,
         private readonly MailboxConnector $connector,
         private readonly StoreRemoteMessages $store,
+        private readonly FilterSyncedMessages $spamFilter,
     ) {}
 
     public function handle(MailboxFolder $folder, ?SyncBudget $budget = null): void
@@ -168,8 +170,9 @@ class SyncFolderMessages
         $started = now();
         $previousChunk = null;
         $chunkSize = max(1, (int) config('mailbox.sync.chunk_size'));
+        $newUids = [];
 
-        $query->chunk(function (MessageCollection $messages) use ($after, $budget, $chunkSize, &$complete, $established, $folder, &$previousChunk, $started, $watched): ?bool {
+        $query->chunk(function (MessageCollection $messages) use ($after, $budget, $chunkSize, &$complete, $established, $folder, &$newUids, &$previousChunk, $started, $watched): ?bool {
             $budget->record($folder, is_null($previousChunk) ? self::STEP_FETCH : self::STEP_CHUNK, $previousChunk ?? $started);
             $previousChunk = now();
 
@@ -186,6 +189,10 @@ class SyncFolderMessages
             $stored = $this->store->handle($folder, $fresh);
 
             $folder->save();
+
+            if ($established) {
+                $newUids = [...$newUids, ...$stored];
+            }
 
             if ($watched) {
                 $this->announcer->handle($folder, $stored, announce: $established);
@@ -204,6 +211,8 @@ class SyncFolderMessages
         if (is_null($previousChunk)) {
             $budget->record($folder, self::STEP_FETCH, $started);
         }
+
+        $this->spamFilter->handle($folder, $newUids);
 
         return $complete;
     }

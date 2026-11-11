@@ -14,6 +14,8 @@ use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Spam\SpamFeedback;
+use Throwable;
 
 class MarkJunk
 {
@@ -25,16 +27,27 @@ class MarkJunk
         private readonly MailboxConnector $connector,
         private readonly EnsureFolder $ensureFolder,
         private readonly MoveMessages $moveMessages,
+        private readonly SpamFeedback $feedback,
     ) {}
 
     /**
      * @param  Collection<int, MailboxMessage>  $messages
+     * @param  array<string, mixed>  $meta
      */
-    public function junk(Mailbox $mailbox, Collection $messages, ?Authenticatable $user): int
-    {
+    public function junk(
+        Mailbox $mailbox,
+        Collection $messages,
+        ?Authenticatable $user,
+        AuditAction $action = AuditAction::MarkedJunk,
+        array $meta = [],
+    ): int {
         $junk = $this->ensureFolder->handle($mailbox, FolderRole::Junk, (string) config('mailbox.folders.junk_fallback', 'Junk'));
 
-        return $this->moveWithKeyword($messages, $junk, self::JUNK_KEYWORD, self::NOT_JUNK_KEYWORD, $user, AuditAction::MarkedJunk);
+        $moved = $this->moveWithKeyword($messages, $junk, self::JUNK_KEYWORD, self::NOT_JUNK_KEYWORD, $user, $action, $meta);
+
+        $this->feedback->markedJunk($mailbox, $messages, $user);
+
+        return $moved;
     }
 
     /**
@@ -44,11 +57,16 @@ class MarkJunk
     {
         $inbox = $this->ensureFolder->handle($mailbox, FolderRole::Inbox, 'INBOX');
 
-        return $this->moveWithKeyword($messages, $inbox, self::NOT_JUNK_KEYWORD, self::JUNK_KEYWORD, $user, AuditAction::MarkedNotJunk);
+        $moved = $this->moveWithKeyword($messages, $inbox, self::NOT_JUNK_KEYWORD, self::JUNK_KEYWORD, $user, AuditAction::MarkedNotJunk);
+
+        $this->feedback->markedNotJunk($mailbox, $messages, $user);
+
+        return $moved;
     }
 
     /**
      * @param  Collection<int, MailboxMessage>  $messages
+     * @param  array<string, mixed>  $meta
      */
     private function moveWithKeyword(
         Collection $messages,
@@ -57,21 +75,30 @@ class MarkJunk
         string $remove,
         ?Authenticatable $user,
         AuditAction $action,
+        array $meta = [],
     ): int {
-        $messages
+        $groups = $messages
             ->reject(fn (MailboxMessage $message): bool => $message->mailbox_folder_id === $target->id)
             ->groupBy('mailbox_folder_id')
             ->each(function (Collection $group) use ($add, $remove): void {
                 $this->keywords($group, $add, $remove);
             });
 
-        return $this->moveMessages->handle($messages, $target, $user, $action);
+        try {
+            return $this->moveMessages->handle($messages, $target, $user, $action, $meta);
+        } catch (Throwable $exception) {
+            $groups->each(function (Collection $group) use ($add): void {
+                rescue(fn () => $this->keywords($group, null, $add));
+            });
+
+            throw $exception;
+        }
     }
 
     /**
      * @param  Collection<int, MailboxMessage>  $group
      */
-    private function keywords(Collection $group, string $add, string $remove): void
+    private function keywords(Collection $group, ?string $add, ?string $remove): void
     {
         $folder = $group->first()->folder;
 

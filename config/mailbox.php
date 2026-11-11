@@ -76,6 +76,14 @@ return [
         'trash_fallback' => 'Trash',
     ],
 
+    'spam' => [
+        'max_moves_per_hour' => env('MAILBOX_SPAM_MAX_MOVES_PER_HOUR', 20),
+        'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
+        'queue' => env('MAILBOX_SPAM_QUEUE'),
+        'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
+        'trusted_authserv_ids' => [],
+    ],
+
     'threading' => [
         'subject_days' => 90,
     ],

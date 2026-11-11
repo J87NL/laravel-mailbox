@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailbox\Forms;
 
+use J87NL\Mailbox\Enums\SpamFilterMode;
 use J87NL\Mailbox\Models\Mailbox;
 use TranquilTools\FormBuilder\AbstractForm;
 use TranquilTools\FormBuilder\Fields\BaseField;
@@ -19,6 +20,13 @@ use TranquilTools\FormBuilder\FormConfig;
 
 class MailboxForm extends AbstractForm
 {
+    private const SPAM_FILTER_MODES = [
+        SpamFilterMode::Off,
+        SpamFilterMode::Measure,
+        SpamFilterMode::Suggest,
+        SpamFilterMode::Auto,
+    ];
+
     public function __construct(
         private readonly string $action,
         private readonly ?Mailbox $mailbox = null,
@@ -109,6 +117,15 @@ class MailboxForm extends AbstractForm
                 ->help(__('mailbox::mailbox.confirm_delete_help'))
                 ->default(false)
                 ->rules('boolean'),
+            Select::make('spam_filter_mode')
+                ->label(__('mailbox::mailbox.spam_filter_mode'))
+                ->help(__('mailbox::mailbox.spam_filter_mode_help'))
+                ->options(array_map(fn (SpamFilterMode $mode): array => [
+                    'id' => $mode->value,
+                    'name' => $mode->label(),
+                ], self::SPAM_FILTER_MODES))
+                ->default(SpamFilterMode::Off->value)
+                ->rules('sometimes', $this->spamFilterModeRule()),
             EmailEditor::make('signature')
                 ->label(__('mailbox::mailbox.signature'))
                 ->help(__('mailbox::mailbox.signature_help'))
@@ -169,6 +186,13 @@ class MailboxForm extends AbstractForm
                 ->required(),
             $this->password('smtp_password'),
         ];
+    }
+
+    private function spamFilterModeRule(): string
+    {
+        $values = array_map(fn (SpamFilterMode $mode): string => $mode->value, self::SPAM_FILTER_MODES);
+
+        return sprintf('in:%s', implode(',', $values));
     }
 
     private function password(string $name): Password

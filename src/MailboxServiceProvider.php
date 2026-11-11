@@ -6,6 +6,7 @@ namespace J87NL\Mailbox;
 
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use J87NL\Mailbox\Access\MailboxAccessResolver;
 use J87NL\Mailbox\Commands\AddMailboxCommand;
@@ -14,11 +15,15 @@ use J87NL\Mailbox\Commands\PruneBodiesCommand;
 use J87NL\Mailbox\Commands\SyncCommand;
 use J87NL\Mailbox\Commands\ThreadCommand;
 use J87NL\Mailbox\Connection\MailboxConnector;
+use J87NL\Mailbox\Contracts\ClassifiesSpam;
 use J87NL\Mailbox\Contracts\ResolvesAccessors;
 use J87NL\Mailbox\Contracts\ResolvesInlineImageUrls;
 use J87NL\Mailbox\Enums\AccessLevel;
+use J87NL\Mailbox\Events\MessageReceived;
 use J87NL\Mailbox\Html\NoInlineImageUrls;
+use J87NL\Mailbox\Listeners\QueueSpamCheck;
 use J87NL\Mailbox\Models\Mailbox;
+use J87NL\Mailbox\Spam\NullSpamClassifier;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -39,6 +44,8 @@ class MailboxServiceProvider extends PackageServiceProvider
                 'add_message_count_to_mailbox_folders_table',
                 'create_mailbox_templates_table',
                 'add_confirm_delete_to_mailboxes_table',
+                'add_spam_filter_to_mailbox_tables',
+                'create_mailbox_spam_allowlist_table',
             ])
             ->hasCommands([
                 AddMailboxCommand::class,
@@ -53,12 +60,15 @@ class MailboxServiceProvider extends PackageServiceProvider
     {
         $this->app->scoped(MailboxConnector::class);
         $this->app->bindIf(ResolvesInlineImageUrls::class, NoInlineImageUrls::class);
+        $this->app->bindIf(ClassifiesSpam::class, NullSpamClassifier::class);
         $this->app->scoped(MailboxAccessResolver::class);
         $this->app->scoped(ResolvesAccessors::class, fn (): ResolvesAccessors => $this->app->make(config('mailbox.access.resolver')));
     }
 
     public function packageBooted(): void
     {
+        Event::listen(MessageReceived::class, QueueSpamCheck::class);
+
         $this->app->booted(function (): void {
             self::defineAbilities();
         });

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use J87NL\Mailbox\Database\Factories\MailboxMessageFactory;
+use J87NL\Mailbox\Enums\SpamStatus;
 use J87NL\Mailbox\Relations\MessageLinks;
 
 /**
@@ -37,6 +38,10 @@ use J87NL\Mailbox\Relations\MessageLinks;
  * @property string|null $body_text
  * @property array<int, array{content_id: ?string, content_type: string, filename: ?string, inline: bool}>|null $attachments
  * @property Carbon|null $body_fetched_at
+ * @property float|null $spam_score
+ * @property string|null $spam_reason
+ * @property SpamStatus|null $spam_status
+ * @property Carbon|null $spam_checked_at
  * @property-read MailboxFolder $folder
  * @property-read Mailbox $mailbox
  */
@@ -69,6 +74,9 @@ class MailboxMessage extends Model
             'is_seen' => 'boolean',
             'reply_to' => 'array',
             'sent_at' => 'datetime',
+            'spam_checked_at' => 'datetime',
+            'spam_score' => 'float',
+            'spam_status' => SpamStatus::class,
             'to' => 'array',
         ];
     }

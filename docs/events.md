@@ -22,6 +22,9 @@ It fires once per `Message-ID` and mailbox, and never:
 - in folders with the role `Sent`, `Drafts`, `Junk` or `Trash`, or in Gmail's All Mail (`\All`);
 - for a message the mailbox already knows, in another folder (other than All Mail) or in the audit trail.
 
+One exception: with the [spam filter](spam-filter.md#after-the-sync) on, a message that comes back from the junk folder
+through "not spam" and was never announced before is announced once in the folder it lands in.
+
 A message without a `Message-ID` header is never treated as known, so it is announced again after a move to another
 watched folder.
 
@@ -51,6 +54,11 @@ class CreateTicket
 ```
 
 The sync usually runs in a queued job, so the listener runs there too.
+
+The package listens to it itself: for a mailbox whose `spam_filter_mode` is not `off`, `QueueSpamCheck` queues a
+`CheckSpamJob` for the message, see [Spam filter](spam-filter.md). Your listener runs before that job, so a new message
+has no spam verdict yet, and a message the filter later moves to the junk folder has already been through your
+listener.
 
 ## MessageSent
 

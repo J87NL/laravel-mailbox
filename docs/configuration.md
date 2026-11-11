@@ -218,6 +218,30 @@ marked failed, and a job that is still running at `retry_after` is handed to a s
 
 See [Synchronization](sync.md).
 
+## Spam filter
+
+```php
+'spam' => [
+    'max_moves_per_hour' => env('MAILBOX_SPAM_MAX_MOVES_PER_HOUR', 20),
+    'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
+    'queue' => env('MAILBOX_SPAM_QUEUE'),
+    'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
+    'trusted_authserv_ids' => [],
+],
+```
+
+| Key                 | Env                              | Default       | Description                                                            |
+|---------------------|----------------------------------|---------------|------------------------------------------------------------------------|
+| `max_moves_per_hour` | `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `20`         | At most this many `auto` moves per mailbox per hour; above it a message is only `suggested`. `null` has no limit, `0` never moves |
+| `move_threshold`    | `MAILBOX_SPAM_MOVE_THRESHOLD`    | `0.95`        | From this score on, a mailbox in `auto` mode moves the message to the junk folder |
+| `queue`             | `MAILBOX_SPAM_QUEUE`             | default queue | Queue for `CheckSpamJob`                                               |
+| `suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80`        | From this score on, a mailbox in `suggest` or `auto` mode sets `spam_status` to `suggested` |
+| `trusted_authserv_ids` |                               | `[]`          | The authserv-ids of your own mail server; mail is only released from the junk folder on an `Authentication-Results` header of one of these. Empty releases nothing, see [Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder) |
+
+A published config without `spam` uses the defaults. A threshold that is missing, empty (an empty env value casts to `0`)
+or outside `0` (exclusive) to `1` falls back to its default, and when `move_threshold` is below `suggest_threshold` both
+fall back to their defaults; each case logs a warning. The mode is set per mailbox, see [Spam filter](spam-filter.md).
+
 ## Threading
 
 ```php
@@ -279,6 +303,10 @@ A class implementing `J87NL\Mailbox\Contracts\ProvidesAccessToken`. Required for
 | `MAILBOX_CONNECTION_READ_TIMEOUT` | `connection.read_timeout` | `15`        |
 | `MAILBOX_CONNECTION_TIMEOUT` | `connection.timeout`    | `10`                |
 | `MAILBOX_DISPLAY_TIMEZONE`   | `display_timezone`      | `app.timezone`      |
+| `MAILBOX_SPAM_MAX_MOVES_PER_HOUR` | `spam.max_moves_per_hour` | `20`         |
+| `MAILBOX_SPAM_MOVE_THRESHOLD` | `spam.move_threshold`  | `0.95`              |
+| `MAILBOX_SPAM_QUEUE`         | `spam.queue`            | default queue       |
+| `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `spam.suggest_threshold` | `0.80`         |
 | `MAILBOX_SYNC_JOB_TIMEOUT`   | `sync.job_timeout_seconds` | `55`             |
 | `MAILBOX_SYNC_QUEUE`         | `sync.queue`            | default queue       |
 | `MAILBOX_SYNC_STEP_RESERVE`  | `sync.step_reserve_seconds` | `5`             |

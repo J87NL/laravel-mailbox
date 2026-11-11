@@ -2,6 +2,25 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.13.0
+
+Publish the migrations again and migrate: `add_spam_filter_to_mailbox_tables` adds `mailboxes.spam_filter_mode`
+(default `off`, also for existing mailboxes) and the `spam_*` columns of `mailbox_messages`,
+`create_mailbox_spam_allowlist_table` adds the [spam filter allowlist](spam-filter.md#the-allowlist).
+
+```bash
+php artisan vendor:publish --tag=mailbox-migrations
+php artisan migrate
+```
+
+With every mailbox on `off`, nothing changes until you pick a mode.
+
+Allowlisted mail is only moved out of the junk folder once `spam.trusted_authserv_ids` names your own mail server, see
+[Mail in the junk folder](spam-filter.md#mail-in-the-junk-folder).
+
+`MarkJunk` and `SyncFolderMessages` take a new constructor argument (`SpamFeedback` and `FilterSyncedMessages`). Code
+that resolves them from the container needs no change; a test that builds them by hand passes the new argument.
+
 ## 0.12.0
 
 - An IMAP connection the server closed (`ImapConnectionClosedException`) during a sync, a `SyncFolderJob` or a

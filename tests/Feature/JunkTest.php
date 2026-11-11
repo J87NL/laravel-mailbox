@@ -119,3 +119,17 @@ it('leaves messages that are already in the junk folder alone', function (): voi
         ->and(MailboxAuditEntry::query()
             ->count())->toBe(0);
 });
+
+it('turns the keywords back when the move fails', function (): void {
+    $mailbox = mailbox();
+    $inbox = folder($mailbox);
+    folder($mailbox, 'Spam', FolderRole::Junk);
+    remoteFolder($mailbox, 'Spam');
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+    remoteFolder($mailbox, 'INBOX')->moveFailure = new RuntimeException('NO');
+
+    expect(fn () => app(MarkJunk::class)->junk($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), user()))
+        ->toThrow(RuntimeException::class)
+        ->and(collect(remoteFolder($mailbox, 'INBOX')->operations)->map(fn (array $operation): string => sprintf('%s%s', $operation['operation'], $operation['flag']))->all())
+        ->toBe(['+$Junk', '-$NotJunk', '-$Junk']);
+});

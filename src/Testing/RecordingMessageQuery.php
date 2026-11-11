@@ -120,6 +120,10 @@ class RecordingMessageQuery extends FakeMessageQuery
 
     public function move(string $folder, bool $expunge = false): int
     {
+        if (! is_null($this->recordingFolder->moveFailure)) {
+            throw $this->recordingFolder->moveFailure;
+        }
+
         $this->recordingFolder->record([
             'target' => $folder,
             'type' => 'move',
