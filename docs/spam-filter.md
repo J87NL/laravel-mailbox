@@ -149,8 +149,8 @@ mode (also `off`), so you can measure it before you rely on it. It is read from 
 (`BODY.PEEK[HEADER]`), so it costs no extra request and never marks mail as read.
 
 - When a header occurs more than once, the last occurrence counts: that is the one the receiving server adds, below
-  the headers the sender wrote (a milter such as ClueGetter or SpamAssassin appends its headers at the end of the
-  header block). A sender who writes his own `X-Spam-Flag: NO` at the top therefore cannot overrule the server. When the
+  the headers the sender wrote (a milter such as ClueGetter at TransIP appends its headers at the end of the header
+  block; where a host puts them differs per scanner and setup). A sender who writes his own `X-Spam-Flag: NO` at the top therefore cannot overrule the server. When the
   occurrences disagree, an info line with the `Message-ID`, the header and the count is logged.
 - The flag is matched without regard to case and surrounding spaces; any other value than `YES` or `NO` gives `null`.
 - The score is any number (also negative), rounded to two decimals; anything else, or a value beyond `9999.99`, gives
