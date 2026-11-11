@@ -55,6 +55,19 @@ checked. The job runs once per message: a message with `spam_checked_at` is skip
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
 | `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
 
+## Not spam
+
+The filter learns from the users through [`MarkJunk`](message-actions.md#spam), for a mailbox whose mode is not `off`
+and only when a user is passed:
+
+- `notJunk()` adds the address of every sender to the allowlist of that mailbox (source `not_junk`) and sets
+  `spam_status` to `released`. From then on their mail skips the classifier, and their mail in the junk folder is moved
+  back (see [Mail in the junk folder](#mail-in-the-junk-folder)).
+- `junk()` clears a `suggested` status. The sender stays on the allowlist when it was there; remove it with
+  `SpamAllowlist::remove()` when that is what your UI offers.
+
+Calls without a user, such as the filter's own moves, teach nothing.
+
 ## The allowlist
 
 Senders on the allowlist are never classified, and their mail is moved out of the junk folder (see

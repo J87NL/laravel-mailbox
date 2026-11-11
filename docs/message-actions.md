@@ -69,6 +69,9 @@ fourth and fifth argument, which the [spam filter](spam-filter.md) uses for `spa
 `notJunk()` sets `$NotJunk`, removes `$Junk` and moves the messages to the inbox. The audit action is
 `marked_not_junk`.
 
+For a mailbox with the [spam filter](spam-filter.md#not-spam) on, `notJunk()` with a user adds the senders to the spam
+allowlist of the mailbox and marks the messages `released`, and `junk()` with a user clears a `suggested` status.
+
 The keywords are set before the move, because `UID MOVE` keeps them and the message gets a new UID in the target. Spam
 filters that learn from IMAP keywords (Dovecot, Fastmail, Apple Mail) read them there. When the server refuses the
 keywords, for example because its folder allows no keywords, the messages are moved without them and an `info` line is

@@ -14,6 +14,7 @@ use J87NL\Mailbox\Enums\FolderRole;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Spam\SpamFeedback;
 
 class MarkJunk
 {
@@ -25,6 +26,7 @@ class MarkJunk
         private readonly MailboxConnector $connector,
         private readonly EnsureFolder $ensureFolder,
         private readonly MoveMessages $moveMessages,
+        private readonly SpamFeedback $feedback,
     ) {}
 
     /**
@@ -40,6 +42,8 @@ class MarkJunk
     ): int {
         $junk = $this->ensureFolder->handle($mailbox, FolderRole::Junk, (string) config('mailbox.folders.junk_fallback', 'Junk'));
 
+        $this->feedback->markedJunk($mailbox, $messages, $user);
+
         return $this->moveWithKeyword($messages, $junk, self::JUNK_KEYWORD, self::NOT_JUNK_KEYWORD, $user, $action, $meta);
     }
 
@@ -49,6 +53,8 @@ class MarkJunk
     public function notJunk(Mailbox $mailbox, Collection $messages, ?Authenticatable $user): int
     {
         $inbox = $this->ensureFolder->handle($mailbox, FolderRole::Inbox, 'INBOX');
+
+        $this->feedback->markedNotJunk($mailbox, $messages, $user);
 
         return $this->moveWithKeyword($messages, $inbox, self::NOT_JUNK_KEYWORD, self::JUNK_KEYWORD, $user, AuditAction::MarkedNotJunk);
     }

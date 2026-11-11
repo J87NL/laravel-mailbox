@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Bus;
+use J87NL\Mailbox\Actions\MarkJunk;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
+use J87NL\Mailbox\Enums\SpamAllowlistSource;
 use J87NL\Mailbox\Enums\SpamStatus;
 use J87NL\Mailbox\Events\MessageReceived;
 use J87NL\Mailbox\Jobs\CheckSpamJob;
@@ -13,6 +15,7 @@ use J87NL\Mailbox\Jobs\SyncFolderJob;
 use J87NL\Mailbox\Models\Mailbox;
 use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Models\MailboxSpamAllowlistEntry;
 use J87NL\Mailbox\Spam\SpamAllowlist;
 use J87NL\Mailbox\Testing\FakeSpamClassifier;
 
@@ -153,4 +156,52 @@ it('checks a message only once', function (): void {
     checkSpam($message);
 
     expect($classifier->classified)->toHaveCount(1);
+});
+
+it('adds the sender to the allowlist and releases the message when a user marks it not junk', function (): void {
+    $mailbox = spamMailbox('suggest');
+    $junk = $mailbox->folderWithRole(FolderRole::Junk);
+    folder($mailbox);
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(5)]);
+    $suggested = receivedMessage($mailbox, 'Friend@Example.org');
+    $suggested->update(['spam_status' => SpamStatus::Suggested]);
+    $inJunk = storedMessage($junk, 5, ['from_email' => 'other@example.net'])->load('folder.mailbox');
+
+    app(MarkJunk::class)->notJunk($mailbox, collect([$suggested, $inJunk]), user());
+
+    expect(MailboxSpamAllowlistEntry::query()
+        ->orderBy('pattern')
+        ->get()
+        ->map(fn (MailboxSpamAllowlistEntry $entry): array => [$entry->mailbox_id, $entry->pattern, $entry->source])
+        ->all())->toBe([
+            [$mailbox->id, 'friend@example.org', SpamAllowlistSource::NotJunk],
+            [$mailbox->id, 'other@example.net', SpamAllowlistSource::NotJunk],
+        ])
+        ->and($suggested->refresh()->spam_status)->toBe(SpamStatus::Released)
+        ->and(MailboxMessage::query()->find($inJunk->id))->toBeNull();
+});
+
+it('learns nothing from a system move or a mailbox with the filter off', function (string $mode, bool $withUser): void {
+    $mailbox = spamMailbox($mode);
+    $message = receivedMessage($mailbox);
+    $message->update(['spam_status' => SpamStatus::Suggested]);
+
+    app(MarkJunk::class)->notJunk($mailbox, collect([$message]), $withUser ? user() : null);
+
+    expect(MailboxSpamAllowlistEntry::query()->count())->toBe(0)
+        ->and($message->refresh()->spam_status)->toBe(SpamStatus::Suggested);
+})->with([
+    'system' => ['auto', false],
+    'filter off' => ['off', true],
+]);
+
+it('clears the suggestion when a user marks a message junk', function (): void {
+    $mailbox = spamMailbox('suggest');
+    $junk = $mailbox->folderWithRole(FolderRole::Junk);
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(5)]);
+    $message = storedMessage($junk, 5, ['spam_status' => SpamStatus::Suggested])->load('folder.mailbox');
+
+    app(MarkJunk::class)->junk($mailbox, collect([$message]), user());
+
+    expect($message->refresh()->spam_status)->toBeNull();
 });
