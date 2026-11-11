@@ -234,7 +234,9 @@ See [Synchronization](sync.md).
 | `queue`             | `MAILBOX_SPAM_QUEUE`             | default queue | Queue for `CheckSpamJob`                                               |
 | `suggest_threshold` | `MAILBOX_SPAM_SUGGEST_THRESHOLD` | `0.80`        | From this score on, a mailbox in `suggest` or `auto` mode sets `spam_status` to `suggested` |
 
-A published config without `spam` uses the defaults. The mode is set per mailbox, see [Spam filter](spam-filter.md).
+A published config without `spam` uses the defaults. A threshold that is missing, empty (an empty env value casts to `0`)
+or outside `0` (exclusive) to `1` falls back to its default, and when `move_threshold` is below `suggest_threshold` both
+fall back to their defaults; each case logs a warning. The mode is set per mailbox, see [Spam filter](spam-filter.md).
 
 ## Threading
 

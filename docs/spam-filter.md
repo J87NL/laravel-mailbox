@@ -46,6 +46,10 @@ message without `spam_checked_at`, it queues a `J87NL\Mailbox\Jobs\CheckSpamJob`
 The job runs later than the sync. A message a user has read, flagged or answered by then (`is_seen`, `is_flagged`,
 `is_answered` on the cached row) is never moved in `auto` mode: it gets `suggested` instead.
 
+A threshold that is empty or outside `0` (exclusive) to `1` uses its default, and a `move_threshold` below the
+`suggest_threshold` makes both use their defaults, with a warning in the log. An empty env value therefore never moves
+every scored mail.
+
 A move goes through `MarkJunk::junk()` without a user and writes the audit action `spam_moved` with the `score` and
 `reason` as meta. When the move throws, the error is reported and the message stays in the inbox as `suggested`.
 

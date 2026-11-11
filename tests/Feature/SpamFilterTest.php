@@ -322,3 +322,20 @@ it('cuts a long reason to the column length', function (): void {
 
     expect(mb_strlen((string) $checked->spam_reason))->toBe(255);
 });
+
+it('falls back to the default thresholds when the config is empty, out of range or inverted', function (mixed $suggest, mixed $move): void {
+    config()->set('mailbox.spam.suggest_threshold', $suggest);
+    config()->set('mailbox.spam.move_threshold', $move);
+    FakeSpamClassifier::install()->score(0.5);
+    $mailbox = spamMailbox('auto');
+
+    $checked = checkSpam(receivedMessage($mailbox));
+
+    expect($checked->spam_status)->toBeNull()
+        ->and(remoteFolder($mailbox, 'INBOX')->operations)->toBe([]);
+})->with([
+    'empty env' => [0.0, 0.0],
+    'null' => [null, null],
+    'out of range' => [-1, 1.5],
+    'move below suggest' => [0.4, 0.3],
+]);

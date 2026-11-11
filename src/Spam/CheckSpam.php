@@ -17,10 +17,6 @@ use Throwable;
 
 class CheckSpam
 {
-    public const DEFAULT_MOVE_THRESHOLD = 0.95;
-
-    public const DEFAULT_SUGGEST_THRESHOLD = 0.80;
-
     private const REASON_LENGTH = 255;
 
     public function __construct(
@@ -92,20 +88,17 @@ class CheckSpam
             return null;
         }
 
-        if ($mode === SpamFilterMode::Auto && ! $handled && $score >= $this->threshold('move_threshold', self::DEFAULT_MOVE_THRESHOLD)) {
+        $thresholds = SpamThresholds::fromConfig();
+
+        if ($mode === SpamFilterMode::Auto && ! $handled && $score >= $thresholds->move) {
             return SpamStatus::Moved;
         }
 
-        if ($score >= $this->threshold('suggest_threshold', self::DEFAULT_SUGGEST_THRESHOLD)) {
+        if ($score >= $thresholds->suggest) {
             return SpamStatus::Suggested;
         }
 
         return null;
-    }
-
-    private function threshold(string $key, float $default): float
-    {
-        return (float) config(sprintf('mailbox.spam.%s', $key), $default);
     }
 
     private function moveToJunk(Mailbox $mailbox, MailboxMessage $message, SpamVerdict $verdict): bool
