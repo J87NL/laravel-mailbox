@@ -15,7 +15,7 @@ return new class extends Migration
         });
 
         Schema::table('mailbox_messages', function (Blueprint $table): void {
-            $table->decimal('spam_score', 3, 2)->nullable()->after('body_fetched_at');
+            $table->decimal('spam_score', 4, 3)->nullable()->after('body_fetched_at');
             $table->string('spam_reason')->nullable()->after('spam_score');
             $table->string('spam_status')->nullable()->after('spam_reason');
             $table->timestamp('spam_checked_at')->nullable()->after('spam_status');

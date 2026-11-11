@@ -118,7 +118,7 @@ Table `mailbox_messages`. The header cache, one row per folder and UID.
 | `body_html`, `body_text` | Fetched on first open, hidden from arrays                             |
 | `attachments`       | Array of `content_id`, `content_type`, `filename`, `inline`                |
 | `body_fetched_at`   | When the body was fetched; `null` means not cached                         |
-| `spam_score`        | decimal(3,2), nullable: the classifier's score from `0` to `1`, see [Spam filter](spam-filter.md) |
+| `spam_score`        | decimal(4,3), nullable: the classifier's score from `0` to `1`, see [Spam filter](spam-filter.md) |
 | `spam_reason`       | The classifier's reason, nullable                                          |
 | `spam_status`       | A `SpamStatus` enum, nullable: `suggested`, `moved` or `released`          |
 | `spam_checked_at`   | When the spam filter looked at the message; `null` means not checked       |

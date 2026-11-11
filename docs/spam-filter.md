@@ -90,7 +90,7 @@ Limits to know:
 
 | Column            | Notes                                                                                   |
 |-------------------|-----------------------------------------------------------------------------------------|
-| `spam_score`      | The score from `0` to `1`, `null` without a verdict                                     |
+| `spam_score`      | The score from `0` to `1` with three decimals, `null` without a verdict                                   |
 | `spam_reason`     | The reason the classifier gave, cut to 255 characters (also in the `spam_moved` meta)   |
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
 | `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
