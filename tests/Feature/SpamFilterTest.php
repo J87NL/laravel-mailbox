@@ -298,3 +298,11 @@ it('announces mail that comes back from the junk folder once, and keeps a releas
     'released by the allowlist' => [null, null],
     'released by a user' => [1, SpamStatus::Released],
 ]);
+
+it('cuts a long reason to the column length', function (): void {
+    FakeSpamClassifier::install()->score(0.5, str_repeat('a', 400));
+
+    $checked = checkSpam(receivedMessage(spamMailbox('measure')));
+
+    expect(mb_strlen((string) $checked->spam_reason))->toBe(255);
+});

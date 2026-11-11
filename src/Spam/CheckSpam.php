@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Spam;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use J87NL\Mailbox\Actions\MarkJunk;
 use J87NL\Mailbox\Contracts\ClassifiesSpam;
 use J87NL\Mailbox\Enums\AuditAction;
@@ -19,6 +20,8 @@ class CheckSpam
     public const DEFAULT_MOVE_THRESHOLD = 0.95;
 
     public const DEFAULT_SUGGEST_THRESHOLD = 0.80;
+
+    private const REASON_LENGTH = 255;
 
     public function __construct(
         private readonly ClassifiesSpam $classifier,
@@ -104,7 +107,7 @@ class CheckSpam
     {
         try {
             $moved = $this->markJunk->junk($mailbox, collect([$message]), null, AuditAction::SpamMoved, [
-                'reason' => $verdict->reason,
+                'reason' => $this->reason($verdict),
                 'score' => $verdict->score,
             ]);
         } catch (Throwable $exception) {
@@ -116,11 +119,20 @@ class CheckSpam
         return $moved > 0;
     }
 
+    private function reason(SpamVerdict $verdict): ?string
+    {
+        if (is_null($verdict->reason) || $verdict->reason === '') {
+            return null;
+        }
+
+        return Str::limit($verdict->reason, self::REASON_LENGTH, '');
+    }
+
     private function store(MailboxMessage $message, ?SpamVerdict $verdict, ?SpamStatus $status): void
     {
         $message->forceFill([
             'spam_checked_at' => now(),
-            'spam_reason' => $verdict?->reason,
+            'spam_reason' => is_null($verdict) ? null : $this->reason($verdict),
             'spam_score' => $verdict?->score,
             'spam_status' => $status,
         ])->save();
