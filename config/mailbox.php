@@ -80,6 +80,10 @@ return [
         'max_moves_per_hour' => env('MAILBOX_SPAM_MAX_MOVES_PER_HOUR', 20),
         'move_threshold' => (float) env('MAILBOX_SPAM_MOVE_THRESHOLD', 0.95),
         'queue' => env('MAILBOX_SPAM_QUEUE'),
+        'server_headers' => [
+            'flag' => env('MAILBOX_SPAM_FLAG_HEADER', 'X-Spam-Flag'),
+            'score' => env('MAILBOX_SPAM_SCORE_HEADER', 'X-Spam-Score'),
+        ],
         'suggest_threshold' => (float) env('MAILBOX_SPAM_SUGGEST_THRESHOLD', 0.80),
         'trusted_authserv_ids' => [],
     ],

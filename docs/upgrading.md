@@ -2,6 +2,24 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.14.0
+
+Publish the migrations again and migrate: `add_server_spam_to_mailbox_messages_table` adds
+`mailbox_messages.server_spam_flag` and `server_spam_score`.
+
+```bash
+php artisan vendor:publish --tag=mailbox-migrations
+php artisan migrate
+```
+
+From then on the sync stores the mail server's `X-Spam-Flag` and `X-Spam-Score` on every new message, see
+[The mail server's verdict](spam-filter.md#the-mail-servers-verdict). Messages synced before keep `null`. Nothing else
+changes: the spam filter only uses it when your classifier does. A host with other header names sets
+`MAILBOX_SPAM_FLAG_HEADER` and `MAILBOX_SPAM_SCORE_HEADER`.
+
+`StoreRemoteMessages` takes a new constructor argument (`ServerSpamHeaders`). Code that resolves it from the container
+needs no change.
+
 ## 0.13.0
 
 Publish the migrations again and migrate: `add_spam_filter_to_mailbox_tables` adds `mailboxes.spam_filter_mode`

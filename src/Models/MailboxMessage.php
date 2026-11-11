@@ -42,6 +42,8 @@ use J87NL\Mailbox\Relations\MessageLinks;
  * @property string|null $spam_reason
  * @property SpamStatus|null $spam_status
  * @property Carbon|null $spam_checked_at
+ * @property bool|null $server_spam_flag
+ * @property float|null $server_spam_score
  * @property-read MailboxFolder $folder
  * @property-read Mailbox $mailbox
  */
@@ -74,6 +76,8 @@ class MailboxMessage extends Model
             'is_seen' => 'boolean',
             'reply_to' => 'array',
             'sent_at' => 'datetime',
+            'server_spam_flag' => 'boolean',
+            'server_spam_score' => 'float',
             'spam_checked_at' => 'datetime',
             'spam_score' => 'float',
             'spam_status' => SpamStatus::class,
