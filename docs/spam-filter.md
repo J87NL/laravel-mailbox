@@ -77,6 +77,15 @@ Only mail without any audit history other than `received` is moved: mail a user 
 folder stays there, also when its sender is on the allowlist. When the move throws, the error is reported and the sync
 goes on.
 
+Limits to know:
+
+- The package only sees its own audit trail. Mail a user moved to the junk folder in another mail client (a phone,
+  Thunderbird) has no history here, so an allowlisted sender's mail moved that way comes back. Remove the sender from
+  the allowlist to stop that.
+- The allowlist trusts the `From` address, without SPF or DKIM checks. A forged `From` of an allowlisted address or
+  domain skips the classifier. Keep global domain entries for domains you trust.
+- Mail without a `Message-ID` is never restored or moved out of the junk folder.
+
 ## Stored on the message
 
 | Column            | Notes                                                                                   |
