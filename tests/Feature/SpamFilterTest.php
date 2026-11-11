@@ -339,3 +339,13 @@ it('falls back to the default thresholds when the config is empty, out of range 
     'out of range' => [-1, 1.5],
     'move below suggest' => [0.4, 0.3],
 ]);
+
+it('queues one spam check per message while one is waiting', function (): void {
+    Bus::fake([CheckSpamJob::class, SyncFolderJob::class]);
+    $message = receivedMessage(spamMailbox('measure'));
+
+    MessageReceived::dispatch($message);
+    MessageReceived::dispatch($message);
+
+    Bus::assertDispatchedTimes(CheckSpamJob::class, 1);
+});

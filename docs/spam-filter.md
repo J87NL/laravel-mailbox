@@ -28,7 +28,8 @@ Set it in the "Spam filter" select of [`MailboxForm`](forms.md#mailboxform), thr
 ## How a message is checked
 
 The package listens to [`MessageReceived`](events.md#messagereceived). For a mailbox whose mode is not `off` and a
-message without `spam_checked_at`, it queues a `J87NL\Mailbox\Jobs\CheckSpamJob` on `spam.queue`. The job runs
+message without `spam_checked_at`, it queues a `J87NL\Mailbox\Jobs\CheckSpamJob` on `spam.queue`. The job is unique
+per message for an hour (`ShouldBeUnique`), so a message is never classified or moved twice at the same time. The job runs
 `J87NL\Mailbox\Spam\CheckSpam`:
 
 1. A sender on the [allowlist](#the-allowlist) is not classified: `spam_checked_at` is set, nothing else.
