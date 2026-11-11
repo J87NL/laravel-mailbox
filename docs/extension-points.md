@@ -1,6 +1,6 @@
 # Extension points
 
-The package has four contracts in `J87NL\Mailbox\Contracts`. Each one has a default or can be left out, except
+The package has five contracts in `J87NL\Mailbox\Contracts`. Each one has a default or can be left out, except
 `ProvidesAccessToken`, which mailboxes with OAuth authentication require.
 
 | Contract                     | How to register                      | Default                     |
@@ -9,6 +9,7 @@ The package has four contracts in `J87NL\Mailbox\Contracts`. Each one has a defa
 | `ProvidesContactSuggestions` | `mailbox.contacts.providers`         | none                        |
 | `ProvidesAccessToken`        | `mailbox.oauth_token_provider`       | none                        |
 | `ResolvesInlineImageUrls`    | container binding                    | `NoInlineImageUrls`         |
+| `ClassifiesSpam`             | container binding                    | `NullSpamClassifier`        |
 
 ## ResolvesAccessors
 
@@ -154,6 +155,30 @@ The package binds its default with `bindIf()`, so a binding of your own wins.
 
 The UI package binds its own implementation, `J87NL\VueMailbox\Support\InlineUrls`, for its signed inline route. See
 its [inline images](https://github.com/J87NL/laravel-vue-mailbox/blob/main/docs/inline-images.md) docs.
+
+## ClassifiesSpam
+
+Judges incoming mail for the [spam filter](spam-filter.md). Without a binding of your own the filter does nothing:
+the default `NullSpamClassifier` never gives a verdict.
+
+```php
+interface ClassifiesSpam
+{
+    public function classify(MailboxMessage $message): SpamVerdict;
+}
+```
+
+Return a `J87NL\Mailbox\Spam\SpamVerdict` with a score from `0` (surely not spam) to `1` (surely spam) and an
+optional reason, or `SpamVerdict::none()` when you have no opinion. A score outside `0` to `1` throws an
+`InvalidArgumentException`. See [Writing a classifier](spam-filter.md#writing-a-classifier).
+
+```php
+use J87NL\Mailbox\Contracts\ClassifiesSpam;
+
+$this->app->bind(ClassifiesSpam::class, App\Mailbox\SpamClassifier::class);
+```
+
+The package binds its default with `bindIf()`, so a binding of your own wins.
 
 ## Replacing the connector
 

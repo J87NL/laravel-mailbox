@@ -30,3 +30,53 @@ Start with `measure` to see what the classifier would do, then move on to `sugge
 | `spam_reason`     | The reason the classifier gave                                                          |
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
 | `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
+
+## Writing a classifier
+
+Bind your own `J87NL\Mailbox\Contracts\ClassifiesSpam` in a service provider. It gets the cached message row; the
+body is not fetched yet, so call `FetchMessageBody` when you need it.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Mailbox;
+
+use App\Services\SpamService;
+use J87NL\Mailbox\Contracts\ClassifiesSpam;
+use J87NL\Mailbox\Models\MailboxMessage;
+use J87NL\Mailbox\Spam\SpamVerdict;
+
+class SpamClassifier implements ClassifiesSpam
+{
+    public function __construct(
+        private readonly SpamService $spam,
+    ) {}
+
+    public function classify(MailboxMessage $message): SpamVerdict
+    {
+        $result = $this->spam->check((string) $message->from_email, (string) $message->subject);
+
+        if (is_null($result)) {
+            return SpamVerdict::none();
+        }
+
+        return new SpamVerdict($result->probability, $result->explanation);
+    }
+}
+```
+
+```php
+use J87NL\Mailbox\Contracts\ClassifiesSpam;
+
+$this->app->bind(ClassifiesSpam::class, App\Mailbox\SpamClassifier::class);
+```
+
+- The score runs from `0` (surely not spam) to `1` (surely spam). A score outside that range throws an
+  `InvalidArgumentException`, which the filter handles like any other failure.
+- Return `SpamVerdict::none()` when you have no opinion. The message is then only marked as checked.
+- Without a binding the default `NullSpamClassifier` returns `SpamVerdict::none()` for every message, so the filter
+  does nothing in any mode.
+- The text of a mail is written by its sender. When the classifier is an AI model, treat the mail as data and give the
+  model no tools.
