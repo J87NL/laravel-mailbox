@@ -87,8 +87,8 @@ class MarkJunk
         try {
             return $this->moveMessages->handle($messages, $target, $user, $action, $meta);
         } catch (Throwable $exception) {
-            $groups->each(function (Collection $group) use ($add, $remove): void {
-                rescue(fn () => $this->keywords($group, $remove, $add));
+            $groups->each(function (Collection $group) use ($add): void {
+                rescue(fn () => $this->keywords($group, null, $add));
             });
 
             throw $exception;
@@ -98,7 +98,7 @@ class MarkJunk
     /**
      * @param  Collection<int, MailboxMessage>  $group
      */
-    private function keywords(Collection $group, string $add, string $remove): void
+    private function keywords(Collection $group, ?string $add, ?string $remove): void
     {
         $folder = $group->first()->folder;
 

@@ -131,5 +131,5 @@ it('turns the keywords back when the move fails', function (): void {
     expect(fn () => app(MarkJunk::class)->junk($mailbox, collect([storedMessage($inbox, 1)->load('folder')]), user()))
         ->toThrow(RuntimeException::class)
         ->and(collect(remoteFolder($mailbox, 'INBOX')->operations)->map(fn (array $operation): string => sprintf('%s%s', $operation['operation'], $operation['flag']))->all())
-        ->toBe(['+$Junk', '-$NotJunk', '+$NotJunk', '-$Junk']);
+        ->toBe(['+$Junk', '-$NotJunk', '-$Junk']);
 });

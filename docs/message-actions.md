@@ -75,8 +75,8 @@ allowlist of the mailbox and marks the messages `released`, and `junk()` with a 
 The keywords are set before the move, because `UID MOVE` keeps them and the message gets a new UID in the target. Spam
 filters that learn from IMAP keywords (Dovecot, Fastmail, Apple Mail) read them there. When the server refuses the
 keywords, for example because its folder allows no keywords, the messages are moved without them and an `info` line is
-logged. When the move throws, the keywords are turned back (`$Junk` and `$NotJunk` swapped back) and the exception is
-rethrown. Messages already in the target folder are skipped.
+logged. When the move throws, the keyword that was added is removed again and the exception is rethrown. The removed keyword
+is not put back, because the package does not know whether the message had it. Messages already in the target folder are skipped.
 
 ## Deleting
 
