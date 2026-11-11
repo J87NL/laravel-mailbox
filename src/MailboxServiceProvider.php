@@ -39,6 +39,8 @@ class MailboxServiceProvider extends PackageServiceProvider
                 'add_message_count_to_mailbox_folders_table',
                 'create_mailbox_templates_table',
                 'add_confirm_delete_to_mailboxes_table',
+                'add_spam_filter_to_mailbox_tables',
+                'create_mailbox_spam_allowlist_table',
             ])
             ->hasCommands([
                 AddMailboxCommand::class,

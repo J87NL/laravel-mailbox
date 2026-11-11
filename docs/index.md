@@ -43,6 +43,8 @@ package does not implement that contract, so there is no built-in bridge between
   then the cache and the audit trail follow
 - **Sending** - SMTP per mailbox with `In-Reply-To` and `References` headers, a copy in Sent and forwarded attachments
 - **Access control** - read, write and manage levels per mailbox for users and groups, as Gate abilities
+- **Spam filter** - a hook for your own classifier: measure, suggest or move clear spam to the junk folder, with an
+  allowlist that learns from "Not spam", see [Spam filter](spam-filter.md)
 - **Audit trail** - who did what to which message, keyed on the `Message-ID` header
 - **Safe HTML** - mail is sanitized, remote images and tracking styles are blocked by default
 - **Address book** - contacts per mailbox and recipient suggestions from several sources
@@ -112,4 +114,5 @@ Gate::authorize('workInMailbox', $mailbox);
 - [Access control](access.md)
 - [Message actions](message-actions.md)
 - [Sending mail](sending.md)
+- [Spam filter](spam-filter.md)
 - [MCP tools](mcp.md)

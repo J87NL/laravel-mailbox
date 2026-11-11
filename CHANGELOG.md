@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0 - 2026-11-11
+
+- New spam filter hook, see `docs/spam-filter.md`. New column `mailboxes.spam_filter_mode` (`SpamFilterMode` enum: `off` (default), `measure`, `suggest`, `auto`) with `Mailbox::spamFilterMode()`, new columns `mailbox_messages.spam_score`, `spam_reason`, `spam_status` (`SpamStatus` enum: `suggested`, `moved`, `released`) and `spam_checked_at`, and new table `mailbox_spam_allowlist` (model `MailboxSpamAllowlistEntry`, `SpamAllowlistSource` enum: `manual`, `not_junk`, `default`; a `null` `mailbox_id` applies to every mailbox) with relation `Mailbox::spamAllowlist()`.
+- **Migration:** publish the migrations again and migrate (`php artisan vendor:publish --tag=mailbox-migrations` and `php artisan migrate`) to add `add_spam_filter_to_mailbox_tables` and `create_mailbox_spam_allowlist_table`. See `docs/upgrading.md`.
+
 ## 0.12.1 - 2026-11-07
 
 - Requires `symfony/html-sanitizer` ^7.4.23 or ^8.1.11, so a host can no longer resolve versions with the November 2026 sanitizer advisories (CVE-2026-118517 `allowLinkHosts()`/`allowMediaHosts()` bypass, unsanitized `srcset`/`imagesrcset`, narrow meta refresh matching). The 8.0 line has no patched release and is no longer allowed.
