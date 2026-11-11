@@ -241,13 +241,19 @@ class FilterSyncedMessages
             ->filter(function (MailboxMessage $message) use ($remote): bool {
                 $fetched = $remote->get((int) $message->uid);
 
-                if (is_null($fetched) || in_array(MarkJunk::JUNK_KEYWORD, $fetched->flags(), true)) {
+                if (is_null($fetched) || $this->hasJunkKeyword($fetched)) {
                     return false;
                 }
 
                 return $this->authentication->passes($message->from_email, $fetched->header('Authentication-Results')?->getRawValue());
             })
             ->values();
+    }
+
+    private function hasJunkKeyword(MessageInterface $message): bool
+    {
+        return collect($message->flags())
+            ->contains(fn (string $flag): bool => Str::lower($flag) === Str::lower(MarkJunk::JUNK_KEYWORD));
     }
 
     /**

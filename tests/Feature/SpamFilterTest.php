@@ -428,4 +428,20 @@ it('keeps allowlisted mail in the junk folder without a passing authentication o
     'forged from' => ['mx.example.com; spf=fail; dkim=pass header.d=evil.test; dmarc=fail header.from=example.org', []],
     'no results' => [null, []],
     'junked in another client' => ['mx.example.com; dmarc=pass header.from=example.org', ['$Junk']],
+    'junk keyword in another case' => ['mx.example.com; dmarc=pass header.from=example.org', ['$junk']],
 ]);
+
+it('reads only the topmost authentication results header', function (): void {
+    $mailbox = spamMailbox('auto');
+    folder($mailbox);
+    app(SpamAllowlist::class)->add($mailbox, 'sender@example.org');
+    $junk = syncedJunkFolder($mailbox, 'mx.example.com; dmarc=fail header.from=example.org');
+    $email = email('Message 2');
+    $email->getHeaders()->addTextHeader('Authentication-Results', 'mx.example.com; dmarc=fail header.from=example.org');
+    $email->getHeaders()->addTextHeader('Authentication-Results', 'forged.test; dmarc=pass header.from=example.org');
+    remoteFolder($mailbox, 'Spam')->setMessages([remoteMessage(2, [], $email)]);
+
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(collect(remoteFolder($mailbox, 'Spam')->operations)->where('type', 'move')->all())->toBe([]);
+});
