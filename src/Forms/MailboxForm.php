@@ -125,7 +125,7 @@ class MailboxForm extends AbstractForm
                     'name' => $mode->label(),
                 ], self::SPAM_FILTER_MODES))
                 ->default(SpamFilterMode::Off->value)
-                ->rules('sometimes', sprintf('in:%s', implode(',', array_map(fn (SpamFilterMode $mode): string => $mode->value, self::SPAM_FILTER_MODES)))),
+                ->rules('sometimes', $this->spamFilterModeRule()),
             EmailEditor::make('signature')
                 ->label(__('mailbox::mailbox.signature'))
                 ->help(__('mailbox::mailbox.signature_help'))
@@ -186,6 +186,13 @@ class MailboxForm extends AbstractForm
                 ->required(),
             $this->password('smtp_password'),
         ];
+    }
+
+    private function spamFilterModeRule(): string
+    {
+        $values = array_map(fn (SpamFilterMode $mode): string => $mode->value, self::SPAM_FILTER_MODES);
+
+        return sprintf('in:%s', implode(',', $values));
     }
 
     private function password(string $name): Password
