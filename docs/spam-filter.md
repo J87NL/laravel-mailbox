@@ -276,4 +276,5 @@ $this->app->bind(ClassifiesSpam::class, App\Mailbox\SpamClassifier::class);
 ## Testing
 
 `J87NL\Mailbox\Testing\FakeSpamClassifier` replaces your classifier in tests, see
-[Testing](testing.md#spam-classifier).
+[Testing](testing.md#spam-classifier). `RecordingFolder::addScoredMessage()` adds a remote message with the mail
+server's spam headers, see [Testing](testing.md#remote-folders-and-messages).

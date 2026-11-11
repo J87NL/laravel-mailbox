@@ -86,3 +86,34 @@ it('stores nothing for a header the config disables', function (): void {
 
     expect($stored[1])->toBe(['server_spam_flag' => null, 'server_spam_score' => null]);
 });
+
+it('reads the verdict from the peeked headers without an extra fetch', function (): void {
+    $mailbox = mailbox();
+    $folder = folder($mailbox);
+    $remote = remoteFolder($mailbox, 'INBOX');
+    $remote->addScoredMessage(1, email()->toString(), 'YES', '6.95');
+
+    app(SyncFolderMessages::class)->handle($folder);
+
+    expect($remote->fetchItems)->toBe([
+        ['FLAGS', 'RFC822.SIZE', 'BODY.PEEK[HEADER]', 'BODYSTRUCTURE'],
+    ])
+        ->and($remote->messageFetches)->toBe(0)
+        ->and($remote->message(1)->flags())->toBe([])
+        ->and(MailboxMessage::query()
+            ->sole()
+            ->only(['server_spam_flag', 'server_spam_score']))->toBe(['server_spam_flag' => true, 'server_spam_score' => 6.95]);
+});
+
+it('writes scored messages under the configured header names', function (): void {
+    config()->set('mailbox.spam.server_headers', [
+        'flag' => 'X-Custom-Spam',
+        'score' => null,
+    ]);
+
+    $message = remoteFolder(mailbox(), 'INBOX')->addScoredMessage(3, email()->toString(), 'NO', '-0.5');
+
+    expect($message->header('X-Custom-Spam')?->getValue())->toBe('NO')
+        ->and($message->header('X-Spam-Score')?->getValue())->toBe('-0.5')
+        ->and($message->subject())->toBe('Hello');
+});

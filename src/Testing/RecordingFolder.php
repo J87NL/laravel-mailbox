@@ -27,6 +27,11 @@ class RecordingFolder extends FakeFolder
      */
     public array $searches = [];
 
+    /**
+     * @var array<int, array<int, string>>
+     */
+    public array $fetchItems = [];
+
     public int $messageFetches = 0;
 
     public int $chunkFetches = 0;
@@ -74,6 +79,26 @@ class RecordingFolder extends FakeFolder
         $this->operations[] = $operation;
     }
 
+    /**
+     * @param  array<int, string>  $flags
+     */
+    public function addScoredMessage(int $uid, string $message, ?string $spamFlag, ?string $spamScore = null, array $flags = []): FakeMessage
+    {
+        $headers = collect([
+            'flag' => $spamFlag,
+            'score' => $spamScore,
+        ])
+            ->reject(fn (?string $value): bool => is_null($value))
+            ->map(fn (string $value, string $key): string => sprintf("%s: %s\r\n", $this->serverSpamHeader($key), $value))
+            ->implode('');
+
+        $fake = new FakeMessage($uid, $flags, $headers.$message);
+
+        $this->addMessage($fake);
+
+        return $fake;
+    }
+
     public function message(int $uid): ?FakeMessage
     {
         foreach ($this->messages as $message) {
@@ -83,5 +108,16 @@ class RecordingFolder extends FakeFolder
         }
 
         return null;
+    }
+
+    private function serverSpamHeader(string $key): string
+    {
+        $name = config(sprintf('mailbox.spam.server_headers.%s', $key));
+
+        if (is_string($name) && trim($name) !== '') {
+            return trim($name);
+        }
+
+        return $key === 'flag' ? 'X-Spam-Flag' : 'X-Spam-Score';
     }
 }
