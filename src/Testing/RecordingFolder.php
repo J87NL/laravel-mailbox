@@ -8,6 +8,7 @@ use DirectoryTree\ImapEngine\MessageQueryInterface;
 use DirectoryTree\ImapEngine\Testing\FakeFolder;
 use DirectoryTree\ImapEngine\Testing\FakeMessage;
 use Illuminate\Support\Carbon;
+use J87NL\Mailbox\Spam\ServerSpamHeaders;
 use Throwable;
 
 class RecordingFolder extends FakeFolder
@@ -112,12 +113,6 @@ class RecordingFolder extends FakeFolder
 
     private function serverSpamHeader(string $key): string
     {
-        $name = config(sprintf('mailbox.spam.server_headers.%s', $key));
-
-        if (is_string($name) && trim($name) !== '') {
-            return trim($name);
-        }
-
-        return $key === 'flag' ? 'X-Spam-Flag' : 'X-Spam-Score';
+        return ServerSpamHeaders::headerName($key) ?? ServerSpamHeaders::DEFAULT_HEADERS[$key];
     }
 }

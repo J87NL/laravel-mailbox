@@ -35,8 +35,6 @@ class StoreRemoteMessages
         'references',
         'reply_to',
         'sent_at',
-        'server_spam_flag',
-        'server_spam_score',
         'size',
         'subject',
         'to',

@@ -152,9 +152,10 @@ mode (also `off`), so you can measure it before you rely on it. It is read from 
 - The score is any number (also negative), rounded to two decimals; anything else, or a value beyond `9999.99`, gives
   `null`.
 - The header names come from `spam.server_headers.flag` and `spam.server_headers.score` (env
-  `MAILBOX_SPAM_FLAG_HEADER`, `MAILBOX_SPAM_SCORE_HEADER`). `null` or an empty name stops reading that header and stores
-  `null`. See [Configuration](configuration.md#spam-filter).
-- Mail synced before 0.14.0 has `null` in both columns; the sync does not fetch it again.
+  `MAILBOX_SPAM_FLAG_HEADER`, `MAILBOX_SPAM_SCORE_HEADER`). A missing key uses the default name, `null` or an empty name
+  stops reading that header and stores `null`. See [Configuration](configuration.md#spam-filter).
+- Mail synced before 0.14.0 has `null` in both columns; the sync does not fetch it again. A row that is stored again
+  keeps its first verdict.
 - Anyone can write these headers into a mail. They are only worth something when your mail server replaces them on
   incoming mail, as spam scanners normally do; check that for your host.
 

@@ -8,6 +8,11 @@ use DirectoryTree\ImapEngine\MessageInterface;
 
 final class ServerSpamHeaders
 {
+    public const DEFAULT_HEADERS = [
+        'flag' => 'X-Spam-Flag',
+        'score' => 'X-Spam-Score',
+    ];
+
     private const MAX_SCORE = 9999.99;
 
     /**
@@ -21,15 +26,32 @@ final class ServerSpamHeaders
         ];
     }
 
-    private function value(MessageInterface $message, string $key): ?string
+    public static function headerName(string $key): ?string
     {
-        $name = config(sprintf('mailbox.spam.server_headers.%s', $key));
+        $configKey = sprintf('mailbox.spam.server_headers.%s', $key);
+
+        if (! config()->has($configKey)) {
+            return self::DEFAULT_HEADERS[$key] ?? null;
+        }
+
+        $name = config($configKey);
 
         if (! is_string($name) || trim($name) === '') {
             return null;
         }
 
-        $value = $message->header(trim($name))?->getValue();
+        return trim($name);
+    }
+
+    private function value(MessageInterface $message, string $key): ?string
+    {
+        $name = self::headerName($key);
+
+        if (is_null($name)) {
+            return null;
+        }
+
+        $value = $message->header($name)?->getValue();
 
         if (! is_string($value)) {
             return null;
