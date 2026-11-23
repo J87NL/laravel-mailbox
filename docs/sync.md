@@ -176,7 +176,8 @@ scheduled sync and a folder job never sync the same folder at once.
    structure in chunks of `sync.chunk_size`, never bodies, and does not mark anything as read. The mail server's spam
    verdict (`X-Spam-Flag`, `X-Spam-Score`) is read from those headers and stored as `server_spam_flag` and
    `server_spam_score`, see [The mail server's verdict](spam-filter.md#the-mail-servers-verdict). Each chunk is stored with
-   one upsert and moves `last_uid` up. When the [time budget](#time-budget) is used up after a chunk, the folder sync
+   one upsert and moves `last_uid` up. New rows without `spam_checked_at` get the spam verdict
+   [kept across moves](spam-filter.md#kept-across-moves) for their `Message-ID`, one query per chunk, in every folder. When the [time budget](#time-budget) is used up after a chunk, the folder sync
    stops here and steps 3 and 4 wait for the next run. For a mailbox with the [spam filter](spam-filter.md#after-the-sync)
    on, the messages this step stored in a folder that synced before are handed to `FilterSyncedMessages`, also when the
    budget stopped the step: per batch of 500 one query for their audit history and, in the junk folder, one for the

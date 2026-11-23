@@ -130,9 +130,9 @@ class FilterSyncedMessages
                 ->last();
 
             $message->forceFill([
-                'spam_checked_at' => now(),
-                'spam_reason' => $verdict?->meta['reason'] ?? null,
-                'spam_score' => $verdict?->meta['score'] ?? null,
+                'spam_checked_at' => $message->spam_checked_at ?? now(),
+                'spam_reason' => $verdict?->meta['reason'] ?? $message->spam_reason,
+                'spam_score' => $verdict?->meta['score'] ?? $message->spam_score,
                 'spam_status' => $this->restoredStatus($latest, ! is_null($verdict)),
             ])->save();
         });

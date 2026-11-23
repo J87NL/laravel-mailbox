@@ -49,7 +49,7 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-This publishes `config/mailbox.php` and six migrations:
+This publishes `config/mailbox.php` and twelve migrations:
 
 | Migration                                    | Creates                                                                                                   |
 |----------------------------------------------|-----------------------------------------------------------------------------------------------------------|
@@ -59,6 +59,12 @@ This publishes `config/mailbox.php` and six migrations:
 | `add_sent_at_index_to_mailbox_messages_table`| an index on `mailbox_messages (mailbox_id, sent_at)`                                                      |
 | `add_conversations_to_mailbox_tables`        | `mailboxes.conversation_view`, `mailbox_messages.thread_key` and its indexes                              |
 | `add_message_count_to_mailbox_folders_table` | `mailbox_folders.message_count`, `oldest_uid` and `older_exhausted`                                       |
+| `create_mailbox_templates_table`             | `mailbox_templates`                                                                                       |
+| `add_confirm_delete_to_mailboxes_table`      | `mailboxes.confirm_delete`                                                                                |
+| `add_spam_filter_to_mailbox_tables`          | `mailboxes.spam_filter_mode` and the `spam_*` columns of `mailbox_messages`                               |
+| `create_mailbox_spam_allowlist_table`        | `mailbox_spam_allowlist`                                                                                  |
+| `add_server_spam_to_mailbox_messages_table`  | `mailbox_messages.server_spam_flag` and `server_spam_score`                                               |
+| `create_mailbox_spam_verdicts_table`         | `mailbox_spam_verdicts`, the spam verdicts kept per `Message-ID` and sender                               |
 
 Upgrading to 0.10: publish the migrations again and migrate (adds `add_message_count_to_mailbox_folders_table`).
 

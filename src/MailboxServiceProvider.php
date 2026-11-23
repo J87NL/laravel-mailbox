@@ -47,6 +47,7 @@ class MailboxServiceProvider extends PackageServiceProvider
                 'add_spam_filter_to_mailbox_tables',
                 'create_mailbox_spam_allowlist_table',
                 'add_server_spam_to_mailbox_messages_table',
+                'create_mailbox_spam_verdicts_table',
             ])
             ->hasCommands([
                 AddMailboxCommand::class,

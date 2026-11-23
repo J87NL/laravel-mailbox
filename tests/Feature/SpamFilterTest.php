@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use DirectoryTree\ImapEngine\Testing\FakeMessage;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use J87NL\Mailbox\Actions\MarkJunk;
+use J87NL\Mailbox\Actions\MoveMessages;
 use J87NL\Mailbox\Actions\RecordAudit;
 use J87NL\Mailbox\Enums\AuditAction;
 use J87NL\Mailbox\Enums\FolderRole;
@@ -20,8 +22,10 @@ use J87NL\Mailbox\Models\MailboxAuditEntry;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Models\MailboxSpamAllowlistEntry;
+use J87NL\Mailbox\Models\MailboxSpamVerdict;
 use J87NL\Mailbox\Spam\FilterSyncedMessages;
 use J87NL\Mailbox\Spam\SpamAllowlist;
+use J87NL\Mailbox\Spam\SpamVerdictStore;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 use J87NL\Mailbox\Testing\FakeSpamClassifier;
 
@@ -458,4 +462,208 @@ it('keeps allowlisted mail in the junk folder when no trusted server is configur
 
     expect(collect(remoteFolder($mailbox, 'Spam')->operations)->where('type', 'move')->all())->toBe([])
         ->and(MailboxMessage::query()->where('mailbox_folder_id', $junk->id)->count())->toBe(1);
+});
+
+function movedCopy(int $uid, int $originalUid = 1): FakeMessage
+{
+    $email = email(sprintf('Message %d', $originalUid));
+    $email->getHeaders()->addIdHeader('Message-ID', sprintf('message-%d@example.org', $originalUid));
+
+    return remoteMessage($uid, email: $email);
+}
+
+function checkedInboxMessage(Mailbox $mailbox, float $score, string $reason): MailboxMessage
+{
+    FakeSpamClassifier::install()->score($score, $reason);
+    $inbox = folder($mailbox);
+    remoteFolder($mailbox, 'INBOX')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(1)]);
+
+    app(SyncFolderMessages::class)->handle($inbox);
+
+    return checkSpam(MailboxMessage::query()->sole());
+}
+
+function syncedTargetFolder(Mailbox $mailbox, string $path, FolderRole $role, array $messages): MailboxFolder
+{
+    $folder = folder($mailbox, $path, $role, ['last_uid' => 6, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, $path)->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, $path)->setMessages($messages);
+
+    return $folder;
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function spamColumns(MailboxMessage $message): array
+{
+    return [
+        ...$message->only([
+            'mailbox_folder_id',
+            'spam_reason',
+            'spam_score',
+            'spam_status',
+        ]),
+        'checked' => ! is_null($message->spam_checked_at),
+    ];
+}
+
+it('remembers every verdict per mailbox, message id and sender', function (): void {
+    $checked = checkedInboxMessage(spamMailbox('suggest'), 0.85, 'Bulk mail');
+
+    expect(MailboxSpamVerdict::query()->sole()->only(['from_email', 'mailbox_id', 'message_id', 'spam_reason', 'spam_score']))->toBe([
+        'from_email' => 'sender@example.org',
+        'mailbox_id' => $checked->mailbox_id,
+        'message_id' => 'message-1@example.org',
+        'spam_reason' => 'Bulk mail',
+        'spam_score' => 0.85,
+    ]);
+});
+
+it('keeps the verdict when another client moves a message to the trash', function (): void {
+    Bus::fake([CheckSpamJob::class, SyncFolderJob::class]);
+    $mailbox = spamMailbox('suggest');
+    $checked = checkedInboxMessage($mailbox, 0.85, 'Bulk mail');
+    remoteFolder($mailbox, 'INBOX')->setMessages([]);
+    $trash = syncedTargetFolder($mailbox, 'Trash', FolderRole::Trash, [
+        movedCopy(7),
+        remoteMessage(8),
+    ]);
+
+    app(SyncFolderMessages::class)->handle($checked->folder->refresh());
+    DB::enableQueryLog();
+    app(SyncFolderMessages::class)->handle($trash);
+
+    expect(MailboxMessage::query()->orderBy('uid')->get()->map(fn (MailboxMessage $message): array => spamColumns($message))->all())->toBe([
+        [
+            'mailbox_folder_id' => $trash->id,
+            'spam_reason' => 'Bulk mail',
+            'spam_score' => 0.85,
+            'spam_status' => null,
+            'checked' => true,
+        ],
+        [
+            'mailbox_folder_id' => $trash->id,
+            'spam_reason' => null,
+            'spam_score' => null,
+            'spam_status' => null,
+            'checked' => false,
+        ],
+    ])
+        ->and(collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'mailbox_spam_verdicts'))->count())->toBe(1);
+});
+
+it('keeps the verdict when a message is moved in the app and the target folder syncs', function (): void {
+    $mailbox = spamMailbox('measure');
+    $checked = checkedInboxMessage($mailbox, 0.12, 'Looks fine');
+    $archive = syncedTargetFolder($mailbox, 'Archive', FolderRole::Archive, [movedCopy(7)]);
+
+    app(MoveMessages::class)->handle(collect([$checked]), $archive, user());
+    app(SyncFolderMessages::class)->handle($archive);
+
+    expect(spamColumns(MailboxMessage::query()->sole()))->toBe([
+        'mailbox_folder_id' => $archive->id,
+        'spam_reason' => 'Looks fine',
+        'spam_score' => 0.12,
+        'spam_status' => null,
+        'checked' => true,
+    ]);
+});
+
+it('keeps the score when a user marks checked mail as junk', function (): void {
+    $mailbox = spamMailbox('measure');
+    $checked = checkedInboxMessage($mailbox, 0.4, 'Unsure');
+    $junk = $mailbox->folderWithRole(FolderRole::Junk);
+    $junk->update(['last_uid' => 6, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'Spam')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'Spam')->setMessages([movedCopy(7)]);
+
+    app(MarkJunk::class)->junk($mailbox, collect([$checked]), user());
+    app(SyncFolderMessages::class)->handle($junk);
+
+    expect(spamColumns(MailboxMessage::query()->sole()))->toBe([
+        'mailbox_folder_id' => $junk->id,
+        'spam_reason' => 'Unsure',
+        'spam_score' => 0.4,
+        'spam_status' => null,
+        'checked' => true,
+    ]);
+});
+
+it('copies a remembered verdict onto new mail without queueing a new check', function (bool $remembered, bool $sameMailbox, string $verdictFrom, string $from): void {
+    Bus::fake([CheckSpamJob::class, SyncFolderJob::class]);
+    $mailbox = spamMailbox('measure');
+    $inbox = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
+    remoteFolder($mailbox, 'INBOX')->status = ['UIDVALIDITY' => 1];
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(2, email: email('Message 2')->from($from))]);
+    MailboxSpamVerdict::query()->create([
+        'checked_at' => now()->subDay(),
+        'from_email' => $verdictFrom,
+        'mailbox_id' => $sameMailbox ? $mailbox->id : mailbox(['email' => 'other@example.com'])->id,
+        'message_id' => 'message-2@example.org',
+        'spam_reason' => 'Known',
+        'spam_score' => 0.3,
+    ]);
+
+    app(SyncFolderMessages::class)->handle($inbox);
+
+    $stored = MailboxMessage::query()->sole();
+
+    expect($stored->only(['spam_reason', 'spam_score']))->toBe([
+        'spam_reason' => $remembered ? 'Known' : null,
+        'spam_score' => $remembered ? 0.3 : null,
+    ])
+        ->and(is_null($stored->spam_checked_at))->toBe(! $remembered);
+
+    if ($remembered) {
+        Bus::assertNotDispatched(CheckSpamJob::class);
+
+        return;
+    }
+
+    Bus::assertDispatched(CheckSpamJob::class, fn (CheckSpamJob $job): bool => $job->messageId === $stored->id);
+})->with([
+    'remembered' => [true, true, 'sender@example.org', 'sender@example.org'],
+    'remembered for the sender in another case' => [true, true, 'sender@example.org', 'Sender@Example.ORG'],
+    'remembered for a sender with a non-ascii letter' => [true, true, strtolower('Ünal@Example.ORG'), 'Ünal@Example.ORG'],
+    'remembered in another mailbox only' => [false, false, 'sender@example.org', 'sender@example.org'],
+    'message id reused by another sender' => [false, true, 'sender@example.org', 'spammer@example.net'],
+]);
+
+it('copies a remembered verdict for a sender with a non-ascii letter in another case', function (): void {
+    $mailbox = spamMailbox('measure');
+    $inbox = folder($mailbox);
+    $trash = folder($mailbox, 'Trash', FolderRole::Trash);
+    $checked = storedMessage($inbox, 1, ['from_email' => 'Ünal@Example.ORG']);
+    $moved = storedMessage($trash, 7, ['from_email' => 'Ünal@example.org', 'message_id' => $checked->message_id]);
+
+    app(SpamVerdictStore::class)->remember($checked, 0.4, 'Unsure');
+    app(SpamVerdictStore::class)->copyTo($trash, [7]);
+
+    expect($moved->refresh()->only(['spam_reason', 'spam_score']))->toBe([
+        'spam_reason' => 'Unsure',
+        'spam_score' => 0.4,
+    ]);
+});
+
+it('neither remembers nor copies a verdict for mail without a sender', function (): void {
+    FakeSpamClassifier::install()->score(0.6);
+    $mailbox = spamMailbox('measure');
+    $inbox = folder($mailbox);
+    $unsent = storedMessage($inbox, 1, ['from_email' => null]);
+    MailboxSpamVerdict::query()->create([
+        'checked_at' => now(),
+        'from_email' => '',
+        'mailbox_id' => $mailbox->id,
+        'message_id' => 'message-2@example.com',
+        'spam_score' => 0.3,
+    ]);
+    $anonymous = storedMessage($inbox, 2, ['from_email' => null]);
+
+    checkSpam($unsent);
+    app(SpamVerdictStore::class)->copyTo($inbox, [2]);
+
+    expect(MailboxSpamVerdict::query()->where('message_id', 'message-1@example.com')->exists())->toBeFalse()
+        ->and($anonymous->refresh()->spam_checked_at)->toBeNull();
 });
