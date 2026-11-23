@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $mailbox_id
  * @property string $message_id
+ * @property string|null $from_email
  * @property float|null $spam_score
  * @property string|null $spam_reason
  * @property Carbon $checked_at

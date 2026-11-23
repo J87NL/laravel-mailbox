@@ -69,21 +69,23 @@ checked. The job runs once per message: a message with `spam_checked_at` is skip
 
 A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)): the app deletes
 the old row right away, and a move in another mail client makes the sync drop it. To keep the verdict, `CheckSpam` also
-writes it to `mailbox_spam_verdicts` (model `MailboxSpamVerdict`), one row per mailbox and `Message-ID`, every time it
-sets `spam_checked_at`: with a score, without a verdict and for an allowlisted sender.
+writes it to `mailbox_spam_verdicts` (model `MailboxSpamVerdict`), one row per mailbox, `Message-ID` and lowercased
+sender address, every time it sets `spam_checked_at`: with a score, without a verdict and for an allowlisted sender.
 
 When the sync (or `FetchOlderMessages`) stores a new row in any folder, also `Trash`, `Junk` and `Archive`, and that row
-has no `spam_checked_at`, it copies `spam_score`, `spam_reason` and `checked_at` (as `spam_checked_at`) from that table,
-with one query per chunk. `spam_status` is not copied: it belongs to the action on the original row, and
+has no `spam_checked_at`, it copies `spam_score`, `spam_reason` and `checked_at` (as `spam_checked_at`) from the
+verdict with the same mailbox, `Message-ID` and sender (compared without regard to case), with one query per chunk. `spam_status` is not copied: it belongs to the action on the original row, and
 [After the sync](#after-the-sync) restores it where it applies. A copied row has `spam_checked_at`, so it is never
 classified again.
 
 The copy runs in every mode. With the filter `off` no new verdicts are written, but verdicts from an earlier mode are
-still copied. Mail without a `Message-ID` keeps nothing. Verdicts from before 0.15.0 are not in the table.
+still copied. Mail without a `Message-ID` or a `From` address keeps nothing. Verdicts from before 0.15.0 are not in the
+table.
 
-The verdict is keyed on the `Message-ID` within the mailbox, like the [audit history](#after-the-sync). A new mail that
-reuses the `Message-ID` of a checked mail in the same mailbox gets that verdict and is not classified. A failed check
-(no verdict, `spam_checked_at` only) is kept across a move as well, so the moved mail is not checked again either.
+Because the sender is part of the key, a new mail that reuses the `Message-ID` of a checked mail but comes from another
+address gets no verdict and is checked as usual. A sender who reuses his own `Message-ID` still gets his earlier
+verdict. A failed check (no verdict, `spam_checked_at` only) is kept across a move as well, so the moved mail is not
+checked again either.
 
 ## After the sync
 

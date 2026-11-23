@@ -64,7 +64,7 @@ This publishes `config/mailbox.php` and twelve migrations:
 | `add_spam_filter_to_mailbox_tables`          | `mailboxes.spam_filter_mode` and the `spam_*` columns of `mailbox_messages`                               |
 | `create_mailbox_spam_allowlist_table`        | `mailbox_spam_allowlist`                                                                                  |
 | `add_server_spam_to_mailbox_messages_table`  | `mailbox_messages.server_spam_flag` and `server_spam_score`                                               |
-| `create_mailbox_spam_verdicts_table`         | `mailbox_spam_verdicts`, the spam verdicts kept per `Message-ID` across moves                             |
+| `create_mailbox_spam_verdicts_table`         | `mailbox_spam_verdicts`, the spam verdicts kept per `Message-ID` and sender                               |
 
 Upgrading to 0.10: publish the migrations again and migrate (adds `add_message_count_to_mailbox_folders_table`).
 

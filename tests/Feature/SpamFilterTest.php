@@ -508,10 +508,11 @@ function spamColumns(MailboxMessage $message): array
     ];
 }
 
-it('remembers every verdict per mailbox and message id', function (): void {
+it('remembers every verdict per mailbox, message id and sender', function (): void {
     $checked = checkedInboxMessage(spamMailbox('suggest'), 0.85, 'Bulk mail');
 
-    expect(MailboxSpamVerdict::query()->sole()->only(['mailbox_id', 'message_id', 'spam_reason', 'spam_score']))->toBe([
+    expect(MailboxSpamVerdict::query()->sole()->only(['from_email', 'mailbox_id', 'message_id', 'spam_reason', 'spam_score']))->toBe([
+        'from_email' => 'sender@example.org',
         'mailbox_id' => $checked->mailbox_id,
         'message_id' => 'message-1@example.org',
         'spam_reason' => 'Bulk mail',
@@ -589,15 +590,16 @@ it('keeps the score when a user marks checked mail as junk', function (): void {
     ]);
 });
 
-it('copies a remembered verdict onto new mail without queueing a new check', function (bool $remembered): void {
+it('copies a remembered verdict onto new mail without queueing a new check', function (bool $remembered, bool $sameMailbox, string $from): void {
     Bus::fake([CheckSpamJob::class, SyncFolderJob::class]);
     $mailbox = spamMailbox('measure');
     $inbox = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
     remoteFolder($mailbox, 'INBOX')->status = ['UIDVALIDITY' => 1];
-    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(2)]);
+    remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(2, email: email('Message 2')->from($from))]);
     MailboxSpamVerdict::query()->create([
         'checked_at' => now()->subDay(),
-        'mailbox_id' => $remembered ? $mailbox->id : mailbox(['email' => 'other@example.com'])->id,
+        'from_email' => 'sender@example.org',
+        'mailbox_id' => $sameMailbox ? $mailbox->id : mailbox(['email' => 'other@example.com'])->id,
         'message_id' => 'message-2@example.org',
         'spam_reason' => 'Known',
         'spam_score' => 0.3,
@@ -621,6 +623,8 @@ it('copies a remembered verdict onto new mail without queueing a new check', fun
 
     Bus::assertDispatched(CheckSpamJob::class, fn (CheckSpamJob $job): bool => $job->messageId === $stored->id);
 })->with([
-    'remembered' => [true],
-    'remembered in another mailbox only' => [false],
+    'remembered' => [true, true, 'sender@example.org'],
+    'remembered for the sender in another case' => [true, true, 'Sender@Example.ORG'],
+    'remembered in another mailbox only' => [false, false, 'sender@example.org'],
+    'message id reused by another sender' => [false, true, 'spammer@example.net'],
 ]);

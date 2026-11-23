@@ -11,9 +11,9 @@ php artisan vendor:publish --tag=mailbox-migrations
 php artisan migrate
 ```
 
-From then on every spam verdict is also kept per `Message-ID`, and a message the sync stores in another folder after a
-move (in the app or in another mail client, also to `Trash`, `Junk` or `Archive`) gets its `spam_score`, `spam_reason`
-and `spam_checked_at` back, see [Kept across moves](spam-filter.md#kept-across-moves). Verdicts stored before 0.15.0 are
+From then on every spam verdict is also kept per `Message-ID` and sender, and a message the sync stores in another
+folder after a move (in the app or in another mail client, also to `Trash`, `Junk` or `Archive`) gets its
+`spam_score`, `spam_reason` and `spam_checked_at` back, see [Kept across moves](spam-filter.md#kept-across-moves). Verdicts stored before 0.15.0 are
 not in the table, so mail checked before the upgrade still loses its verdict when it moves.
 
 `CheckSpam` and `StoreRemoteMessages` take a new constructor argument (`SpamVerdictStore`). Code that resolves them

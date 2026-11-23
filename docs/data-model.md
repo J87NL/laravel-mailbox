@@ -168,13 +168,14 @@ Relation: `mailbox()`. Deleted with the mailbox.
 
 ## MailboxSpamVerdict
 
-Table `mailbox_spam_verdicts`. The last verdict of the [spam filter](spam-filter.md#kept-across-moves) per `Message-ID`,
-so it survives a move to another folder.
+Table `mailbox_spam_verdicts`. The last verdict of the [spam filter](spam-filter.md#kept-across-moves) per `Message-ID`
+and sender, so it survives a move to another folder.
 
 | Column        | Notes                                                                              |
 |---------------|------------------------------------------------------------------------------------|
 | `mailbox_id`  | The mailbox                                                                        |
-| `message_id`  | The `Message-ID`, unique per mailbox                                               |
+| `message_id`  | The `Message-ID`                                                                   |
+| `from_email`  | The sender address, lowercased; unique together with `mailbox_id` and `message_id` |
 | `spam_score`  | decimal(4,3), nullable: the classifier's score, `null` without a verdict           |
 | `spam_reason` | The classifier's reason, nullable                                                  |
 | `checked_at`  | When the filter looked at the message; copied to `spam_checked_at` of a new row    |
