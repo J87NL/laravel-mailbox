@@ -26,6 +26,7 @@ class CheckSpam
         private readonly ClassifiesSpam $classifier,
         private readonly MarkJunk $markJunk,
         private readonly SpamAllowlist $allowlist,
+        private readonly SpamVerdictStore $verdicts,
     ) {}
 
     public function handle(MailboxMessage $message): void
@@ -53,7 +54,7 @@ class CheckSpam
 
         $status = $this->status($mode, (float) $verdict->score, $this->isHandled($message));
 
-        if ($status === SpamStatus::Moved && $this->mayMove($mailbox) && $this->moveToJunk($mailbox, $message, $verdict)) {
+        if ($status === SpamStatus::Moved && $this->mayMove($mailbox) && $this->rememberAndMove($mailbox, $message, $verdict)) {
             return;
         }
 
@@ -130,6 +131,13 @@ class CheckSpam
         return false;
     }
 
+    private function rememberAndMove(Mailbox $mailbox, MailboxMessage $message, SpamVerdict $verdict): bool
+    {
+        $this->verdicts->remember($message, $verdict->score, $this->reason($verdict));
+
+        return $this->moveToJunk($mailbox, $message, $verdict);
+    }
+
     private function moveToJunk(Mailbox $mailbox, MailboxMessage $message, SpamVerdict $verdict): bool
     {
         try {
@@ -157,6 +165,8 @@ class CheckSpam
 
     private function store(MailboxMessage $message, ?SpamVerdict $verdict, ?SpamStatus $status): void
     {
+        $this->verdicts->remember($message, $verdict?->score, is_null($verdict) ? null : $this->reason($verdict));
+
         $message->forceFill([
             'spam_checked_at' => now(),
             'spam_reason' => is_null($verdict) ? null : $this->reason($verdict),

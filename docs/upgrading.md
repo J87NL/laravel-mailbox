@@ -2,6 +2,23 @@
 
 Steps per version. The [changelog](https://github.com/J87NL/laravel-mailbox/blob/main/CHANGELOG.md) lists every change.
 
+## 0.15.0
+
+Publish the migrations again and migrate: `create_mailbox_spam_verdicts_table` adds the table `mailbox_spam_verdicts`.
+
+```bash
+php artisan vendor:publish --tag=mailbox-migrations
+php artisan migrate
+```
+
+From then on every spam verdict is also kept per `Message-ID`, and a message the sync stores in another folder after a
+move (in the app or in another mail client, also to `Trash`, `Junk` or `Archive`) gets its `spam_score`, `spam_reason`
+and `spam_checked_at` back, see [Kept across moves](spam-filter.md#kept-across-moves). Verdicts stored before 0.15.0 are
+not in the table, so mail checked before the upgrade still loses its verdict when it moves.
+
+`CheckSpam` and `StoreRemoteMessages` take a new constructor argument (`SpamVerdictStore`). Code that resolves them
+from the container needs no change.
+
 ## 0.14.0
 
 Publish the migrations again and migrate: `add_server_spam_to_mailbox_messages_table` adds

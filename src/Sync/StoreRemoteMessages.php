@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Spam\ServerSpamHeaders;
+use J87NL\Mailbox\Spam\SpamVerdictStore;
 use J87NL\Mailbox\Threading\ConversationKeys;
 
 class StoreRemoteMessages
@@ -43,6 +44,7 @@ class StoreRemoteMessages
     public function __construct(
         private readonly ConversationKeys $conversations,
         private readonly ServerSpamHeaders $serverSpamHeaders,
+        private readonly SpamVerdictStore $spamVerdicts,
     ) {}
 
     public function query(FolderInterface $remote): MessageQueryInterface
@@ -86,6 +88,10 @@ class StoreRemoteMessages
                 self::UPDATED_COLUMNS,
             );
 
+        $stored = array_values(array_diff($uids, $existing));
+
+        $this->spamVerdicts->copyTo($folder, $stored);
+
         $this->conversations->assign($folder->messages()
             ->whereIn('uid', $uids)
             ->whereNull('thread_key')
@@ -93,7 +99,7 @@ class StoreRemoteMessages
             ->orderBy('id')
             ->get());
 
-        return array_values(array_diff($uids, $existing));
+        return $stored;
     }
 
     /**

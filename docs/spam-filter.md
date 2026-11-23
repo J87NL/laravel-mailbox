@@ -65,18 +65,34 @@ effects. Read `spam_status` later, or check the mail in your own queued job afte
 Mail the sync announces nothing for, such as mail in the junk folder, a first sync or `FetchOlderMessages`, is never
 checked. The job runs once per message: a message with `spam_checked_at` is skipped.
 
+## Kept across moves
+
+A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)): the app deletes
+the old row right away, and a move in another mail client makes the sync drop it. To keep the verdict, `CheckSpam` also
+writes it to `mailbox_spam_verdicts` (model `MailboxSpamVerdict`), one row per mailbox and `Message-ID`, every time it
+sets `spam_checked_at`: with a score, without a verdict and for an allowlisted sender.
+
+When the sync (or `FetchOlderMessages`) stores a new row in any folder, also `Trash`, `Junk` and `Archive`, and that row
+has no `spam_checked_at`, it copies `spam_score`, `spam_reason` and `checked_at` (as `spam_checked_at`) from that table,
+with one query per chunk. `spam_status` is not copied: it belongs to the action on the original row, and
+[After the sync](#after-the-sync) restores it where it applies. A copied row has `spam_checked_at`, so it is never
+classified again.
+
+This works in every mode; with the filter `off` no verdicts are written, so nothing is copied. Mail without a
+`Message-ID` keeps nothing. Verdicts from before 0.15.0 are not in the table.
+
 ## After the sync
 
-A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)), so the
-verdict on the old row is gone. For a mailbox whose mode is not `off`, the folder sync hands the messages it stored to
+A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)). The score is
+[kept across the move](#kept-across-moves), the status is not. For a mailbox whose mode is not `off`, the folder sync hands the messages it stored to
 `J87NL\Mailbox\Spam\FilterSyncedMessages`, which reads their audit history in one query and:
 
 - **restores the verdict**: when the last of `spam_moved`, `marked_junk`, `marked_not_junk`, `moved` and `archived` is
   `spam_moved`, the new row gets `spam_status` `moved` with the score and reason from the audit meta. A later
   `marked_not_junk` by a user, or a later `moved` or `archived` by a user of mail the filter moved (dragged out of the
   junk folder), gives `released` (with the score and reason of the `spam_moved`). Anything else after it, including a
-  move without a user, leaves the status empty. `spam_checked_at` is set, so the
-  message is not classified again;
+  move without a user, leaves the status empty. Without a `spam_moved` entry the score and reason
+  [kept across the move](#kept-across-moves) stay. `spam_checked_at` is set, so the message is not classified again;
 - **announces returned mail**: a message whose last junk action is `marked_not_junk` and that was never announced,
   because the server put it straight in the junk folder, fires `MessageReceived` once in the watched folder it lands
   in, with a `received` audit entry;
@@ -137,7 +153,7 @@ Limits to know:
 | `spam_score`      | The score from `0` to `1` with three decimals, `null` without a verdict                                   |
 | `spam_reason`     | The reason the classifier gave, cut to 255 characters (also in the `spam_moved` meta)   |
 | `spam_status`     | A `SpamStatus` enum: `suggested`, `moved` or `released`, or `null`                      |
-| `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict     |
+| `spam_checked_at` | When the filter looked at the message; also set when it skipped or found no verdict. After a move the score, reason and this time are [kept](#kept-across-moves), the status is not |
 | `server_spam_flag`  | The mail server's verdict from the `X-Spam-Flag` header: `true` for `YES`, `false` for `NO`, `null` otherwise. See [The mail server's verdict](#the-mail-servers-verdict) |
 | `server_spam_score` | The mail server's score from the `X-Spam-Score` header, two decimals, `null` when missing or not a number |
 

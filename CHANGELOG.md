@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0 - 2026-11-23
+
+- Fixed: a spam verdict no longer gets lost when a message moves to another folder, in the app (`MoveMessages`, `ArchiveMessages`, `DeleteMessages` to the trash, `MarkJunk`) or in another mail client. New table `mailbox_spam_verdicts` (model `J87NL\Mailbox\Models\MailboxSpamVerdict`: `mailbox_id`, `message_id`, `spam_score`, `spam_reason`, `checked_at`, unique per mailbox and `Message-ID`, deleted with the mailbox). `CheckSpam` upserts every verdict it stores into it (with a score, without a verdict and for an allowlisted sender, also right before an `auto` move); messages without a `Message-ID` are skipped.
+- `StoreRemoteMessages` copies `spam_score`, `spam_reason` and `checked_at` (as `spam_checked_at`) from that table onto every row it newly stores without `spam_checked_at`, in every folder including `Trash`, `Junk` and `Archive`, with one `UPDATE` per chunk. `spam_status` is not copied. A row with a copied verdict has `spam_checked_at`, so `QueueSpamCheck` queues no new `CheckSpamJob` for it and the classifier is not asked again. See `docs/spam-filter.md#kept-across-moves`.
+- `FilterSyncedMessages` keeps a copied score, reason and `spam_checked_at` when the audit trail has junk history but no `spam_moved` entry (for example mail a user marked as spam), instead of clearing them.
+- New class `J87NL\Mailbox\Spam\SpamVerdictStore` with `remember(MailboxMessage, ?float $score, ?string $reason)` and `copyTo(MailboxFolder, array $uids)`. `CheckSpam` and `StoreRemoteMessages` take it in their constructor; resolve them from the container.
+- **Migration:** publish the migrations again and migrate (`php artisan vendor:publish --tag=mailbox-migrations` and `php artisan migrate`) to add `create_mailbox_spam_verdicts_table`. Verdicts stored before this version are not in the table. See `docs/upgrading.md`.
+
 ## 0.14.0 - 2026-11-11
 
 - New columns `mailbox_messages.server_spam_flag` (boolean, nullable) and `server_spam_score` (decimal 6,2, nullable), cast to `bool` and `float` on `MailboxMessage`. The sync stores the mail server's spam verdict on every message it fetches, in every spam filter mode: `X-Spam-Flag` `YES`/`NO` (case-insensitive, trimmed; any other value is `null`) and `X-Spam-Score` as a number rounded to two decimals (not a number or beyond `9999.99` is `null`). It is read from the headers the sync already fetches with `BODY.PEEK[HEADER]`, so no extra request and nothing is marked as read. `CheckSpam` and its thresholds are unchanged; a classifier can use the columns, see `docs/spam-filter.md#the-mail-servers-verdict`.

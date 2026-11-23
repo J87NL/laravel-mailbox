@@ -133,8 +133,8 @@ Relations: `mailbox()`, `folder()`, `links()`.
 String headers longer than their column are cut to fit.
 
 Local rows are disposable. A move gives a message a new UID in another folder, so the package deletes the old row and
-the next sync of the target folder creates a new one. Audit entries and links therefore point at the `Message-ID`, not
-at the row id.
+the next sync of the target folder creates a new one. Audit entries, links and spam verdicts therefore point at the
+`Message-ID`, not at the row id.
 
 ## MailboxAccess
 
@@ -166,6 +166,21 @@ Table `mailbox_spam_allowlist`. Senders the [spam filter](spam-filter.md#the-all
 
 Relation: `mailbox()`. Deleted with the mailbox.
 
+## MailboxSpamVerdict
+
+Table `mailbox_spam_verdicts`. The last verdict of the [spam filter](spam-filter.md#kept-across-moves) per `Message-ID`,
+so it survives a move to another folder.
+
+| Column        | Notes                                                                              |
+|---------------|------------------------------------------------------------------------------------|
+| `mailbox_id`  | The mailbox                                                                        |
+| `message_id`  | The `Message-ID`, unique per mailbox                                               |
+| `spam_score`  | decimal(4,3), nullable: the classifier's score, `null` without a verdict           |
+| `spam_reason` | The classifier's reason, nullable                                                  |
+| `checked_at`  | When the filter looked at the message; copied to `spam_checked_at` of a new row    |
+
+Relation: `mailbox()`. Deleted with the mailbox.
+
 ## MailboxMessageLink
 
 Table `mailbox_message_links`. Polymorphic links from a `Message-ID` to a model of your app, see
@@ -174,4 +189,5 @@ Table `mailbox_message_links`. Polymorphic links from a `Message-ID` to a model 
 ## Deleting a mailbox
 
 All tables reference `mailboxes` with a cascading foreign key. Deleting a `Mailbox` row removes its folders, cached
-messages, audit trail, access rows, contacts, links and spam allowlist entries. Mail on the server is untouched.
+messages, audit trail, access rows, contacts, links, spam allowlist entries and spam verdicts. Mail on the server is
+untouched.
