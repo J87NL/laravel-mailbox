@@ -78,8 +78,12 @@ with one query per chunk. `spam_status` is not copied: it belongs to the action 
 [After the sync](#after-the-sync) restores it where it applies. A copied row has `spam_checked_at`, so it is never
 classified again.
 
-This works in every mode; with the filter `off` no verdicts are written, so nothing is copied. Mail without a
-`Message-ID` keeps nothing. Verdicts from before 0.15.0 are not in the table.
+The copy runs in every mode. With the filter `off` no new verdicts are written, but verdicts from an earlier mode are
+still copied. Mail without a `Message-ID` keeps nothing. Verdicts from before 0.15.0 are not in the table.
+
+The verdict is keyed on the `Message-ID` within the mailbox, like the [audit history](#after-the-sync). A new mail that
+reuses the `Message-ID` of a checked mail in the same mailbox gets that verdict and is not classified. A failed check
+(no verdict, `spam_checked_at` only) is kept across a move as well, so the moved mail is not checked again either.
 
 ## After the sync
 
