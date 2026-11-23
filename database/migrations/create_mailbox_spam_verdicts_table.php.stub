@@ -14,7 +14,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('mailbox_id')->constrained()->cascadeOnDelete();
             $table->string('message_id');
-            $table->string('from_email')->nullable();
+            $table->string('from_email');
             $table->decimal('spam_score', 4, 3)->nullable();
             $table->string('spam_reason')->nullable();
             $table->timestamp('checked_at');

@@ -25,6 +25,7 @@ use J87NL\Mailbox\Models\MailboxSpamAllowlistEntry;
 use J87NL\Mailbox\Models\MailboxSpamVerdict;
 use J87NL\Mailbox\Spam\FilterSyncedMessages;
 use J87NL\Mailbox\Spam\SpamAllowlist;
+use J87NL\Mailbox\Spam\SpamVerdictStore;
 use J87NL\Mailbox\Sync\SyncFolderMessages;
 use J87NL\Mailbox\Testing\FakeSpamClassifier;
 
@@ -590,7 +591,7 @@ it('keeps the score when a user marks checked mail as junk', function (): void {
     ]);
 });
 
-it('copies a remembered verdict onto new mail without queueing a new check', function (bool $remembered, bool $sameMailbox, string $from): void {
+it('copies a remembered verdict onto new mail without queueing a new check', function (bool $remembered, bool $sameMailbox, string $verdictFrom, string $from): void {
     Bus::fake([CheckSpamJob::class, SyncFolderJob::class]);
     $mailbox = spamMailbox('measure');
     $inbox = folder($mailbox, attributes: ['last_uid' => 1, 'synced_at' => now(), 'uid_validity' => 1]);
@@ -598,7 +599,7 @@ it('copies a remembered verdict onto new mail without queueing a new check', fun
     remoteFolder($mailbox, 'INBOX')->setMessages([remoteMessage(2, email: email('Message 2')->from($from))]);
     MailboxSpamVerdict::query()->create([
         'checked_at' => now()->subDay(),
-        'from_email' => 'sender@example.org',
+        'from_email' => $verdictFrom,
         'mailbox_id' => $sameMailbox ? $mailbox->id : mailbox(['email' => 'other@example.com'])->id,
         'message_id' => 'message-2@example.org',
         'spam_reason' => 'Known',
@@ -623,8 +624,46 @@ it('copies a remembered verdict onto new mail without queueing a new check', fun
 
     Bus::assertDispatched(CheckSpamJob::class, fn (CheckSpamJob $job): bool => $job->messageId === $stored->id);
 })->with([
-    'remembered' => [true, true, 'sender@example.org'],
-    'remembered for the sender in another case' => [true, true, 'Sender@Example.ORG'],
-    'remembered in another mailbox only' => [false, false, 'sender@example.org'],
-    'message id reused by another sender' => [false, true, 'spammer@example.net'],
+    'remembered' => [true, true, 'sender@example.org', 'sender@example.org'],
+    'remembered for the sender in another case' => [true, true, 'sender@example.org', 'Sender@Example.ORG'],
+    'remembered for a sender with a non-ascii letter' => [true, true, strtolower('Ünal@Example.ORG'), 'Ünal@Example.ORG'],
+    'remembered in another mailbox only' => [false, false, 'sender@example.org', 'sender@example.org'],
+    'message id reused by another sender' => [false, true, 'sender@example.org', 'spammer@example.net'],
 ]);
+
+it('copies a remembered verdict for a sender with a non-ascii letter in another case', function (): void {
+    $mailbox = spamMailbox('measure');
+    $inbox = folder($mailbox);
+    $trash = folder($mailbox, 'Trash', FolderRole::Trash);
+    $checked = storedMessage($inbox, 1, ['from_email' => 'Ünal@Example.ORG']);
+    $moved = storedMessage($trash, 7, ['from_email' => 'Ünal@example.org', 'message_id' => $checked->message_id]);
+
+    app(SpamVerdictStore::class)->remember($checked, 0.4, 'Unsure');
+    app(SpamVerdictStore::class)->copyTo($trash, [7]);
+
+    expect($moved->refresh()->only(['spam_reason', 'spam_score']))->toBe([
+        'spam_reason' => 'Unsure',
+        'spam_score' => 0.4,
+    ]);
+});
+
+it('neither remembers nor copies a verdict for mail without a sender', function (): void {
+    FakeSpamClassifier::install()->score(0.6);
+    $mailbox = spamMailbox('measure');
+    $inbox = folder($mailbox);
+    $unsent = storedMessage($inbox, 1, ['from_email' => null]);
+    MailboxSpamVerdict::query()->create([
+        'checked_at' => now(),
+        'from_email' => '',
+        'mailbox_id' => $mailbox->id,
+        'message_id' => 'message-2@example.com',
+        'spam_score' => 0.3,
+    ]);
+    $anonymous = storedMessage($inbox, 2, ['from_email' => null]);
+
+    checkSpam($unsent);
+    app(SpamVerdictStore::class)->copyTo($inbox, [2]);
+
+    expect(MailboxSpamVerdict::query()->where('message_id', 'message-1@example.com')->exists())->toBeFalse()
+        ->and($anonymous->refresh()->spam_checked_at)->toBeNull();
+});

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace J87NL\Mailbox\Spam;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 use J87NL\Mailbox\Models\MailboxFolder;
 use J87NL\Mailbox\Models\MailboxMessage;
 use J87NL\Mailbox\Models\MailboxSpamVerdict;
@@ -23,7 +22,7 @@ class SpamVerdictStore
                 [
                     [
                         'checked_at' => now(),
-                        'from_email' => Str::lower($message->from_email),
+                        'from_email' => strtolower($message->from_email),
                         'mailbox_id' => $message->mailbox_id,
                         'message_id' => $message->message_id,
                         'spam_reason' => $reason,
@@ -56,7 +55,6 @@ class SpamVerdictStore
             ->whereIn('uid', $uids)
             ->whereNull('spam_checked_at')
             ->whereNotNull('message_id')
-            ->whereNotNull('from_email')
             ->whereExists($this->verdictColumn('id'))
             ->update([
                 'spam_checked_at' => $this->verdictColumn('checked_at'),

@@ -69,14 +69,15 @@ checked. The job runs once per message: a message with `spam_checked_at` is skip
 
 A move gives a message a new row in the target folder (see [Data model](data-model.md#mailboxmessage)): the app deletes
 the old row right away, and a move in another mail client makes the sync drop it. To keep the verdict, `CheckSpam` also
-writes it to `mailbox_spam_verdicts` (model `MailboxSpamVerdict`), one row per mailbox, `Message-ID` and lowercased
-sender address, every time it sets `spam_checked_at`: with a score, without a verdict and for an allowlisted sender.
+writes it to `mailbox_spam_verdicts` (model `MailboxSpamVerdict`), one row per mailbox, `Message-ID` and sender
+address (with its ASCII letters lowercased), every time it sets `spam_checked_at`: with a score, without a verdict and
+for an allowlisted sender.
 
 When the sync (or `FetchOlderMessages`) stores a new row in any folder, also `Trash`, `Junk` and `Archive`, and that row
 has no `spam_checked_at`, it copies `spam_score`, `spam_reason` and `checked_at` (as `spam_checked_at`) from the
-verdict with the same mailbox, `Message-ID` and sender (compared without regard to case), with one query per chunk. `spam_status` is not copied: it belongs to the action on the original row, and
-[After the sync](#after-the-sync) restores it where it applies. A copied row has `spam_checked_at`, so it is never
-classified again.
+verdict with the same mailbox, `Message-ID` and sender (compared without regard to case), with one query per chunk.
+`spam_status` is not copied: it belongs to the action on the original row, and [After the sync](#after-the-sync)
+restores it where it applies. A copied row has `spam_checked_at`, so it is never classified again.
 
 The copy runs in every mode. With the filter `off` no new verdicts are written, but verdicts from an earlier mode are
 still copied. Mail without a `Message-ID` or a `From` address keeps nothing. Verdicts from before 0.15.0 are not in the

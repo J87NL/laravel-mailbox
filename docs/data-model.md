@@ -175,7 +175,7 @@ and sender, so it survives a move to another folder.
 |---------------|------------------------------------------------------------------------------------|
 | `mailbox_id`  | The mailbox                                                                        |
 | `message_id`  | The `Message-ID`                                                                   |
-| `from_email`  | The sender address, lowercased; unique together with `mailbox_id` and `message_id` |
+| `from_email`  | Sender address, ASCII letters lowercased; unique with `mailbox_id`, `message_id`   |
 | `spam_score`  | decimal(4,3), nullable: the classifier's score, `null` without a verdict           |
 | `spam_reason` | The classifier's reason, nullable                                                  |
 | `checked_at`  | When the filter looked at the message; copied to `spam_checked_at` of a new row    |
