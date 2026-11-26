@@ -21,8 +21,8 @@
         "directorytree/imapengine": "^1.22.3",
         "illuminate/contracts": "^11.0||^12.0||^13.0",
         "spatie/laravel-package-tools": "^1.16",
-        "symfony/html-sanitizer": "^7.4.23||^8.1.11",
-        "symfony/mailer": "^7.4.12||^8.0.12",
+        "symfony/html-sanitizer": "^7.4.24||^8.1.12",
+        "symfony/mailer": "^7.4.24||^8.1.12",
         "tranquil-tools/laravel-form-builder": "^1.8"
     },
     "require-dev": {
