@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1 - 2026-11-26
+
+- Requires `symfony/html-sanitizer` ^7.4.24 or ^8.1.12 and `symfony/mailer` ^7.4.24 or ^8.1.12, so a host can no longer resolve versions with the late-November 2026 Symfony advisories: CVE-2026-133756 (meta refresh URLs whose time is followed by other characters are not checked), CVE-2026-133751 (`require_tls` can be bypassed by a man in the middle) and CVE-2026-133755 (replies a man in the middle injects right after STARTTLS are trusted). The mailer 8.0 line has no patched release and is no longer allowed.
+
 ## 0.15.0 - 2026-11-23
 
 - Fixed: a spam verdict no longer gets lost when a message moves to another folder, in the app (`MoveMessages`, `ArchiveMessages`, `DeleteMessages` to the trash, `MarkJunk`) or in another mail client. New table `mailbox_spam_verdicts` (model `J87NL\Mailbox\Models\MailboxSpamVerdict`: `mailbox_id`, `message_id`, `from_email` (not nullable, ASCII letters lowercased so SQLite's `lower()` and MySQL's case-insensitive collation both match), `spam_score`, `spam_reason`, `checked_at`, unique per mailbox, `Message-ID` and sender, deleted with the mailbox). `CheckSpam` upserts every verdict it stores into it (with a score, without a verdict and for an allowlisted sender, also right before an `auto` move); messages without a `Message-ID` or a `From` address are skipped.
